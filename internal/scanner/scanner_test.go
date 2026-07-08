@@ -51,3 +51,36 @@ func TestScan(t *testing.T) {
 		}
 	}
 }
+
+func TestScan_SkipsUnreadableSubdirButFindsOtherBooks(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("permission checks don't apply when running as root")
+	}
+
+	root := t.TempDir()
+	good := filepath.Join(root, "good.epub")
+	if err := os.WriteFile(good, []byte("x"), 0644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	blocked := filepath.Join(root, "blocked")
+	if err := os.MkdirAll(blocked, 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	hidden := filepath.Join(blocked, "hidden.epub")
+	if err := os.WriteFile(hidden, []byte("x"), 0644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	if err := os.Chmod(blocked, 0000); err != nil {
+		t.Fatalf("chmod: %v", err)
+	}
+	t.Cleanup(func() { os.Chmod(blocked, 0755) }) // allow TempDir cleanup to remove it
+
+	got, err := Scan(root)
+	if err != nil {
+		t.Fatalf("Scan returned error: %v, want nil (should skip unreadable subdir, not fail)", err)
+	}
+	if len(got) != 1 || got[0] != good {
+		t.Errorf("Scan() = %v, want [%s] (blocked subdir's book should be skipped, not cause total failure)", got, good)
+	}
+}
