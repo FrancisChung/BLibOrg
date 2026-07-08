@@ -25,6 +25,11 @@ func TestParse_RealWorldExamples(t *testing.T) {
 			stem: "_OceanofPDF.com_Dissecting_the_Dark_Web_-_Lindsay_Kaye",
 			want: Result{Title: "Dissecting the Dark Web", Author: "Lindsay Kaye", Year: ""},
 		},
+		{
+			name: "hyphenated compound word in title is not mistaken for a separator",
+			stem: "Test-Driven Development By Example",
+			want: Result{Title: "Test-Driven Development By Example", Author: "", Year: ""},
+		},
 	}
 
 	for _, tt := range tests {

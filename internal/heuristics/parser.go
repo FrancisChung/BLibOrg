@@ -16,7 +16,7 @@ type Result struct {
 var bracketedRe = regexp.MustCompile(`[\(\{\[][^)\}\]]*[\)\}\]]`)
 var delimiterRunRe = regexp.MustCompile(`[+_.]+`)
 var whitespaceRunRe = regexp.MustCompile(`\s+`)
-var titleAuthorSepRe = regexp.MustCompile(`\s*-\s*`)
+var titleAuthorSepRe = regexp.MustCompile(`\s+-\s+`)
 
 // Parse applies best-effort heuristics to a bare filename stem (no
 // extension, no directory) to guess title/author/year. It is intentionally
