@@ -84,3 +84,24 @@ func TestScan_SkipsUnreadableSubdirButFindsOtherBooks(t *testing.T) {
 		t.Errorf("Scan() = %v, want [%s] (blocked subdir's book should be skipped, not cause total failure)", got, good)
 	}
 }
+
+func TestScan_ReturnsErrorWhenRootItselfIsInaccessible(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("permission checks don't apply when running as root")
+	}
+
+	parent := t.TempDir()
+	root := filepath.Join(parent, "inaccessible-root")
+	if err := os.MkdirAll(root, 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.Chmod(root, 0000); err != nil {
+		t.Fatalf("chmod: %v", err)
+	}
+	t.Cleanup(func() { os.Chmod(root, 0755) }) // allow TempDir cleanup to remove it
+
+	_, err := Scan(root)
+	if err == nil {
+		t.Error("Scan(root) with an inaccessible root folder returned nil error, want a fatal error")
+	}
+}
