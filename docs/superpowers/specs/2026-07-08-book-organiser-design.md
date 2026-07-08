@@ -193,3 +193,4 @@ rules:
 - CBZ/CBR, DJVU, FB2, and plain archive formats.
 - Online metadata lookups (Google Books, Open Library, ISBN databases).
 - Automatic duplicate deletion — always a manual, reviewed action.
+- ISBN Search functionality
