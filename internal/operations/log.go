@@ -106,6 +106,31 @@ func (l *Log) rewriteAllLocked(entries []LogEntry) error {
 	return nil
 }
 
+// SetEntryUndone flips the Undone flag on exactly the entry identified by
+// batchID plus the (OldPath, NewPath) pair -- which is unique within a
+// batch of moves, since a batch never moves the same file twice -- and
+// persists the change immediately. This lets callers (Manager) persist
+// undo/redo progress incrementally, one entry at a time, so a failure
+// partway through a batch leaves the log accurately reflecting exactly
+// which entries were actually reversed. A retry can then pick up where it
+// left off instead of re-attempting entries whose reversal already
+// succeeded. It is a no-op (returns nil) if no matching entry is found.
+func (l *Log) SetEntryUndone(batchID, oldPath, newPath string, undone bool) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	entries, err := l.readAllLocked()
+	if err != nil {
+		return err
+	}
+	for i := range entries {
+		if entries[i].BatchID == batchID && entries[i].OldPath == oldPath && entries[i].NewPath == newPath {
+			entries[i].Undone = undone
+		}
+	}
+	return l.rewriteAllLocked(entries)
+}
+
 // SetBatchUndone flips the Undone flag on every entry with the given
 // batchID and persists the change. It is a no-op (returns nil) if batchID
 // is not present in the log, so callers don't need to special-case unknown

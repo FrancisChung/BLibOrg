@@ -77,6 +77,14 @@ func (m *Manager) rollback(executed []Command) error {
 // what makes undo survive an app restart. Calling it for a batchID that
 // doesn't exist in the log, or one whose entries are already all undone, is
 // a no-op that returns nil.
+//
+// Each entry's Undone flag is persisted immediately after that entry is
+// individually reversed, rather than only once the whole batch succeeds. If
+// an entry fails partway through, the entries reversed before it are
+// already correctly marked Undone in the log and the entries from it
+// onward are correctly left alone, so a retried UndoBatch call re-selects
+// only the entries that genuinely still need reversing instead of getting
+// permanently stuck retrying entries whose file has already moved.
 func (m *Manager) UndoBatch(batchID string) error {
 	entries, err := m.log.ReadAll()
 	if err != nil {
@@ -97,13 +105,21 @@ func (m *Manager) UndoBatch(batchID string) error {
 		if err := cmd.Undo(); err != nil {
 			return fmt.Errorf("undo batch %s failed on %s: %w", batchID, e.NewPath, err)
 		}
+		if err := m.log.SetEntryUndone(e.BatchID, e.OldPath, e.NewPath, true); err != nil {
+			return fmt.Errorf("undo batch %s: persist progress for %s: %w", batchID, e.NewPath, err)
+		}
 	}
-	return m.log.SetBatchUndone(batchID, true)
+	return nil
 }
 
 // RedoBatch re-applies every undone entry for batchID, in original order.
 // Calling it for a batchID that doesn't exist in the log, or one whose
 // entries are not currently undone, is a no-op that returns nil.
+//
+// As with UndoBatch, each entry's Undone flag is persisted immediately
+// after that entry is individually re-applied, so a partial failure leaves
+// the log accurate and a retry only re-attempts entries that still
+// genuinely need redoing.
 func (m *Manager) RedoBatch(batchID string) error {
 	entries, err := m.log.ReadAll()
 	if err != nil {
@@ -123,6 +139,9 @@ func (m *Manager) RedoBatch(batchID string) error {
 		if err := cmd.Redo(); err != nil {
 			return fmt.Errorf("redo batch %s failed on %s: %w", batchID, e.OldPath, err)
 		}
+		if err := m.log.SetEntryUndone(e.BatchID, e.OldPath, e.NewPath, false); err != nil {
+			return fmt.Errorf("redo batch %s: persist progress for %s: %w", batchID, e.OldPath, err)
+		}
 	}
-	return m.log.SetBatchUndone(batchID, false)
+	return nil
 }
