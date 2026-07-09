@@ -10,6 +10,7 @@ const sampleYAML = `
 general:
   working_folder: "/inbox"
   library_folder: "/library"
+  log_folder: "/library/.book-organiser-logs"
   filename_format: "{title} ({year}) - {author}"
   fallbacks:
     year: "Unknown"
@@ -46,6 +47,9 @@ func TestLoad(t *testing.T) {
 	if cfg.General.WorkingFolder != "/inbox" {
 		t.Errorf("WorkingFolder = %q, want /inbox", cfg.General.WorkingFolder)
 	}
+	if cfg.General.LogFolder != "/library/.book-organiser-logs" {
+		t.Errorf("LogFolder = %q, want /library/.book-organiser-logs", cfg.General.LogFolder)
+	}
 	if cfg.General.FilenameFormat != "{title} ({year}) - {author}" {
 		t.Errorf("FilenameFormat = %q", cfg.General.FilenameFormat)
 	}
@@ -72,6 +76,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 		General: General{
 			WorkingFolder:  "/inbox",
 			LibraryFolder:  "/library",
+			LogFolder:      "/library/.book-organiser-logs",
 			FilenameFormat: "{title} ({year}) - {author}",
 			Fallbacks:      Fallbacks{Year: "Unknown", Author: "Unknown Author"},
 		},

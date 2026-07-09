@@ -97,6 +97,13 @@ perform the moves/renames as Commands, logging each for undo/redo.
   of Commands executed in order. Command data (old path, new path, op type,
   batch ID, timestamp) is persisted to an append-only log so undo/redo
   survives an app restart, not just an in-memory stack.
+- **Category-warnings log** — a categorization rule always wins even when it
+  targets a category/subcategory that isn't declared under `categories:` (the
+  book is still filed where the rule says); when that happens it's recorded
+  as a `CategoryWarning` on the book and appended to
+  `log_folder/category-warnings.jsonl` (one JSON object per line: timestamp,
+  source path, category, subcategory, warning text) so View 1/View 3 can flag
+  a misconfigured rule to the user instead of it going unnoticed.
 
 ## UI views (Wails frontend)
 
@@ -130,6 +137,7 @@ perform the moves/renames as Commands, logging each for undo/redo.
 general:
   working_folder: "D:/Ebooks/Inbox"
   library_folder: "D:/Ebooks/Library"
+  log_folder: "D:/Ebooks/Library/.book-organiser-logs"
   filename_format: "{title} ({year}) - {author}"
   fallbacks:
     year: "Unknown"
