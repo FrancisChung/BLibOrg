@@ -81,6 +81,39 @@ func TestRun_FlagsDuplicatesAcrossScannedFiles(t *testing.T) {
 	}
 }
 
+// TestRun_DisambiguatesCollidingDestPaths reproduces the Finding-2 review
+// scenario: two distinct books whose computed DestPath renders identically
+// (here, bracketed "[signed edition]" noise is stripped by filename
+// heuristics, so both files parse to the same Title/Author and land in the
+// same Category with the same extension). Without disambiguation, applying
+// both moves via operations.Manager would have the second move refuse (per
+// the Finding-1 fix) or, pre-fix, silently clobber the first. Run must
+// instead give every returned book a unique DestPath.
+func TestRun_DisambiguatesCollidingDestPaths(t *testing.T) {
+	workDir := t.TempDir()
+	libDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(workDir, "Foundation - Isaac Asimov.epub"), []byte("aaaaaaaaaa"), 0644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(workDir, "Foundation - Isaac Asimov [signed edition].epub"), []byte("bbbbbbbbbbbbbbbb"), 0644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	books, err := Run(baseConfig(workDir, libDir))
+	if err != nil {
+		t.Fatalf("Run error: %v", err)
+	}
+	if len(books) != 2 {
+		t.Fatalf("Run returned %d books, want 2", len(books))
+	}
+	if books[0].DestPath == "" || books[1].DestPath == "" {
+		t.Fatal("expected both books to have a non-empty DestPath")
+	}
+	if books[0].DestPath == books[1].DestPath {
+		t.Errorf("expected distinct DestPath values after disambiguation, both got %q", books[0].DestPath)
+	}
+}
+
 func TestRun_ApplyAndUndoEndToEnd(t *testing.T) {
 	workDir := t.TempDir()
 	libDir := t.TempDir()
