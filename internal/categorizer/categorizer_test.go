@@ -10,8 +10,8 @@ import (
 func testConfig() config.Config {
 	return config.Config{
 		Categories: map[string]config.Category{
-			"Fiction":    {Subcategories: []string{"Sci-Fi", "Fantasy"}},
-			"NonFiction": {Subcategories: []string{"Technology"}},
+			"Fiction":       {Subcategories: []string{"Sci-Fi", "Fantasy"}},
+			"NonFiction":    {Subcategories: []string{"Technology"}},
 			"Uncategorized": {},
 		},
 		Rules: []config.Rule{
@@ -54,6 +54,44 @@ func TestCategorize_FallsBackToMetadataSubject(t *testing.T) {
 	Categorize(b, testConfig())
 	if b.Category != "Fiction" || b.Subcategory != "Fantasy" {
 		t.Errorf("Category/Subcategory = %s/%s, want Fiction/Fantasy", b.Category, b.Subcategory)
+	}
+}
+
+func TestCategorize_WarnsWhenRuleSubcategoryNotDeclared(t *testing.T) {
+	cfg := testConfig()
+	cfg.Rules = []config.Rule{
+		{MatchField: "author", MatchValue: "Isaac Asimov", Category: "Fiction", Subcategory: "SpaceOpera"},
+	}
+	b := &book.Book{SourcePath: "/inbox/foundation.epub", Author: book.Field{Value: "Isaac Asimov"}}
+	Categorize(b, cfg)
+	if b.Category != "Fiction" || b.Subcategory != "SpaceOpera" {
+		t.Errorf("Category/Subcategory = %s/%s, want Fiction/SpaceOpera (rule still applied)", b.Category, b.Subcategory)
+	}
+	if b.CategoryWarning == "" {
+		t.Error("expected CategoryWarning to be set for an undeclared subcategory")
+	}
+}
+
+func TestCategorize_WarnsWhenRuleCategoryNotDeclared(t *testing.T) {
+	cfg := testConfig()
+	cfg.Rules = []config.Rule{
+		{MatchField: "author", MatchValue: "Isaac Asimov", Category: "SciFiOnly", Subcategory: "Space"},
+	}
+	b := &book.Book{SourcePath: "/inbox/foundation.epub", Author: book.Field{Value: "Isaac Asimov"}}
+	Categorize(b, cfg)
+	if b.Category != "SciFiOnly" || b.Subcategory != "Space" {
+		t.Errorf("Category/Subcategory = %s/%s, want SciFiOnly/Space (rule still applied)", b.Category, b.Subcategory)
+	}
+	if b.CategoryWarning == "" {
+		t.Error("expected CategoryWarning to be set for an undeclared category")
+	}
+}
+
+func TestCategorize_NoWarningWhenRuleMatchesDeclaredCategory(t *testing.T) {
+	b := &book.Book{SourcePath: "/inbox/foundation.epub", Author: book.Field{Value: "Isaac Asimov"}}
+	Categorize(b, testConfig())
+	if b.CategoryWarning != "" {
+		t.Errorf("CategoryWarning = %q, want empty for a declared category/subcategory", b.CategoryWarning)
 	}
 }
 

@@ -44,10 +44,11 @@ type Book struct {
 	Author Field
 	Year   Field
 
-	Subject     string
-	Category    string
-	Subcategory string
-	DestPath    string
+	Subject         string
+	Category        string
+	Subcategory     string
+	CategoryWarning string
+	DestPath        string
 
 	DuplicateGroupID string
 	DuplicateStatus  DuplicateStatus

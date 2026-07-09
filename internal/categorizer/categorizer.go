@@ -1,6 +1,7 @@
 package categorizer
 
 import (
+	"fmt"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -38,6 +39,7 @@ func Categorize(b *book.Book, cfg config.Config) {
 		if matched {
 			b.Category = rule.Category
 			b.Subcategory = rule.Subcategory
+			b.CategoryWarning = undeclaredCategoryWarning(cfg, rule.Category, rule.Subcategory)
 			return
 		}
 	}
@@ -56,4 +58,24 @@ func Categorize(b *book.Book, cfg config.Config) {
 
 	b.Category = UncategorizedName
 	b.Subcategory = ""
+}
+
+// undeclaredCategoryWarning reports (without altering the move) when a
+// matched rule points at a category or subcategory that isn't declared
+// under cfg.Categories -- the rule still wins and the book still gets
+// filed there, but the caller (UI layer) has something to surface.
+func undeclaredCategoryWarning(cfg config.Config, category, subcategory string) string {
+	cat, ok := cfg.Categories[category]
+	if !ok {
+		return fmt.Sprintf("rule matched undeclared category %q", category)
+	}
+	if subcategory == "" {
+		return ""
+	}
+	for _, sub := range cat.Subcategories {
+		if strings.EqualFold(sub, subcategory) {
+			return ""
+		}
+	}
+	return fmt.Sprintf("rule matched undeclared subcategory %q under category %q", subcategory, category)
 }
