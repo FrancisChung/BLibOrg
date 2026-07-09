@@ -90,3 +90,40 @@ func TestBuildPath_DropsAuthorBeforeTruncatingTitle(t *testing.T) {
 		t.Errorf("DestPath length %d still exceeds a safe Windows path budget: %q", len(b.DestPath), b.DestPath)
 	}
 }
+
+// TestBuildPath_TruncatesTitleToEmptyForVeryLongLibraryFolder is a regression
+// test for a bug in an earlier version of the truncation loop: it stopped
+// once the title shrank to <= truncateStep characters instead of continuing
+// down to "", so a sufficiently long library folder path could leave
+// DestPath well over the 260-char safe budget with an untouched title tail
+// still attached. With a 230-char library folder component, the folder
+// alone already pushes the path over maxPathLen (240), so the fixed loop
+// must drive the title all the way to "" (collapsing the filename to just
+// "(2024).epub") to reach its shortest achievable result. The old
+// stop-at-truncateStep loop would have left 10 title characters in place
+// here, producing a name of "VeryLongTi (2024).epub" (22 chars) instead of
+// "(2024).epub" (11 chars) -- 11 bytes that push this exact case's DestPath
+// from 257 chars (within budget) to 268 chars (over budget).
+func TestBuildPath_TruncatesTitleToEmptyForVeryLongLibraryFolder(t *testing.T) {
+	longTitle := strings.Repeat("VeryLongTitleWord ", 20) // 360 chars, a multiple of truncateStep
+	b := &book.Book{
+		SourcePath: "/inbox/long.epub",
+		Title:      book.Field{Value: longTitle},
+		Author:     book.Field{Value: "Some Author Name That Adds Length"},
+		Year:       book.Field{Value: "2024"},
+		Category:   "Uncategorized",
+	}
+	// A 230-char library folder component makes the library/category
+	// portion alone exceed maxPathLen (240), so no amount of title
+	// truncation can bring the path fully back under maxPathLen -- but the
+	// fix must still drive the title to "" to get as close as possible.
+	BuildPath(b, testConfig(filepath.Join("/", strings.Repeat("x", 230))))
+
+	wantBase := "(2024).epub"
+	if gotBase := filepath.Base(b.DestPath); gotBase != wantBase {
+		t.Errorf("DestPath base = %q, want %q (title should be fully truncated, not left with a partial tail)", gotBase, wantBase)
+	}
+	if len(b.DestPath) > 260 {
+		t.Errorf("DestPath length %d still exceeds a safe Windows path budget: %q", len(b.DestPath), b.DestPath)
+	}
+}
