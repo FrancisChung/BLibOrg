@@ -2,6 +2,8 @@ package pipeline
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -9,6 +11,12 @@ import (
 	"github.com/FrancisChung/book-organiser/internal/book"
 	"github.com/FrancisChung/book-organiser/internal/config"
 )
+
+// ErrLogFolderNotConfigured is returned by LogCategoryWarnings when there are
+// warnings to persist but cfg.General.LogFolder is unset -- config.Load
+// doesn't default this field, so an existing or hand-edited config that
+// omits log_folder is a realistic case, not a hypothetical one.
+var ErrLogFolderNotConfigured = errors.New("general.log_folder is not configured")
 
 var nowFunc = time.Now
 
@@ -38,14 +46,17 @@ func LogCategoryWarnings(books []*book.Book, cfg config.Config) error {
 	if len(toLog) == 0 {
 		return nil
 	}
+	if cfg.General.LogFolder == "" {
+		return ErrLogFolderNotConfigured
+	}
 
 	if err := os.MkdirAll(cfg.General.LogFolder, 0755); err != nil {
-		return err
+		return fmt.Errorf("create log folder %s: %w", cfg.General.LogFolder, err)
 	}
 	path := filepath.Join(cfg.General.LogFolder, "category-warnings.jsonl")
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		return err
+		return fmt.Errorf("open log %s for append: %w", path, err)
 	}
 	defer f.Close()
 
@@ -59,7 +70,7 @@ func LogCategoryWarnings(books []*book.Book, cfg config.Config) error {
 			Warning:     b.CategoryWarning,
 		}
 		if err := enc.Encode(entry); err != nil {
-			return err
+			return fmt.Errorf("write log entry for %s: %w", b.SourcePath, err)
 		}
 	}
 	return nil

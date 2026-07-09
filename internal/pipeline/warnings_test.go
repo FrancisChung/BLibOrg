@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -66,6 +67,30 @@ func TestLogCategoryWarnings_SkipsBooksWithoutWarning(t *testing.T) {
 	}
 	if got := countLines(data); got != 1 {
 		t.Errorf("got %d log lines, want 1 (only the book with a warning)", got)
+	}
+}
+
+func TestLogCategoryWarnings_ErrorsClearlyWhenLogFolderUnset(t *testing.T) {
+	books := []*book.Book{
+		{SourcePath: "/inbox/a.epub", CategoryWarning: "undeclared"},
+	}
+
+	err := LogCategoryWarnings(books, warningsTestConfig(""))
+	if err == nil {
+		t.Fatal("expected an error when LogFolder is unset and there are warnings to log")
+	}
+	if !errors.Is(err, ErrLogFolderNotConfigured) {
+		t.Errorf("error = %v, want it to wrap/match ErrLogFolderNotConfigured", err)
+	}
+}
+
+func TestLogCategoryWarnings_NoErrorWhenLogFolderUnsetAndNoWarnings(t *testing.T) {
+	books := []*book.Book{
+		{SourcePath: "/inbox/a.epub"},
+	}
+
+	if err := LogCategoryWarnings(books, warningsTestConfig("")); err != nil {
+		t.Errorf("expected no error when there's nothing to log, even with LogFolder unset, got: %v", err)
 	}
 }
 
