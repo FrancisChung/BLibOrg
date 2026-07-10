@@ -40,6 +40,11 @@ func TestParse_RealWorldExamples(t *testing.T) {
 			stem: "(The Pragmatic Programmers) Adam Tornhill - Your Code as a Crime Scene_ Use Forensic Techniques to Arrest Defects, Bottlenecks, and Bad Design in Your Programs-Pragmatic Bookshelf (2015)",
 			want: Result{Title: "Your Code as a Crime Scene Use Forensic Techniques to Arrest Defects, Bottlenecks, and Bad Design in Your Programs-Pragmatic Bookshelf", Author: "Adam Tornhill", Year: "2015"},
 		},
+		{
+			name: "two comma-separated co-authors, and a dangling separator left by a stripped trailing site tag",
+			stem: "Bruce Eckel, Svetlana Isakova - Atomic Kotlin (2021, Mindview LLC) - libgen.li",
+			want: Result{Title: "Atomic Kotlin", Author: "Bruce Eckel, Svetlana Isakova", Year: "2021"},
+		},
 	}
 
 	for _, tt := range tests {

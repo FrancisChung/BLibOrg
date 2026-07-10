@@ -18,12 +18,32 @@ var delimiterRunRe = regexp.MustCompile(`[+_.]+`)
 var whitespaceRunRe = regexp.MustCompile(`\s+`)
 var titleAuthorSepRe = regexp.MustCompile(`\s+-\s+`)
 var personNameRe = regexp.MustCompile(`^[A-Z][a-zA-Z'.-]*(\s+[A-Z][a-zA-Z'.-]*){1,3}$`)
+var edgeSepRe = regexp.MustCompile(`^[\s\-\x{2013}\x{2014}]+|[\s\-\x{2013}\x{2014}]+$`)
 
-// looksLikePersonName reports whether s is shaped like a personal name: 2-4
-// words, each starting with a capital letter. It's the signal used to
-// disambiguate which side of a "-" separator is the author.
-func looksLikePersonName(s string) bool {
+// looksLikeSingleName reports whether s, on its own, is shaped like a
+// personal name: 2-4 words, each starting with a capital letter.
+func looksLikeSingleName(s string) bool {
 	return personNameRe.MatchString(s)
+}
+
+// looksLikeNameList reports whether s is a comma-separated list of two or
+// more segments that each individually look like a personal name (e.g.
+// "Bruce Eckel, Svetlana Isakova"). This is a stronger, more specific
+// signal than looksLikeSingleName -- a lone 2-word phrase is often
+// ambiguous with a short title ("Atomic Kotlin" reads just as name-shaped
+// as "Bruce Eckel"), but a whole list of comma-joined name-shaped segments
+// essentially never occurs as a book title.
+func looksLikeNameList(s string) bool {
+	parts := strings.Split(s, ",")
+	if len(parts) < 2 {
+		return false
+	}
+	for _, p := range parts {
+		if !looksLikeSingleName(strings.TrimSpace(p)) {
+			return false
+		}
+	}
+	return true
 }
 
 // Parse applies best-effort heuristics to a bare filename stem (no
@@ -47,6 +67,12 @@ func Parse(filenameStem string, knownJunkTags []string) Result {
 	s = delimiterRunRe.ReplaceAllString(s, " ")
 	s = whitespaceRunRe.ReplaceAllString(s, " ")
 	s = strings.TrimSpace(s)
+	// A known junk tag (e.g. a trailing "- libgen.li") removed above can
+	// leave its own adjacent " - " separator dangling at the very edge of
+	// s once the tag text itself is gone. Trim that here, before the
+	// title/author split, so the leftover hyphen doesn't get baked into
+	// whichever field ends up owning that edge.
+	s = edgeSepRe.ReplaceAllString(s, "")
 
 	result := Result{Year: year}
 
@@ -54,19 +80,28 @@ func Parse(filenameStem string, knownJunkTags []string) Result {
 	// from the filename alone -- two conventions are both common in the
 	// wild: "Title - Author" (many source-site exports) and
 	// "Author - Title[-Publisher]" (libgen/Pragmatic-Bookshelf-style). We
-	// break the tie by checking which side reads like a 2-4 word personal
-	// name: that side is the Author, the other is the Title. If both or
-	// neither look like a name, default to "Title - Author" as before.
+	// break the tie with two signals, most specific first: a comma-joined
+	// list of name-shaped segments (looksLikeNameList) beats a lone 2-4
+	// word name-shaped phrase (looksLikeSingleName), because a single
+	// short phrase is often ambiguous with a short title ("Atomic Kotlin"
+	// reads just as name-shaped as "Bruce Eckel") but a whole list of
+	// comma-joined names essentially never is. If both sides tie on the
+	// same signal, or neither matches, default to "Title - Author".
 	parts := titleAuthorSepRe.Split(s, 2)
 	if len(parts) == 2 {
 		a := strings.TrimSpace(parts[0])
 		b := strings.TrimSpace(parts[1])
-		if looksLikePersonName(a) && !looksLikePersonName(b) {
-			result.Author = a
-			result.Title = b
-		} else {
-			result.Title = a
-			result.Author = b
+		aList, bList := looksLikeNameList(a), looksLikeNameList(b)
+		aSingle, bSingle := looksLikeSingleName(a), looksLikeSingleName(b)
+		switch {
+		case aList && !bList:
+			result.Author, result.Title = a, b
+		case bList && !aList:
+			result.Title, result.Author = a, b
+		case aSingle && !bSingle:
+			result.Author, result.Title = a, b
+		default:
+			result.Title, result.Author = a, b
 		}
 	} else {
 		result.Title = s
