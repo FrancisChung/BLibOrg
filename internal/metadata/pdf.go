@@ -10,6 +10,8 @@ import (
 
 var pdfLiteralStringRe = regexp.MustCompile(`/(Title|Author|Subject|CreationDate)\s*\(((?:[^()\\]|\\.)*)\)`)
 var pdfDateYearRe = regexp.MustCompile(`D:(\d{4})`)
+var pdfTrailerRe = regexp.MustCompile(`(?s)trailer\s*<<(.*?)>>`)
+var pdfInfoRefRe = regexp.MustCompile(`/Info\s+(\d+)\s+\d+\s+R`)
 
 // unescapePDFBytes resolves PDF literal-string backslash escapes on the raw
 // byte stream. This happens before any character-encoding interpretation --
@@ -68,18 +70,60 @@ func decodePDFString(raw []byte) string {
 	return string(runes)
 }
 
+// findInfoDictBody locates the byte range of the PDF's real Info
+// dictionary object, via the trailer's authoritative "/Info N 0 R"
+// reference, so metadata extraction reads only the document's actual
+// Title/Author/Subject/CreationDate instead of whichever matching pattern
+// happens to appear first anywhere in the file. This matters because PDFs
+// commonly embed graphics (logos, diagrams) that carry their own /Title,
+// /Author, /Creator describing that graphic -- e.g. a CorelDRAW logo's own
+// /Title, or an Illustrator diagram's own /Author -- and a naive
+// first-match-anywhere scan can pick up a graphic's metadata instead of
+// the book's if that graphic's object happens to appear earlier in the
+// file. If the file has multiple trailers (incremental updates), the last
+// one is used. Returns ok=false (caller falls back to a whole-file scan)
+// if no trailer, no /Info reference, or no matching object is found --
+// preserving prior best-effort behavior for atypical PDFs (e.g. ones using
+// cross-reference streams instead of a classic trailer) rather than
+// erroring.
+func findInfoDictBody(data []byte) ([]byte, bool) {
+	trailers := pdfTrailerRe.FindAllSubmatch(data, -1)
+	if len(trailers) == 0 {
+		return nil, false
+	}
+	last := trailers[len(trailers)-1]
+	infoMatch := pdfInfoRefRe.FindSubmatch(last[1])
+	if infoMatch == nil {
+		return nil, false
+	}
+	objNum := string(infoMatch[1])
+	objRe := regexp.MustCompile(`(?s)\b` + objNum + `\s+\d+\s+obj(.*?)endobj`)
+	objMatch := objRe.FindSubmatch(data)
+	if objMatch == nil {
+		return nil, false
+	}
+	return objMatch[1], true
+}
+
 // extractPDF is a best-effort, dependency-free scanner: it looks for
 // literal (not hex-encoded, not compressed-object-stream) /Title, /Author,
-// /Subject, and /CreationDate entries in the raw PDF bytes. See the plan's
-// Global Constraints for why this is deliberately not a full PDF parser.
+// /Subject, and /CreationDate entries in the raw PDF bytes, scoped to the
+// document's real Info dictionary when it can be located (see
+// findInfoDictBody). See the plan's Global Constraints for why this is
+// deliberately not a full PDF parser.
 func extractPDF(path string) (Result, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return Result{}, err
 	}
 
+	scope := data
+	if body, ok := findInfoDictBody(data); ok {
+		scope = body
+	}
+
 	fields := map[string]string{}
-	for _, m := range pdfLiteralStringRe.FindAllSubmatch(data, -1) {
+	for _, m := range pdfLiteralStringRe.FindAllSubmatch(scope, -1) {
 		key := string(m[1])
 		if _, exists := fields[key]; exists {
 			continue // keep first match only

@@ -111,6 +111,63 @@ func TestExtractPDF_Latin1EncodedAuthor(t *testing.T) {
 	}
 }
 
+// TestExtractPDF_IgnoresEmbeddedGraphicMetadataBeforeRealInfoDict reproduces
+// a real incident: a technical book PDF embedded several graphics (a
+// CorelDRAW logo, an Illustrator diagram), each carrying its own /Title and
+// /Author describing that graphic, not the book -- and those objects
+// appeared earlier in the file than the book's actual Info dictionary. A
+// naive first-match-anywhere scan picked up the embedded logo's /Title
+// ("E:\GRAPHICS\manlogo.eps") and a diagram's /Author ("Marija Tudor")
+// instead of the real book metadata. The trailer's /Info N 0 R reference is
+// the authoritative pointer to the real Info dictionary; extraction must
+// use only that object.
+const testPDFFixtureWithDecoyObjects = `%PDF-1.4
+1 0 obj
+<< /Type /XObject /Title (E:\GRAPHICS\decoy-logo.eps) /Creator (CorelDRAW 8) >>
+endobj
+2 0 obj
+<< /Type /XObject /Author (Some Graphic Designer) /Creator (Adobe Illustrator) >>
+endobj
+3 0 obj
+<< /Title (Think Like a CTO) /Author (Alan Williamson) /CreationDate (D:20230213170533Z) >>
+endobj
+trailer
+<< /Root 4 0 R /Info 3 0 R >>
+%%EOF`
+
+func TestExtractPDF_IgnoresEmbeddedGraphicMetadataBeforeRealInfoDict(t *testing.T) {
+	path := writePDFFixture(t, testPDFFixtureWithDecoyObjects)
+
+	result, err := extractPDF(path)
+	if err != nil {
+		t.Fatalf("extractPDF returned error: %v", err)
+	}
+	if result.Title != "Think Like a CTO" {
+		t.Errorf("Title = %q, want %q (the real Info dict's title, not the decoy embedded graphic's)", result.Title, "Think Like a CTO")
+	}
+	if result.Author != "Alan Williamson" {
+		t.Errorf("Author = %q, want %q (the real Info dict's author, not the decoy embedded graphic's)", result.Author, "Alan Williamson")
+	}
+	if result.Year != "2023" {
+		t.Errorf("Year = %q, want 2023", result.Year)
+	}
+}
+
+func TestExtractPDF_FallsBackToWholeFileScanWhenNoTrailerFound(t *testing.T) {
+	// No trailer at all -- extractPDF must still find metadata via the
+	// original whole-file scan rather than returning nothing.
+	fixture := "%PDF-1.4\n1 0 obj\n<< /Title (No Trailer Book) /Author (Someone) >>\nendobj\n%%EOF"
+	path := writePDFFixture(t, fixture)
+
+	result, err := extractPDF(path)
+	if err != nil {
+		t.Fatalf("extractPDF returned error: %v", err)
+	}
+	if result.Title != "No Trailer Book" || result.Author != "Someone" {
+		t.Errorf("Title/Author = %q/%q, want fallback whole-file scan to still find them", result.Title, result.Author)
+	}
+}
+
 func TestExtractPDF_NoMetadata(t *testing.T) {
 	path := writePDFFixture(t, "%PDF-1.4\n1 0 obj\n<< >>\nendobj\n%%EOF")
 
