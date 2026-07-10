@@ -16,7 +16,6 @@ func baseConfig(workingFolder, libraryFolder string) config.Config {
 			WorkingFolder:  workingFolder,
 			LibraryFolder:  libraryFolder,
 			FilenameFormat: "{title} ({year}) - {author}",
-			Fallbacks:      config.Fallbacks{Year: "Unknown", Author: "Unknown Author"},
 		},
 		Heuristics: config.Heuristics{KnownJunkTags: []string{"OceanofPDF.com", "libgen.li"}},
 		Categories: map[string]config.Category{"Uncategorized": {}},

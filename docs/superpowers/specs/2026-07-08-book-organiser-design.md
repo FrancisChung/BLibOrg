@@ -116,9 +116,9 @@ perform the moves/renames as Commands, logging each for undo/redo.
   - `Edited` — user manually corrected at least one field (overrides prior
     status)
   - `Partial` — Title is resolved but Author and/or Year could not be
-    determined; still eligible for Apply, using the configured fallback text
-    for the missing field(s) in the rendered path, but flagged so the user
-    can fix it if they want to
+    determined; still eligible for Apply (the rendered path simply omits the
+    missing field's " - {author}" or "({year})" segment rather than showing
+    placeholder text), but flagged so the user can fix it if they want to
   - `Unresolved` — Title itself could not be determined at all (the one
     field Apply cannot proceed without); excluded from Apply until fixed
 
@@ -143,9 +143,6 @@ general:
   library_folder: "D:/Ebooks/Library"
   log_folder: "D:/Ebooks/Library/.book-organiser-logs"
   filename_format: "{title} ({year}) - {author}"
-  fallbacks:
-    year: "Unknown"
-    author: "Unknown Author"
 
 heuristics:
   known_junk_tags: ["OceanofPDF.com", "libgen.li", "libgen.rs", "z-lib.org"]

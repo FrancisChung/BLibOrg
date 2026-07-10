@@ -12,16 +12,10 @@ type Config struct {
 }
 
 type General struct {
-	WorkingFolder  string    `yaml:"working_folder"`
-	LibraryFolder  string    `yaml:"library_folder"`
-	LogFolder      string    `yaml:"log_folder"`
-	FilenameFormat string    `yaml:"filename_format"`
-	Fallbacks      Fallbacks `yaml:"fallbacks"`
-}
-
-type Fallbacks struct {
-	Year   string `yaml:"year"`
-	Author string `yaml:"author"`
+	WorkingFolder  string `yaml:"working_folder"`
+	LibraryFolder  string `yaml:"library_folder"`
+	LogFolder      string `yaml:"log_folder"`
+	FilenameFormat string `yaml:"filename_format"`
 }
 
 type Heuristics struct {

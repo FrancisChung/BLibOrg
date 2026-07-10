@@ -14,7 +14,6 @@ func testConfig(libraryFolder string) config.Config {
 		General: config.General{
 			LibraryFolder:  libraryFolder,
 			FilenameFormat: "{title} ({year}) - {author}",
-			Fallbacks:      config.Fallbacks{Year: "Unknown", Author: "Unknown Author"},
 		},
 	}
 }
@@ -36,7 +35,7 @@ func TestBuildPath_NormalRender(t *testing.T) {
 	}
 }
 
-func TestBuildPath_UsesFallbacksForUnresolvedFields(t *testing.T) {
+func TestBuildPath_OmitsUnresolvedAuthorAndYearFromFilename(t *testing.T) {
 	b := &book.Book{
 		SourcePath:  "/inbox/mystery.epub",
 		Title:       book.Field{Value: "Mystery Book"},
@@ -47,8 +46,41 @@ func TestBuildPath_UsesFallbacksForUnresolvedFields(t *testing.T) {
 	}
 	BuildPath(b, testConfig("/library"))
 
-	if !strings.Contains(b.DestPath, "Unknown Author") || !strings.Contains(b.DestPath, "Unknown") {
-		t.Errorf("DestPath = %q, want it to contain the configured fallback text", b.DestPath)
+	want := filepath.Join("/library", "Uncategorized", "Mystery Book.epub")
+	if b.DestPath != want {
+		t.Errorf("DestPath = %q, want %q (no fallback placeholder text, no stray parens/dashes)", b.DestPath, want)
+	}
+}
+
+func TestBuildPath_OmitsUnresolvedAuthorOnlyKeepsYear(t *testing.T) {
+	b := &book.Book{
+		SourcePath: "/inbox/mystery.epub",
+		Title:      book.Field{Value: "Mystery Book"},
+		Author:     book.Field{Value: ""},
+		Year:       book.Field{Value: "2024"},
+		Category:   "Uncategorized",
+	}
+	BuildPath(b, testConfig("/library"))
+
+	want := filepath.Join("/library", "Uncategorized", "Mystery Book (2024).epub")
+	if b.DestPath != want {
+		t.Errorf("DestPath = %q, want %q", b.DestPath, want)
+	}
+}
+
+func TestBuildPath_OmitsUnresolvedYearOnlyKeepsAuthor(t *testing.T) {
+	b := &book.Book{
+		SourcePath: "/inbox/mystery.epub",
+		Title:      book.Field{Value: "Mystery Book"},
+		Author:     book.Field{Value: "Agatha Christie"},
+		Year:       book.Field{Value: ""},
+		Category:   "Uncategorized",
+	}
+	BuildPath(b, testConfig("/library"))
+
+	want := filepath.Join("/library", "Uncategorized", "Mystery Book - Agatha Christie.epub")
+	if b.DestPath != want {
+		t.Errorf("DestPath = %q, want %q", b.DestPath, want)
 	}
 }
 

@@ -12,7 +12,9 @@ import (
 )
 
 var illegalCharsRe = regexp.MustCompile(`[<>:"/\\|?*\x00-\x1f]`)
-var trailingSepRe = regexp.MustCompile(`[\s\-\x{2013}\x{2014}]+$`)
+var danglingSepRe = regexp.MustCompile(`^[\s\-\x{2013}\x{2014}]+|[\s\-\x{2013}\x{2014}]+$`)
+var emptyParensRe = regexp.MustCompile(`\(\s*\)`)
+var whitespaceRunRe = regexp.MustCompile(`\s+`)
 
 var reservedNames = map[string]bool{
 	"CON": true, "PRN": true, "AUX": true, "NUL": true,
@@ -49,21 +51,34 @@ func sanitize(name string) string {
 	return name
 }
 
+// render substitutes {title}/{year}/{author} into format, then collapses
+// away the decoration around any field that came in empty (unresolved):
+// empty "()" pairs are removed, runs of whitespace collapse to one space,
+// and a resulting leading or trailing separator run (spaces/hyphens/
+// en-dash/em-dash) is trimmed. For the default "{title} ({year}) -
+// {author}" shape this correctly omits a missing year's parenthetical or a
+// missing author's " - " suffix entirely, rather than rendering fallback
+// placeholder text. Custom filename_format templates that put the
+// decoration somewhere other than immediately around {year}/{author} may
+// still leave a stray separator this cleanup doesn't reach -- this remains
+// a best-effort pass, not a general templating engine.
 func render(format, title, year, author string) string {
 	r := strings.NewReplacer("{title}", title, "{year}", year, "{author}", author)
-	return r.Replace(format)
-}
-
-func cleanupDanglingSeparators(s string) string {
-	return strings.TrimSpace(trailingSepRe.ReplaceAllString(s, ""))
+	rendered := r.Replace(format)
+	rendered = emptyParensRe.ReplaceAllString(rendered, "")
+	rendered = whitespaceRunRe.ReplaceAllString(rendered, " ")
+	rendered = danglingSepRe.ReplaceAllString(rendered, "")
+	return strings.TrimSpace(rendered)
 }
 
 // BuildPath computes b.DestPath from cfg.General.FilenameFormat and
-// b.Category/b.Subcategory. Unresolved year/author fields render using
-// cfg.General.Fallbacks text for this preview only -- it does not change
-// Field.Source, so Book.Status() still reports Unresolved (if Title is also
-// unresolved) or Partial (if Title is resolved) for those rows. It mutates
-// only b.DestPath.
+// b.Category/b.Subcategory. An unresolved Author and/or Year is omitted
+// from the rendered filename entirely (see render's doc comment) rather
+// than substituting placeholder text -- Title is the one field Apply
+// cannot proceed without, so it still falls back to "Untitled" if somehow
+// empty, keeping DestPath readable even for a fully Unresolved row. This
+// does not change any Field.Source, so Book.Status() is unaffected. It
+// mutates only b.DestPath.
 //
 // If the rendered path would exceed the safe length budget, the author is
 // dropped from the filename first; only if that still isn't enough is the
@@ -72,35 +87,19 @@ func cleanupDanglingSeparators(s string) string {
 // budget, no amount of title truncation can bring the path back under
 // budget; BuildPath still returns its best (shortest achievable) attempt
 // rather than failing.
-//
-// Custom filename_format templates other than the default
-// "{title} ({year}) - {author}" shape may leave a stray leading separator
-// when the author is dropped; cleanupDanglingSeparators only strips
-// trailing " - "/em-dash patterns, which covers the default and most
-// conventional templates.
 func BuildPath(b *book.Book, cfg config.Config) {
 	title := b.Title.Value
 	if title == "" {
 		title = "Untitled"
 	}
 	year := b.Year.Value
-	if year == "" {
-		year = cfg.General.Fallbacks.Year
-	}
 	author := b.Author.Value
-	if author == "" {
-		author = cfg.General.Fallbacks.Author
-	}
 
 	ext := filepath.Ext(b.SourcePath)
 	dir := filepath.Join(cfg.General.LibraryFolder, b.Category, b.Subcategory)
 
 	build := func(t, a string) string {
-		rendered := render(cfg.General.FilenameFormat, t, year, a)
-		if a == "" {
-			rendered = cleanupDanglingSeparators(rendered)
-		}
-		return sanitize(rendered) + ext
+		return sanitize(render(cfg.General.FilenameFormat, t, year, a)) + ext
 	}
 
 	name := build(title, author)

@@ -12,9 +12,6 @@ general:
   library_folder: "/library"
   log_folder: "/library/.book-organiser-logs"
   filename_format: "{title} ({year}) - {author}"
-  fallbacks:
-    year: "Unknown"
-    author: "Unknown Author"
 
 heuristics:
   known_junk_tags: ["OceanofPDF.com", "libgen.li"]
@@ -53,9 +50,6 @@ func TestLoad(t *testing.T) {
 	if cfg.General.FilenameFormat != "{title} ({year}) - {author}" {
 		t.Errorf("FilenameFormat = %q", cfg.General.FilenameFormat)
 	}
-	if cfg.General.Fallbacks.Year != "Unknown" {
-		t.Errorf("Fallbacks.Year = %q, want Unknown", cfg.General.Fallbacks.Year)
-	}
 	if len(cfg.Heuristics.KnownJunkTags) != 2 || cfg.Heuristics.KnownJunkTags[0] != "OceanofPDF.com" {
 		t.Errorf("KnownJunkTags = %v", cfg.Heuristics.KnownJunkTags)
 	}
@@ -78,7 +72,6 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 			LibraryFolder:  "/library",
 			LogFolder:      "/library/.book-organiser-logs",
 			FilenameFormat: "{title} ({year}) - {author}",
-			Fallbacks:      Fallbacks{Year: "Unknown", Author: "Unknown Author"},
 		},
 		Heuristics: Heuristics{KnownJunkTags: []string{"z-lib.org"}},
 		Categories: map[string]Category{
