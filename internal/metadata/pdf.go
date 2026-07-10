@@ -81,11 +81,15 @@ func decodePDFString(raw []byte) string {
 // first-match-anywhere scan can pick up a graphic's metadata instead of
 // the book's if that graphic's object happens to appear earlier in the
 // file. If the file has multiple trailers (incremental updates), the last
-// one is used. Returns ok=false (caller falls back to a whole-file scan)
-// if no trailer, no /Info reference, or no matching object is found --
-// preserving prior best-effort behavior for atypical PDFs (e.g. ones using
-// cross-reference streams instead of a classic trailer) rather than
-// erroring.
+// one is used -- and, for the same "most recent update wins" reason, if
+// object N itself was rewritten by an incremental update (common for
+// PDFs edited by annotation/signing/metadata tools, which append rather
+// than rewrite), the LAST "N ... obj ... endobj" block in the file is
+// used too, not the first (now-superseded) one. Returns ok=false (caller
+// falls back to a whole-file scan) if no trailer, no /Info reference, or
+// no matching object is found -- preserving prior best-effort behavior
+// for atypical PDFs (e.g. ones using cross-reference streams instead of a
+// classic trailer) rather than erroring.
 func findInfoDictBody(data []byte) ([]byte, bool) {
 	trailers := pdfTrailerRe.FindAllSubmatch(data, -1)
 	if len(trailers) == 0 {
@@ -98,11 +102,11 @@ func findInfoDictBody(data []byte) ([]byte, bool) {
 	}
 	objNum := string(infoMatch[1])
 	objRe := regexp.MustCompile(`(?s)\b` + objNum + `\s+\d+\s+obj(.*?)endobj`)
-	objMatch := objRe.FindSubmatch(data)
-	if objMatch == nil {
+	objMatches := objRe.FindAllSubmatch(data, -1)
+	if objMatches == nil {
 		return nil, false
 	}
-	return objMatch[1], true
+	return objMatches[len(objMatches)-1][1], true
 }
 
 // extractPDF is a best-effort, dependency-free scanner: it looks for

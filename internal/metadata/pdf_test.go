@@ -168,6 +168,71 @@ func TestExtractPDF_FallsBackToWholeFileScanWhenNoTrailerFound(t *testing.T) {
 	}
 }
 
+// TestExtractPDF_UsesLatestIncrementalUpdateOfInfoObject reproduces a
+// second real-world shape: a PDF edited by an annotation/signing/metadata
+// tool after creation, which appends an incremental update (a new revision
+// of object 3, plus a new trailer) rather than rewriting the file. The
+// object-body lookup must use the LAST "3 ... obj ... endobj" block for
+// consistency with "last trailer wins" -- otherwise it would confidently
+// return the pre-edit (stale) title/author.
+const testPDFFixtureWithIncrementalUpdate = `%PDF-1.4
+3 0 obj
+<< /Title (Old Title Before Edit) /Author (Old Author) >>
+endobj
+trailer
+<< /Root 4 0 R /Info 3 0 R >>
+%%EOF
+3 0 obj
+<< /Title (New Title After Edit) /Author (New Author) >>
+endobj
+trailer
+<< /Root 4 0 R /Info 3 0 R >>
+%%EOF`
+
+func TestExtractPDF_UsesLatestIncrementalUpdateOfInfoObject(t *testing.T) {
+	path := writePDFFixture(t, testPDFFixtureWithIncrementalUpdate)
+
+	result, err := extractPDF(path)
+	if err != nil {
+		t.Fatalf("extractPDF returned error: %v", err)
+	}
+	if result.Title != "New Title After Edit" {
+		t.Errorf("Title = %q, want %q (the latest incremental update, not the superseded original)", result.Title, "New Title After Edit")
+	}
+	if result.Author != "New Author" {
+		t.Errorf("Author = %q, want %q (the latest incremental update, not the superseded original)", result.Author, "New Author")
+	}
+}
+
+func TestExtractPDF_FallsBackToWholeFileScanWhenInfoReferenceMissing(t *testing.T) {
+	// A trailer exists but has no /Info entry at all.
+	fixture := "%PDF-1.4\n1 0 obj\n<< /Title (No Info Ref Book) /Author (Someone) >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF"
+	path := writePDFFixture(t, fixture)
+
+	result, err := extractPDF(path)
+	if err != nil {
+		t.Fatalf("extractPDF returned error: %v", err)
+	}
+	if result.Title != "No Info Ref Book" || result.Author != "Someone" {
+		t.Errorf("Title/Author = %q/%q, want fallback whole-file scan to still find them", result.Title, result.Author)
+	}
+}
+
+func TestExtractPDF_FallsBackToWholeFileScanWhenInfoObjectMissing(t *testing.T) {
+	// The trailer references an object number that doesn't exist anywhere
+	// in the file (e.g. a corrupted/truncated PDF).
+	fixture := "%PDF-1.4\n1 0 obj\n<< /Title (Orphaned Ref Book) /Author (Someone) >>\nendobj\ntrailer\n<< /Root 1 0 R /Info 99 0 R >>\n%%EOF"
+	path := writePDFFixture(t, fixture)
+
+	result, err := extractPDF(path)
+	if err != nil {
+		t.Fatalf("extractPDF returned error: %v", err)
+	}
+	if result.Title != "Orphaned Ref Book" || result.Author != "Someone" {
+		t.Errorf("Title/Author = %q/%q, want fallback whole-file scan to still find them", result.Title, result.Author)
+	}
+}
+
 func TestExtractPDF_NoMetadata(t *testing.T) {
 	path := writePDFFixture(t, "%PDF-1.4\n1 0 obj\n<< >>\nendobj\n%%EOF")
 
