@@ -30,6 +30,23 @@ func TestLog_AppendAndReadAll(t *testing.T) {
 	}
 }
 
+func TestLog_AppendCreatesMissingParentDirectory(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "nested", "does-not-exist-yet", "ops.jsonl")
+	log := NewLog(path)
+
+	if err := log.Append([]LogEntry{{BatchID: "b1", OldPath: "/a", NewPath: "/b"}}); err != nil {
+		t.Fatalf("Append error: %v", err)
+	}
+
+	got, err := log.ReadAll()
+	if err != nil {
+		t.Fatalf("ReadAll error: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("ReadAll returned %d entries, want 1", len(got))
+	}
+}
+
 func TestLog_ReadAllOnMissingFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "does-not-exist.jsonl")
 	log := NewLog(path)

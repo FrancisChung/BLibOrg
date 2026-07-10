@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 )
@@ -32,11 +33,16 @@ func NewLog(path string) *Log {
 	return &Log{path: path}
 }
 
-// Append writes entries to the end of the log file, creating it if needed.
+// Append writes entries to the end of the log file, creating the file and
+// its parent directory if needed -- the caller may be applying its very
+// first batch, before anything has created the configured log folder.
 func (l *Log) Append(entries []LogEntry) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	if err := os.MkdirAll(filepath.Dir(l.path), 0755); err != nil {
+		return fmt.Errorf("create log folder for %s: %w", l.path, err)
+	}
 	f, err := os.OpenFile(l.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return fmt.Errorf("open log %s for append: %w", l.path, err)
