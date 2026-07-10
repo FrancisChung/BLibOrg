@@ -147,3 +147,4 @@ vite.config.ts.timestamp-*
 .worktrees/
 
 .manual-test/
+cmd/manualtest/
