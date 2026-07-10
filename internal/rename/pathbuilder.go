@@ -61,8 +61,9 @@ func cleanupDanglingSeparators(s string) string {
 // BuildPath computes b.DestPath from cfg.General.FilenameFormat and
 // b.Category/b.Subcategory. Unresolved year/author fields render using
 // cfg.General.Fallbacks text for this preview only -- it does not change
-// Field.Source, so Book.Status() still reports Unresolved for those rows.
-// It mutates only b.DestPath.
+// Field.Source, so Book.Status() still reports Unresolved (if Title is also
+// unresolved) or Partial (if Title is resolved) for those rows. It mutates
+// only b.DestPath.
 //
 // If the rendered path would exceed the safe length budget, the author is
 // dropped from the filename first; only if that still isn't enough is the

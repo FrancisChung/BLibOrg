@@ -7,6 +7,12 @@ const (
 	SourceMetadata
 	SourceHeuristic
 	SourceManual
+	// SourcePartial is a row-level-only value: Book.Status() returns it when
+	// Title is resolved but Author and/or Year are not. It is never a valid
+	// value for an individual Field.Source -- a single field is either
+	// resolved (Metadata/Heuristic/Manual) or it isn't (Unresolved); only the
+	// aggregate row can be "partially" complete.
+	SourcePartial
 )
 
 func (s Source) String() string {
@@ -17,6 +23,8 @@ func (s Source) String() string {
 		return "Heuristic"
 	case SourceManual:
 		return "Edited"
+	case SourcePartial:
+		return "Partial"
 	default:
 		return "Unresolved"
 	}
@@ -55,17 +63,23 @@ type Book struct {
 }
 
 // Status returns the row-level status shown in View 1, with precedence
-// Unresolved > Edited (Manual) > Heuristic > Metadata: any single Unresolved
-// required field makes the whole row Unresolved (excluded from Apply),
-// regardless of how the other fields were resolved.
+// Unresolved > Partial > Edited (Manual) > Heuristic > Metadata. Title is
+// the one field Apply cannot proceed without, so an unresolved Title makes
+// the whole row Unresolved regardless of Author/Year. If Title is resolved
+// but Author and/or Year are not, the row is Partial -- still eligible for
+// Apply (the rendered path uses configured fallback text for the missing
+// field), just flagged as incomplete. Only once all three fields are
+// resolved does the status reflect their Edited/Heuristic/Metadata
+// provenance.
 func (b Book) Status() Source {
-	fields := []Field{b.Title, b.Author, b.Year}
-
-	for _, f := range fields {
-		if f.Source == SourceUnresolved {
-			return SourceUnresolved
-		}
+	if b.Title.Source == SourceUnresolved {
+		return SourceUnresolved
 	}
+	if b.Author.Source == SourceUnresolved || b.Year.Source == SourceUnresolved {
+		return SourcePartial
+	}
+
+	fields := []Field{b.Title, b.Author, b.Year}
 	for _, f := range fields {
 		if f.Source == SourceManual {
 			return SourceManual

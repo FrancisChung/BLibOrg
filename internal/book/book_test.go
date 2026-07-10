@@ -11,6 +11,7 @@ func TestSourceString(t *testing.T) {
 		{SourceHeuristic, "Heuristic"},
 		{SourceManual, "Edited"},
 		{SourceUnresolved, "Unresolved"},
+		{SourcePartial, "Partial"},
 	}
 	for _, tt := range tests {
 		if got := tt.s.String(); got != tt.want {
@@ -53,13 +54,49 @@ func TestBookStatus(t *testing.T) {
 			want: SourceManual,
 		},
 		{
-			name: "any unresolved field wins regardless of others",
+			name: "title unresolved wins regardless of others -- Apply cannot proceed without a title",
+			book: Book{
+				Title:  Field{"", SourceUnresolved},
+				Author: Field{"A", SourceMetadata},
+				Year:   Field{"2024", SourceMetadata},
+			},
+			want: SourceUnresolved,
+		},
+		{
+			name: "title resolved but author unresolved -- Partial, not Unresolved",
+			book: Book{
+				Title:  Field{"T", SourceHeuristic},
+				Author: Field{"", SourceUnresolved},
+				Year:   Field{"2024", SourceMetadata},
+			},
+			want: SourcePartial,
+		},
+		{
+			name: "title resolved but year unresolved -- Partial, not Unresolved",
+			book: Book{
+				Title:  Field{"T", SourceMetadata},
+				Author: Field{"A", SourceMetadata},
+				Year:   Field{"", SourceUnresolved},
+			},
+			want: SourcePartial,
+		},
+		{
+			name: "title resolved, both author and year unresolved -- still just Partial",
+			book: Book{
+				Title:  Field{"T", SourceHeuristic},
+				Author: Field{"", SourceUnresolved},
+				Year:   Field{"", SourceUnresolved},
+			},
+			want: SourcePartial,
+		},
+		{
+			name: "title manually edited but author unresolved -- Partial beats Edited",
 			book: Book{
 				Title:  Field{"T", SourceManual},
 				Author: Field{"", SourceUnresolved},
 				Year:   Field{"2024", SourceMetadata},
 			},
-			want: SourceUnresolved,
+			want: SourcePartial,
 		},
 	}
 	for _, tt := range tests {

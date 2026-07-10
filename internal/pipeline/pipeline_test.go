@@ -48,14 +48,41 @@ func TestRun_FallsBackToHeuristicsForFileWithNoMetadata(t *testing.T) {
 	if b.Title.Source != book.SourceHeuristic {
 		t.Errorf("Title.Source = %v, want SourceHeuristic", b.Title.Source)
 	}
-	if b.Status() != book.SourceUnresolved {
-		t.Errorf("Status() = %v, want SourceUnresolved (no author/year found anywhere)", b.Status())
+	if b.Status() != book.SourcePartial {
+		t.Errorf("Status() = %v, want SourcePartial (title resolved via heuristic, but no author/year found anywhere)", b.Status())
 	}
 	if b.Category != "Uncategorized" {
 		t.Errorf("Category = %q, want Uncategorized", b.Category)
 	}
 	if b.DestPath == "" {
-		t.Error("expected a DestPath to be computed even for an Unresolved row")
+		t.Error("expected a DestPath to be computed even for a Partial row")
+	}
+}
+
+func TestRun_TitleUnresolvedIsUnresolvedNotPartial(t *testing.T) {
+	workDir := t.TempDir()
+	libDir := t.TempDir()
+	// A filename that is nothing but a known junk tag: after the heuristic
+	// parser strips it, there's nothing left for even the fallback-to-stem
+	// path to use as a Title.
+	srcPath := filepath.Join(workDir, "OceanofPDF.com.pdf")
+	if err := os.WriteFile(srcPath, []byte("no pdf metadata here"), 0644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	books, err := Run(baseConfig(workDir, libDir))
+	if err != nil {
+		t.Fatalf("Run error: %v", err)
+	}
+	if len(books) != 1 {
+		t.Fatalf("Run returned %d books, want 1", len(books))
+	}
+	b := books[0]
+	if b.Title.Source != book.SourceUnresolved {
+		t.Fatalf("test setup invalid: Title.Source = %v, want SourceUnresolved for this fixture", b.Title.Source)
+	}
+	if b.Status() != book.SourceUnresolved {
+		t.Errorf("Status() = %v, want SourceUnresolved when Title itself cannot be determined", b.Status())
 	}
 }
 

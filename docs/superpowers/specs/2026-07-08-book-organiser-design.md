@@ -115,8 +115,12 @@ perform the moves/renames as Commands, logging each for undo/redo.
     worth a glance
   - `Edited` — user manually corrected at least one field (overrides prior
     status)
-  - `Unresolved` — a required field couldn't be determined at all; excluded
-    from Apply until fixed
+  - `Partial` — Title is resolved but Author and/or Year could not be
+    determined; still eligible for Apply, using the configured fallback text
+    for the missing field(s) in the rendered path, but flagged so the user
+    can fix it if they want to
+  - `Unresolved` — Title itself could not be determined at all (the one
+    field Apply cannot proceed without); excluded from Apply until fixed
 
   Rows also carry a duplicate-group indicator when flagged by the duplicate
   detector.
