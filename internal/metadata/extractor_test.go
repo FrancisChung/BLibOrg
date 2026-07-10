@@ -19,7 +19,11 @@ func TestExtract_DispatchesByExtension(t *testing.T) {
 	}
 
 	pdfPath := writePDFFixture(t, `%PDF-1.4
+1 0 obj
 << /Title (PdfTitle) >>
+endobj
+trailer
+<< /Root 1 0 R /Info 1 0 R >>
 %%EOF`)
 	result, err = Extract(pdfPath)
 	if err != nil {

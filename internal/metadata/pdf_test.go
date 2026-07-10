@@ -153,18 +153,39 @@ func TestExtractPDF_IgnoresEmbeddedGraphicMetadataBeforeRealInfoDict(t *testing.
 	}
 }
 
-func TestExtractPDF_FallsBackToWholeFileScanWhenNoTrailerFound(t *testing.T) {
-	// No trailer at all -- extractPDF must still find metadata via the
-	// original whole-file scan rather than returning nothing.
-	fixture := "%PDF-1.4\n1 0 obj\n<< /Title (No Trailer Book) /Author (Someone) >>\nendobj\n%%EOF"
+// TestExtractPDF_NoTrailerLeavesTitleAuthorEmptyButStillFindsYear reproduces
+// a second real incident: a book PDF with no locatable Info dictionary (here,
+// no trailer at all) but MANY internal outline-bookmark "/Title" entries (one
+// per chapter/section) scattered through the file. A whole-file scan for
+// /Title would grab one of those bookmark titles and confidently report it
+// as high-confidence "Metadata" -- which then blocks the filename heuristic
+// parser from ever running, since a non-empty Title already "won". Title and
+// Author are therefore left empty (not whole-file-scanned) whenever the real
+// Info dict can't be located, so heuristics get a clean chance to run
+// instead. Subject and CreationDate are still whole-file-scanned in this
+// case: unlike /Title, those two keys essentially never appear on bookmark
+// or embedded-graphic objects in practice, so they remain safe.
+func TestExtractPDF_NoTrailerLeavesTitleAuthorEmptyButStillFindsYear(t *testing.T) {
+	fixture := "%PDF-1.4\n" +
+		"10 0 obj\n<< /Title (1. Making Changes) >>\nendobj\n" +
+		"11 0 obj\n<< /Title (Retrospective) >>\nendobj\n" +
+		"12 0 obj\n<< /Title (Index) >>\nendobj\n" +
+		"1 0 obj\n<< /CreationDate (D:19510101000000) >>\nendobj\n" +
+		"%%EOF"
 	path := writePDFFixture(t, fixture)
 
 	result, err := extractPDF(path)
 	if err != nil {
 		t.Fatalf("extractPDF returned error: %v", err)
 	}
-	if result.Title != "No Trailer Book" || result.Author != "Someone" {
-		t.Errorf("Title/Author = %q/%q, want fallback whole-file scan to still find them", result.Title, result.Author)
+	if result.Title != "" {
+		t.Errorf("Title = %q, want empty (must not pick up a bookmark title when the real Info dict can't be located)", result.Title)
+	}
+	if result.Author != "" {
+		t.Errorf("Author = %q, want empty", result.Author)
+	}
+	if result.Year != "1951" {
+		t.Errorf("Year = %q, want 1951 (CreationDate is still safe to whole-file-scan)", result.Year)
 	}
 }
 
@@ -204,32 +225,39 @@ func TestExtractPDF_UsesLatestIncrementalUpdateOfInfoObject(t *testing.T) {
 	}
 }
 
-func TestExtractPDF_FallsBackToWholeFileScanWhenInfoReferenceMissing(t *testing.T) {
-	// A trailer exists but has no /Info entry at all.
-	fixture := "%PDF-1.4\n1 0 obj\n<< /Title (No Info Ref Book) /Author (Someone) >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF"
+func TestExtractPDF_TitleAuthorEmptyWhenInfoReferenceMissing(t *testing.T) {
+	// A trailer exists but has no /Info entry at all -- same "can't confirm
+	// the real Info dict" situation as no trailer at all.
+	fixture := "%PDF-1.4\n1 0 obj\n<< /Title (Decoy Bookmark) /Author (Someone) /CreationDate (D:20200101000000) >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF"
 	path := writePDFFixture(t, fixture)
 
 	result, err := extractPDF(path)
 	if err != nil {
 		t.Fatalf("extractPDF returned error: %v", err)
 	}
-	if result.Title != "No Info Ref Book" || result.Author != "Someone" {
-		t.Errorf("Title/Author = %q/%q, want fallback whole-file scan to still find them", result.Title, result.Author)
+	if result.Title != "" || result.Author != "" {
+		t.Errorf("Title/Author = %q/%q, want both empty (no /Info reference means the real Info dict can't be confirmed)", result.Title, result.Author)
+	}
+	if result.Year != "2020" {
+		t.Errorf("Year = %q, want 2020", result.Year)
 	}
 }
 
-func TestExtractPDF_FallsBackToWholeFileScanWhenInfoObjectMissing(t *testing.T) {
+func TestExtractPDF_TitleAuthorEmptyWhenInfoObjectMissing(t *testing.T) {
 	// The trailer references an object number that doesn't exist anywhere
 	// in the file (e.g. a corrupted/truncated PDF).
-	fixture := "%PDF-1.4\n1 0 obj\n<< /Title (Orphaned Ref Book) /Author (Someone) >>\nendobj\ntrailer\n<< /Root 1 0 R /Info 99 0 R >>\n%%EOF"
+	fixture := "%PDF-1.4\n1 0 obj\n<< /Title (Decoy Bookmark) /Author (Someone) /CreationDate (D:20200101000000) >>\nendobj\ntrailer\n<< /Root 1 0 R /Info 99 0 R >>\n%%EOF"
 	path := writePDFFixture(t, fixture)
 
 	result, err := extractPDF(path)
 	if err != nil {
 		t.Fatalf("extractPDF returned error: %v", err)
 	}
-	if result.Title != "Orphaned Ref Book" || result.Author != "Someone" {
-		t.Errorf("Title/Author = %q/%q, want fallback whole-file scan to still find them", result.Title, result.Author)
+	if result.Title != "" || result.Author != "" {
+		t.Errorf("Title/Author = %q/%q, want both empty (the referenced Info object doesn't exist, so it can't be confirmed)", result.Title, result.Author)
+	}
+	if result.Year != "2020" {
+		t.Errorf("Year = %q, want 2020", result.Year)
 	}
 }
 

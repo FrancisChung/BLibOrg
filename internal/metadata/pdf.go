@@ -115,20 +115,36 @@ func findInfoDictBody(data []byte) ([]byte, bool) {
 // document's real Info dictionary when it can be located (see
 // findInfoDictBody). See the plan's Global Constraints for why this is
 // deliberately not a full PDF parser.
+//
+// When the real Info dictionary can't be located, Title and Author are left
+// unset rather than falling back to a whole-file scan: real books commonly
+// contain many OTHER objects with their own /Title (outline/bookmark
+// entries -- one per chapter/section -- and embedded graphics) or /Author
+// (embedded graphics' creator), and a whole-file scan has no way to tell
+// those apart from the real book's metadata. Confidently reporting a
+// bookmark's title as "Metadata" is worse than reporting nothing, because it
+// silently blocks the filename heuristic parser from ever running (it only
+// runs for fields that come back empty). Subject and CreationDate remain
+// safe to whole-file-scan even without a confirmed Info dict: unlike
+// /Title/Author, those two keys essentially never appear on bookmark or
+// embedded-graphic objects in practice.
 func extractPDF(path string) (Result, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return Result{}, err
 	}
 
-	scope := data
-	if body, ok := findInfoDictBody(data); ok {
-		scope = body
+	scope, foundInfo := findInfoDictBody(data)
+	if !foundInfo {
+		scope = data
 	}
 
 	fields := map[string]string{}
 	for _, m := range pdfLiteralStringRe.FindAllSubmatch(scope, -1) {
 		key := string(m[1])
+		if !foundInfo && (key == "Title" || key == "Author") {
+			continue
+		}
 		if _, exists := fields[key]; exists {
 			continue // keep first match only
 		}
