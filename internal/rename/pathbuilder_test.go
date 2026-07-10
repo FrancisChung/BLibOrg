@@ -84,6 +84,38 @@ func TestBuildPath_OmitsUnresolvedYearOnlyKeepsAuthor(t *testing.T) {
 	}
 }
 
+func TestBuildPath_PreservesLeadingHyphenInFullyResolvedTitle(t *testing.T) {
+	b := &book.Book{
+		SourcePath: "/inbox/dash.epub",
+		Title:      book.Field{Value: "-Leading Dash Title"},
+		Author:     book.Field{Value: "Jane Doe"},
+		Year:       book.Field{Value: "2020"},
+		Category:   "Uncategorized",
+	}
+	BuildPath(b, testConfig("/library"))
+
+	want := filepath.Join("/library", "Uncategorized", "-Leading Dash Title (2020) - Jane Doe.epub")
+	if b.DestPath != want {
+		t.Errorf("DestPath = %q, want %q (title's own leading hyphen must survive when nothing was omitted)", b.DestPath, want)
+	}
+}
+
+func TestBuildPath_PreservesTrailingHyphenInFullyResolvedAuthor(t *testing.T) {
+	b := &book.Book{
+		SourcePath: "/inbox/dash.epub",
+		Title:      book.Field{Value: "Book Title"},
+		Author:     book.Field{Value: "Jane Doe-"},
+		Year:       book.Field{Value: "2020"},
+		Category:   "Uncategorized",
+	}
+	BuildPath(b, testConfig("/library"))
+
+	want := filepath.Join("/library", "Uncategorized", "Book Title (2020) - Jane Doe-.epub")
+	if b.DestPath != want {
+		t.Errorf("DestPath = %q, want %q (author's own trailing hyphen must survive when nothing was omitted)", b.DestPath, want)
+	}
+}
+
 func TestBuildPath_SanitizesIllegalCharsAndReservedNames(t *testing.T) {
 	b := &book.Book{
 		SourcePath: "/inbox/weird.epub",

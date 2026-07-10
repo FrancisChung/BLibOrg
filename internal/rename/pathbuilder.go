@@ -12,7 +12,8 @@ import (
 )
 
 var illegalCharsRe = regexp.MustCompile(`[<>:"/\\|?*\x00-\x1f]`)
-var danglingSepRe = regexp.MustCompile(`^[\s\-\x{2013}\x{2014}]+|[\s\-\x{2013}\x{2014}]+$`)
+var leadingSepRe = regexp.MustCompile(`^[\s\-\x{2013}\x{2014}]+`)
+var trailingSepRe = regexp.MustCompile(`[\s\-\x{2013}\x{2014}]+$`)
 var emptyParensRe = regexp.MustCompile(`\(\s*\)`)
 var whitespaceRunRe = regexp.MustCompile(`\s+`)
 
@@ -54,20 +55,31 @@ func sanitize(name string) string {
 // render substitutes {title}/{year}/{author} into format, then collapses
 // away the decoration around any field that came in empty (unresolved):
 // empty "()" pairs are removed, runs of whitespace collapse to one space,
-// and a resulting leading or trailing separator run (spaces/hyphens/
-// en-dash/em-dash) is trimmed. For the default "{title} ({year}) -
-// {author}" shape this correctly omits a missing year's parenthetical or a
-// missing author's " - " suffix entirely, rather than rendering fallback
-// placeholder text. Custom filename_format templates that put the
-// decoration somewhere other than immediately around {year}/{author} may
-// still leave a stray separator this cleanup doesn't reach -- this remains
-// a best-effort pass, not a general templating engine.
+// and -- only for the specific field(s) that were actually empty -- a
+// resulting leading or trailing separator run (spaces/hyphens/en-dash/
+// em-dash) is trimmed. Leading trim only fires when title is empty and
+// trailing trim only when author is empty, matching the default
+// "{title} ({year}) - {author}" shape where title leads and author
+// trails; this is deliberately NOT a blanket trim of the whole rendered
+// string's edges, because that would also eat a legitimate leading or
+// trailing hyphen that's genuinely part of a resolved title/author's own
+// text (e.g. a title starting with "-"), not template decoration. Custom
+// filename_format templates that put title/author somewhere other than
+// leading/trailing, or decoration somewhere other than immediately around
+// {year}/{author}, may still leave a stray separator this cleanup doesn't
+// reach -- this remains a best-effort pass, not a general templating
+// engine.
 func render(format, title, year, author string) string {
 	r := strings.NewReplacer("{title}", title, "{year}", year, "{author}", author)
 	rendered := r.Replace(format)
 	rendered = emptyParensRe.ReplaceAllString(rendered, "")
 	rendered = whitespaceRunRe.ReplaceAllString(rendered, " ")
-	rendered = danglingSepRe.ReplaceAllString(rendered, "")
+	if title == "" {
+		rendered = leadingSepRe.ReplaceAllString(rendered, "")
+	}
+	if author == "" {
+		rendered = trailingSepRe.ReplaceAllString(rendered, "")
+	}
 	return strings.TrimSpace(rendered)
 }
 

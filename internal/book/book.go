@@ -67,10 +67,10 @@ type Book struct {
 // the one field Apply cannot proceed without, so an unresolved Title makes
 // the whole row Unresolved regardless of Author/Year. If Title is resolved
 // but Author and/or Year are not, the row is Partial -- still eligible for
-// Apply (the rendered path uses configured fallback text for the missing
-// field), just flagged as incomplete. Only once all three fields are
-// resolved does the status reflect their Edited/Heuristic/Metadata
-// provenance.
+// Apply (the rendered path simply omits the missing field's segment rather
+// than showing placeholder text), just flagged as incomplete. Only once
+// all three fields are resolved does the status reflect their
+// Edited/Heuristic/Metadata provenance.
 func (b Book) Status() Source {
 	if b.Title.Source == SourceUnresolved {
 		return SourceUnresolved
