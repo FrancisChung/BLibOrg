@@ -84,6 +84,47 @@ func TestManager_ExecuteBatchRollsBackOnPartialFailure(t *testing.T) {
 	}
 }
 
+// TestManager_ExecuteBatchRollsBackFilesIfLogAppendFails reproduces a real
+// incident: all commands in a batch executed successfully (files moved), but
+// persisting the log entry then failed (here: because the log's directory
+// couldn't be created), leaving the files moved with zero record in the
+// log -- meaning UndoBatch has nothing to undo. ExecuteBatch must treat a
+// log-append failure exactly like a command-execution failure: roll back
+// every already-executed command before returning, so the library is never
+// left moved-but-unlogged regardless of why the log write failed.
+func TestManager_ExecuteBatchRollsBackFilesIfLogAppendFails(t *testing.T) {
+	dir := t.TempDir()
+	oldPath := filepath.Join(dir, "old.epub")
+	newPath := filepath.Join(dir, "new.epub")
+	if err := os.WriteFile(oldPath, []byte("content"), 0644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	// A regular file sits where the log's parent directory needs to be, so
+	// os.MkdirAll (and thus Append) can never succeed here, regardless of
+	// the missing-directory fix -- this exercises the log-append-failure
+	// path for any underlying cause, not just a missing directory.
+	blocker := filepath.Join(dir, "blocker")
+	if err := os.WriteFile(blocker, []byte("x"), 0644); err != nil {
+		t.Fatalf("write blocker: %v", err)
+	}
+	logPath := filepath.Join(blocker, "ops.jsonl")
+
+	mgr := NewManager(NewLog(logPath))
+	cmd := NewMoveCommand("batch-7", oldPath, newPath)
+
+	err := mgr.ExecuteBatch("batch-7", []Command{cmd})
+	if err == nil {
+		t.Fatal("expected ExecuteBatch to return an error when the log append fails")
+	}
+	if _, statErr := os.Stat(oldPath); statErr != nil {
+		t.Errorf("expected the move to be rolled back (file back at oldPath) after a log-append failure: %v", statErr)
+	}
+	if _, statErr := os.Stat(newPath); !os.IsNotExist(statErr) {
+		t.Errorf("expected newPath to not exist after rollback")
+	}
+}
+
 func TestManager_UndoBatchUnknownIDIsNoOp(t *testing.T) {
 	dir := t.TempDir()
 	logPath := filepath.Join(dir, "ops.jsonl")

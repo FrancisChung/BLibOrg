@@ -19,9 +19,10 @@ func NewManager(log *Log) *Manager {
 }
 
 // ExecuteBatch runs commands in order. If a command fails partway through,
+// or if persisting the batch to the log afterward fails for any reason,
 // already-executed commands in this batch are undone (best-effort) before
-// returning the error, so a failed batch never leaves the library
-// half-moved, and nothing about the failed batch is written to the log.
+// returning the error -- so the library is never left moved-but-unlogged,
+// which would otherwise leave UndoBatch with nothing to undo.
 //
 // Rollback is best-effort: if undoing an already-executed command also
 // fails (e.g. the destination was concurrently modified), that failure is
@@ -32,12 +33,8 @@ func (m *Manager) ExecuteBatch(batchID string, commands []Command) error {
 	var executed []Command
 	for _, cmd := range commands {
 		if err := cmd.Execute(); err != nil {
-			rollbackErr := m.rollback(executed)
 			execErr := fmt.Errorf("batch %s failed on %+v: %w", batchID, cmd.Data(), err)
-			if rollbackErr != nil {
-				return fmt.Errorf("%w (additionally, rollback failed: %v)", execErr, rollbackErr)
-			}
-			return execErr
+			return m.foldRollback(executed, execErr)
 		}
 		executed = append(executed, cmd)
 	}
@@ -55,9 +52,20 @@ func (m *Manager) ExecuteBatch(batchID string, commands []Command) error {
 		}
 	}
 	if err := m.log.Append(entries); err != nil {
-		return fmt.Errorf("record batch %s: %w", batchID, err)
+		recordErr := fmt.Errorf("record batch %s: %w", batchID, err)
+		return m.foldRollback(executed, recordErr)
 	}
 	return nil
+}
+
+// foldRollback undoes executed (best-effort) and folds any rollback failure
+// into primaryErr as auxiliary context, never replacing it.
+func (m *Manager) foldRollback(executed []Command, primaryErr error) error {
+	rollbackErr := m.rollback(executed)
+	if rollbackErr != nil {
+		return fmt.Errorf("%w (additionally, rollback failed: %v)", primaryErr, rollbackErr)
+	}
+	return primaryErr
 }
 
 // rollback undoes commands in reverse order, collecting (rather than
