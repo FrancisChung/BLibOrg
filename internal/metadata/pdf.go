@@ -3,6 +3,7 @@ package metadata
 import (
 	"os"
 	"regexp"
+	"strings"
 	"unicode/utf16"
 
 	"github.com/FrancisChung/book-organiser/internal/textutil"
@@ -12,6 +13,16 @@ var pdfLiteralStringRe = regexp.MustCompile(`/(Title|Author|Subject|CreationDate
 var pdfDateYearRe = regexp.MustCompile(`D:(\d{4})`)
 var pdfTrailerRe = regexp.MustCompile(`(?s)trailer\s*<<(.*?)>>`)
 var pdfInfoRefRe = regexp.MustCompile(`/Info\s+(\d+)\s+\d+\s+R`)
+
+// placeholderTitles are literal /Title values some PDF-generation tools
+// leave behind as a default when the real author never set a document
+// title. Reporting one of these as resolved SourceMetadata would silently
+// block the filename heuristic parser from ever running for Title (it
+// only runs for fields that come back empty), so they're treated the same
+// as "not found."
+var placeholderTitles = map[string]bool{
+	"untitled": true,
+}
 
 // unescapePDFBytes resolves PDF literal-string backslash escapes on the raw
 // byte stream. This happens before any character-encoding interpretation --
@@ -151,8 +162,13 @@ func extractPDF(path string) (Result, error) {
 		fields[key] = decodePDFString(unescapePDFBytes(string(m[2])))
 	}
 
+	title := fields["Title"]
+	if placeholderTitles[strings.ToLower(strings.TrimSpace(title))] {
+		title = ""
+	}
+
 	result := Result{
-		Title:   fields["Title"],
+		Title:   title,
 		Author:  fields["Author"],
 		Subject: fields["Subject"],
 	}

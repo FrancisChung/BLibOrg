@@ -272,3 +272,33 @@ func TestExtractPDF_NoMetadata(t *testing.T) {
 		t.Errorf("expected empty result for metadata-free PDF, got %+v", result)
 	}
 }
+
+// TestExtractPDF_PlaceholderTitleTreatedAsUnresolved reproduces a real
+// incident: a Pragmatic Bookshelf-produced PDF whose real, located Info
+// dict has a literal /Title of "Untitled" (a leftover default from
+// whatever tool generated the file) plus a legitimate Subject and
+// CreationDate. Reporting "Untitled" as resolved SourceMetadata blocks the
+// filename heuristic parser from ever running for Title (it only runs for
+// fields that come back empty), so the placeholder string survives all the
+// way to the final filename. Treating it as not-found lets heuristics
+// supply the real title instead.
+func TestExtractPDF_PlaceholderTitleTreatedAsUnresolved(t *testing.T) {
+	fixture := "%PDF-1.4\n" +
+		"1 0 obj\n<< /Title (Untitled) /Subject (IT eBooks) /CreationDate (D:20130710000000) >>\nendobj\n" +
+		"trailer\n<< /Root 1 0 R /Info 1 0 R >>\n%%EOF"
+	path := writePDFFixture(t, fixture)
+
+	result, err := extractPDF(path)
+	if err != nil {
+		t.Fatalf("extractPDF returned error: %v", err)
+	}
+	if result.Title != "" {
+		t.Errorf("Title = %q, want empty (placeholder \"Untitled\" must not be reported as resolved metadata)", result.Title)
+	}
+	if result.Subject != "IT eBooks" {
+		t.Errorf("Subject = %q, want IT eBooks (unrelated fields must still resolve)", result.Subject)
+	}
+	if result.Year != "2013" {
+		t.Errorf("Year = %q, want 2013", result.Year)
+	}
+}

@@ -30,6 +30,16 @@ func TestParse_RealWorldExamples(t *testing.T) {
 			stem: "Test-Driven Development By Example",
 			want: Result{Title: "Test-Driven Development By Example", Author: "", Year: ""},
 		},
+		{
+			name: "author - title-publisher convention: 2-word name before the dash is the author, not the title",
+			stem: "Chad Fowler - The Passionate Programmer, 2nd edition_ Creating a Remarkable Career in Software Development-The Pragmatic Programmers (2009)",
+			want: Result{Title: "The Passionate Programmer, 2nd edition Creating a Remarkable Career in Software Development-The Pragmatic Programmers", Author: "Chad Fowler", Year: "2009"},
+		},
+		{
+			name: "author - title-publisher convention with a bracketed junk prefix",
+			stem: "(The Pragmatic Programmers) Adam Tornhill - Your Code as a Crime Scene_ Use Forensic Techniques to Arrest Defects, Bottlenecks, and Bad Design in Your Programs-Pragmatic Bookshelf (2015)",
+			want: Result{Title: "Your Code as a Crime Scene Use Forensic Techniques to Arrest Defects, Bottlenecks, and Bad Design in Your Programs-Pragmatic Bookshelf", Author: "Adam Tornhill", Year: "2015"},
+		},
 	}
 
 	for _, tt := range tests {
