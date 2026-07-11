@@ -54,13 +54,13 @@
   }
 
   async function doApply() {
-    const eligible = books.filter((b) => b.status !== 'Unresolved');
+    const eligible = visibleBooks.filter((b) => b.status !== 'Unresolved');
     const confirmed = await ConfirmApply(eligible.length, '');
     if (!confirmed) return;
 
     applying = true;
     try {
-      const result = await Apply(books);
+      const result = await Apply(visibleBooks);
       const byPath: typeof resultBySourcePath = {};
       for (const r of result.results) {
         byPath[r.sourcePath] = { ok: r.ok, error: r.error, skipped: r.skipped };

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/FrancisChung/book-organiser/internal/appapi"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -43,10 +44,20 @@ func (a *App) ConfigStatus() appapi.ConfigStatusView {
 // moving files is the one hard-to-reverse action in this flow. Returns
 // true if the user confirmed.
 func (a *App) ConfirmApply(fileCount int, libraryFolder string) bool {
+	message := fmt.Sprintf(
+		"Move %d file(s) into %s? This can be undone later from the command line, but there is no in-app Undo yet.",
+		fileCount, libraryFolder,
+	)
+	if libraryFolder == "" {
+		message = fmt.Sprintf(
+			"Move %d file(s) into the library folder? This can be undone later from the command line, but there is no in-app Undo yet.",
+			fileCount,
+		)
+	}
 	result, err := runtime.MessageDialog(a.ctx, runtime.MessageDialogOptions{
 		Type:          runtime.QuestionDialog,
 		Title:         "Apply changes?",
-		Message:       "Move these files into the library folder? This can be undone later from the command line, but there is no in-app Undo yet.",
+		Message:       message,
 		Buttons:       []string{"Move files", "Cancel"},
 		DefaultButton: "Cancel",
 	})
