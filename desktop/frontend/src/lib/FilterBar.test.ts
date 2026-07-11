@@ -11,9 +11,9 @@ describe('FilterBar', () => {
   });
 
   it('emits filterChange with the clicked filter key', async () => {
-    const { baseElement } = render(FilterBar, { query: '', activeFilter: 'all' });
+    const { component } = render(FilterBar, { query: '', activeFilter: 'all' });
     const handler = vi.fn();
-    baseElement.addEventListener('filterChange', handler, true);
+    component.$on('filterChange', handler);
 
     await fireEvent.click(screen.getByRole('button', { name: 'Duplicates' }));
 
@@ -22,9 +22,9 @@ describe('FilterBar', () => {
   });
 
   it('emits queryChange as the search input changes', async () => {
-    const { baseElement } = render(FilterBar, { query: '', activeFilter: 'all' });
+    const { component } = render(FilterBar, { query: '', activeFilter: 'all' });
     const handler = vi.fn();
-    baseElement.addEventListener('queryChange', handler, true);
+    component.$on('queryChange', handler);
 
     const input = screen.getByPlaceholderText('Search title, author, or filename…');
     await fireEvent.input(input, { target: { value: 'kotlin' } });

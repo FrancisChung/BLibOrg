@@ -7,20 +7,17 @@
 
   const dispatch = createEventDispatcher<{ queryChange: string; filterChange: StatusFilter }>();
 
-  let container: HTMLElement;
-
   function onInput(e: Event) {
-    dispatch('queryChange', (e.target as HTMLInputElement).value);
-    container?.dispatchEvent(new CustomEvent('queryChange', { detail: (e.target as HTMLInputElement).value, bubbles: true }));
+    const value = (e.target as HTMLInputElement).value;
+    dispatch('queryChange', value);
   }
 
   function selectFilter(key: StatusFilter) {
     dispatch('filterChange', key);
-    container?.dispatchEvent(new CustomEvent('filterChange', { detail: key, bubbles: true }));
   }
 </script>
 
-<div class="filter-bar" bind:this={container}>
+<div class="filter-bar">
   <input
     class="search"
     type="text"
