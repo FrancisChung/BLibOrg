@@ -25,6 +25,7 @@
     scanning = true;
     scanError = '';
     resultBySourcePath = {};
+    recomputeWarning = {};
     try {
       books = await Scan();
     } catch (e) {
