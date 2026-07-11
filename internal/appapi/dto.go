@@ -76,3 +76,49 @@ func bookToView(b *book.Book) BookView {
 		DuplicateGroupID: b.DuplicateGroupID,
 	}
 }
+
+func sourceFromView(s string) book.Source {
+	switch s {
+	case "Metadata":
+		return book.SourceMetadata
+	case "Heuristic":
+		return book.SourceHeuristic
+	case "Edited":
+		return book.SourceManual
+	default:
+		return book.SourceUnresolved
+	}
+}
+
+func fieldFromView(f Field) book.Field {
+	return book.Field{Value: f.Value, Source: sourceFromView(f.Source)}
+}
+
+func duplicateStatusFromView(s string) book.DuplicateStatus {
+	switch s {
+	case "LikelyDuplicate":
+		return book.LikelyDuplicate
+	case "PossibleDuplicate":
+		return book.PossibleDuplicate
+	default:
+		return book.NotDuplicate
+	}
+}
+
+// viewToBook converts a BookView back into a book.Book carrying only the
+// fields that are genuine inputs to Categorize/BuildPath/Status (Category,
+// Subcategory, DestPath, and Status itself are outputs, not carried over --
+// callers recompute them).
+func viewToBook(v BookView) *book.Book {
+	return &book.Book{
+		SourcePath:       v.SourcePath,
+		Format:           v.Format,
+		SizeBytes:        v.SizeBytes,
+		Subject:          v.Subject,
+		Title:            fieldFromView(v.Title),
+		Author:           fieldFromView(v.Author),
+		Year:             fieldFromView(v.Year),
+		DuplicateGroupID: v.DuplicateGroupID,
+		DuplicateStatus:  duplicateStatusFromView(v.DuplicateStatus),
+	}
+}
