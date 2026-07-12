@@ -58,9 +58,66 @@ The design is finalized (see [`design.md`](design.md) and
 [`docs/superpowers/specs/2026-07-08-book-organiser-design.md`](docs/superpowers/specs/2026-07-08-book-organiser-design.md)).
 The Go backend pipeline (scanning, metadata extraction, heuristics,
 categorization, duplicate detection, path building, undo/redo) and a Wails +
-Svelte "Scan & Review" desktop UI have been implemented against the plan in
-[`docs/superpowers/plans/2026-07-08-backend-pipeline.md`](docs/superpowers/plans/2026-07-08-backend-pipeline.md),
-currently on the `backend-pipeline` branch pending merge to `main`.
+Svelte desktop UI are implemented and merged into `main`, per the plans in
+[`docs/superpowers/plans/2026-07-08-backend-pipeline.md`](docs/superpowers/plans/2026-07-08-backend-pipeline.md)
+and
+[`docs/superpowers/plans/2026-07-11-ui-scan-review.md`](docs/superpowers/plans/2026-07-11-ui-scan-review.md).
+The UI currently covers a single Scan & Review screen — scan, inline edit,
+destination path, and duplicate flags per book, then Apply. The backend
+already supports undo/redo and config-driven categorization, but there's no
+UI yet for undo/redo history or editing categories/rules outside the YAML
+file directly (the design spec's "Organiser & History" view).
+
+## Getting started
+
+### Prerequisites
+
+- [Go](https://go.dev/dl/) 1.25+
+- [Node.js](https://nodejs.org/) 20+ (for the Svelte frontend)
+- [Wails CLI](https://wails.io/docs/gettingstarted/installation) v2:
+  `go install github.com/wailsapp/wails/v2/cmd/wails@latest`
+- A native webview, needed only to run the desktop app (not for `go build`/`go test`):
+  - **Linux**: `libgtk-3-dev` and `libwebkit2gtk-4.1-dev` (or `libwebkit2gtk-4.0-dev` on older distros)
+  - **Windows**: [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) (preinstalled on Windows 10/11)
+  - **macOS**: Xcode command line tools
+
+### Build & test the backend
+
+```bash
+go build ./...
+go test ./...
+```
+
+### Run the desktop app in development mode
+
+```bash
+cd desktop
+wails dev
+```
+
+This starts the app with hot reload for the Svelte frontend. Scan reads its
+config from a fixed, OS-standard path — `<user config dir>/book-organiser/config.yaml`
+(e.g. `~/.config/book-organiser/config.yaml` on Linux, `%AppData%\book-organiser\config.yaml`
+on Windows) — see [Configuration](#configuration) for its contents.
+
+### Build a production binary
+
+```bash
+cd desktop
+wails build
+```
+
+Produces a single native binary under `desktop/build/bin/` for the host
+platform — no installer or bundled runtime beyond the OS webview.
+
+### Frontend-only commands
+
+```bash
+cd desktop/frontend
+npm install
+npm run build   # production build, output to dist/ (required before `go build ./...` picks up desktop/main.go's embed)
+npm test        # vitest
+```
 
 ## Tech stack
 
@@ -86,13 +143,15 @@ currently on the `backend-pipeline` branch pending merge to `main`.
 
 ## Configuration
 
-Working folder, library folder, filename format, categories/subcategories,
-and categorization rules are all defined in a YAML config file:
+Working folder, library folder, operation-log folder, filename format,
+categories/subcategories, and categorization rules are all defined in a YAML
+config file at `<user config dir>/book-organiser/config.yaml`:
 
 ```yaml
 general:
   working_folder: "D:/Ebooks/Inbox"
   library_folder: "D:/Ebooks/Library"
+  log_folder: "D:/Ebooks/.book-organiser-logs"
   filename_format: "{title} ({year}) - {author}"
 
 heuristics:
