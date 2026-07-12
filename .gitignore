@@ -146,3 +146,7 @@ vite.config.ts.timestamp-*
 
 .worktrees/
 .superpowers/
+
+.manual-test/
+cmd/manualtest/
+cmd/debugmeta/

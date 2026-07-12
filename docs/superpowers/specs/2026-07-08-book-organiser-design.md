@@ -97,6 +97,13 @@ perform the moves/renames as Commands, logging each for undo/redo.
   of Commands executed in order. Command data (old path, new path, op type,
   batch ID, timestamp) is persisted to an append-only log so undo/redo
   survives an app restart, not just an in-memory stack.
+- **Category-warnings log** — a categorization rule always wins even when it
+  targets a category/subcategory that isn't declared under `categories:` (the
+  book is still filed where the rule says); when that happens it's recorded
+  as a `CategoryWarning` on the book and appended to
+  `log_folder/category-warnings.jsonl` (one JSON object per line: timestamp,
+  source path, category, subcategory, warning text) so View 1/View 3 can flag
+  a misconfigured rule to the user instead of it going unnoticed.
 
 ## UI views (Wails frontend)
 
@@ -108,8 +115,12 @@ perform the moves/renames as Commands, logging each for undo/redo.
     worth a glance
   - `Edited` — user manually corrected at least one field (overrides prior
     status)
-  - `Unresolved` — a required field couldn't be determined at all; excluded
-    from Apply until fixed
+  - `Partial` — Title is resolved but Author and/or Year could not be
+    determined; still eligible for Apply (the rendered path simply omits the
+    missing field's " - {author}" or "({year})" segment rather than showing
+    placeholder text), but flagged so the user can fix it if they want to
+  - `Unresolved` — Title itself could not be determined at all (the one
+    field Apply cannot proceed without); excluded from Apply until fixed
 
   Rows also carry a duplicate-group indicator when flagged by the duplicate
   detector.
@@ -130,10 +141,8 @@ perform the moves/renames as Commands, logging each for undo/redo.
 general:
   working_folder: "D:/Ebooks/Inbox"
   library_folder: "D:/Ebooks/Library"
+  log_folder: "D:/Ebooks/Library/.book-organiser-logs"
   filename_format: "{title} ({year}) - {author}"
-  fallbacks:
-    year: "Unknown"
-    author: "Unknown Author"
 
 heuristics:
   known_junk_tags: ["OceanofPDF.com", "libgen.li", "libgen.rs", "z-lib.org"]
