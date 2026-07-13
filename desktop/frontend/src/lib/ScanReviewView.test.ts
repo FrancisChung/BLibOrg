@@ -81,4 +81,22 @@ describe('ScanReviewView', () => {
     expect(appliedBooks).toHaveLength(1);
     expect(appliedBooks[0].sourcePath).toBe('/inbox/atomic-kotlin.epub');
   });
+
+  it('shows an error banner when Apply rejects, instead of failing silently', async () => {
+    vi.mocked(Scan).mockResolvedValue([makeBook()]);
+    vi.mocked(Apply).mockRejectedValue(new Error('boom'));
+
+    render(ScanReviewView);
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Scan' }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Apply' })).not.toBeDisabled();
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Error: boom')).toBeInTheDocument();
+    });
+  });
 });

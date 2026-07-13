@@ -8,6 +8,7 @@
   let query = '';
   let activeFilter: StatusFilter = 'all';
   let scanError = '';
+  let applyError = '';
   let scanning = false;
   let applying = false;
   let resultBySourcePath: Record<string, { ok: boolean; error: string; skipped: boolean }> = {};
@@ -49,6 +50,7 @@
     if (!confirmed) return;
 
     applying = true;
+    applyError = '';
     try {
       const result = await Apply(visibleBooks);
       const byPath: typeof resultBySourcePath = {};
@@ -56,6 +58,8 @@
         byPath[r.sourcePath] = { ok: r.ok, error: r.error, skipped: r.skipped };
       }
       resultBySourcePath = byPath;
+    } catch (e) {
+      applyError = String(e);
     } finally {
       applying = false;
     }
@@ -76,6 +80,9 @@
 
 {#if scanError}
   <div class="banner error">{scanError}</div>
+{/if}
+{#if applyError}
+  <div class="banner error">{applyError}</div>
 {/if}
 
 {#if books.length > 0}
