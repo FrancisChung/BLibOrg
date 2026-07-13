@@ -71,7 +71,6 @@
   .old-name {
     font-size: 11px;
     color: var(--bf-text-muted);
-    text-decoration: line-through;
   }
   .fields {
     display: flex;
