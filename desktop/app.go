@@ -40,6 +40,14 @@ func (a *App) ConfigStatus() appapi.ConfigStatusView {
 	return a.api.ConfigStatus()
 }
 
+func (a *App) ListOperationBatches() ([]appapi.OperationBatchView, error) {
+	return a.api.ListOperationBatches()
+}
+
+func (a *App) ListCategoryWarnings() ([]appapi.CategoryWarningView, error) {
+	return a.api.ListCategoryWarnings()
+}
+
 // ConfirmApply shows a native Yes/No dialog before Apply runs, since
 // moving files is the one hard-to-reverse action in this flow. Returns
 // true if the user confirmed.
