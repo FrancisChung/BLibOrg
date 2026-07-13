@@ -59,3 +59,28 @@ export function matchesQuery(b: BookView, query: string): boolean {
     b.oldFilename.toLowerCase().includes(q)
   );
 }
+
+export interface OperationEntryView {
+  oldPath: string;
+  newPath: string;
+  opType: string;
+  undone: boolean;
+}
+
+export interface OperationBatchView {
+  batchId: string;
+  timestamp: string;
+  entryCount: number;
+  undoneCount: number;
+  entries: OperationEntryView[];
+}
+
+export interface CategoryWarningView {
+  timestamp: string;
+  sourcePath: string;
+  category: string;
+  subcategory: string;
+  warning: string;
+}
+
+export type SidebarView = 'scan' | 'operations' | 'warnings';
