@@ -52,6 +52,33 @@ Scanner → Metadata Extractors → Heuristic Filename Parser → Book Record
    logged as a `Command` so batches can be undone/redone, even after an app
    restart.
 
+### Uncategorized files
+
+If no `rules` entry matches a book (by author, title, filename regex, or
+metadata subject) and its embedded genre/subject metadata doesn't match any
+configured subcategory name either, it's filed under `Uncategorized` with no
+subcategory — e.g. `library_folder/Uncategorized/Title (Year) - Author.epub`.
+This is a normal fallback, not an error or a blocked state:
+
+- It shows up in Scan & Review with an `Uncategorized` destination preview
+  like any other book.
+- It's still Apply-eligible as long as its Title resolved — Apply, Undo, and
+  Redo treat it no differently from a matched category.
+- Nothing is skipped, quarantined, or left behind in the working folder
+  because it didn't match a category.
+
+There's currently no UI for reassigning a book's category directly (only
+Title/Author/Year are editable in Scan & Review). To get a book out of
+`Uncategorized`, add a matching rule to `rules` in `config.yaml` and rescan,
+or correct whichever field the desired rule matches on (e.g. fix a
+misspelled author so an existing author rule catches it).
+
+A related but separate case: if a rule *does* match but names a category or
+subcategory not declared under `categories:` in the config, the book is
+still filed there (the rule wins regardless), but a warning is appended to
+`log_folder/category-warnings.jsonl` on every scan so the mismatch isn't
+silent. That warning isn't surfaced in the UI yet, only in the log file.
+
 ## Status
 
 The design is finalized (see [`design.md`](design.md) and
@@ -77,7 +104,16 @@ file directly (the design spec's "Organiser & History" view).
 - [Wails CLI](https://wails.io/docs/gettingstarted/installation) v2:
   `go install github.com/wailsapp/wails/v2/cmd/wails@latest`
 - A native webview, needed only to run the desktop app (not for `go build`/`go test`):
-  - **Linux**: `libgtk-3-dev` and `libwebkit2gtk-4.1-dev` (or `libwebkit2gtk-4.0-dev` on older distros)
+  - **Linux**: `libgtk-3-dev` plus a WebKitGTK dev package — which one depends on your
+    distro, since Ubuntu 24.04+/Debian trixie+/Mint 22+ dropped WebKitGTK 4.0 in favor
+    of 4.1:
+    - Ubuntu 24.04+, Debian 13+, Mint 22+ (webkit2gtk 4.1 only):
+      `sudo apt-get install libgtk-3-dev libwebkit2gtk-4.1-dev`, and pass
+      `-tags webkit2_41` to every `wails dev`/`wails build` invocation below —
+      Wails links against 4.0 by default and won't find 4.1 without that tag.
+    - Ubuntu 22.04 and earlier, Debian 12 and earlier (webkit2gtk 4.0 available):
+      `sudo apt-get install libgtk-3-dev libwebkit2gtk-4.0-dev`, no extra tag needed.
+    - Check which one your distro has with `apt-cache search webkit2gtk` if unsure.
   - **Windows**: [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) (preinstalled on Windows 10/11)
   - **macOS**: Xcode command line tools
 
@@ -93,6 +129,7 @@ go test ./...
 ```bash
 cd desktop
 wails dev
+# on webkit2gtk-4.1-only distros (see Prerequisites): wails dev -tags webkit2_41
 ```
 
 This starts the app with hot reload for the Svelte frontend. Scan reads its
@@ -105,6 +142,7 @@ on Windows) — see [Configuration](#configuration) for its contents.
 ```bash
 cd desktop
 wails build
+# on webkit2gtk-4.1-only distros (see Prerequisites): wails build -tags webkit2_41
 ```
 
 Produces a single native binary under `desktop/build/bin/` for the host
@@ -145,7 +183,25 @@ npm test        # vitest
 
 Working folder, library folder, operation-log folder, filename format,
 categories/subcategories, and categorization rules are all defined in a YAML
-config file at `<user config dir>/book-organiser/config.yaml`:
+config file.
+
+**The app only ever reads this one fixed location** — not a `config.yaml` in
+the repo or the app's working directory, and there's no file picker or
+`--config` flag to point it elsewhere:
+
+| OS      | Path                                             |
+|---------|---------------------------------------------------|
+| Linux   | `~/.config/book-organiser/config.yaml`             |
+| Windows | `%AppData%\book-organiser\config.yaml`             |
+| macOS   | `~/Library/Application Support/book-organiser/config.yaml` |
+
+(Exactly `os.UserConfigDir()/book-organiser/config.yaml` —
+see `internal/appapi.DefaultConfigPath`.) The file must be created by hand;
+nothing generates a default one yet. If it's missing or invalid, both the
+app's startup check and the Scan button surface a "no usable config at
+`<path>`" banner naming the exact path it looked for.
+
+Example contents:
 
 ```yaml
 general:

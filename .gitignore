@@ -150,3 +150,8 @@ vite.config.ts.timestamp-*
 .manual-test/
 cmd/manualtest/
 cmd/debugmeta/
+
+# The app never reads a repo-local config.yaml -- it always loads from the
+# fixed OS user-config path (see README's Configuration section). A stray
+# one here is a local test/scratch file, not something to commit.
+/config.yaml
