@@ -75,3 +75,30 @@ func LogCategoryWarnings(books []*book.Book, cfg config.Config) error {
 	}
 	return nil
 }
+
+// ReadCategoryWarnings reads every entry from a category-warnings log file
+// written by LogCategoryWarnings, in file order (oldest first). A missing
+// file is treated as an empty log, not an error -- the log may not exist
+// yet if no scan has ever produced a warning, matching operations.Log's
+// existing ReadAll behavior for the same not-written-yet case.
+func ReadCategoryWarnings(path string) ([]CategoryWarningEntry, error) {
+	f, err := os.Open(path)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("open log %s: %w", path, err)
+	}
+	defer f.Close()
+
+	var entries []CategoryWarningEntry
+	dec := json.NewDecoder(f)
+	for dec.More() {
+		var e CategoryWarningEntry
+		if err := dec.Decode(&e); err != nil {
+			return nil, fmt.Errorf("parse log entry: %w", err)
+		}
+		entries = append(entries, e)
+	}
+	return entries, nil
+}

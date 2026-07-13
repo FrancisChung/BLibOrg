@@ -133,6 +133,45 @@ func TestLogCategoryWarnings_AppendsAcrossMultipleCalls(t *testing.T) {
 	}
 }
 
+func TestReadCategoryWarnings_MissingFileReturnsEmpty(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "does-not-exist.jsonl")
+	entries, err := ReadCategoryWarnings(path)
+	if err != nil {
+		t.Fatalf("ReadCategoryWarnings error: %v", err)
+	}
+	if entries != nil {
+		t.Errorf("entries = %v, want nil for a missing file", entries)
+	}
+}
+
+func TestReadCategoryWarnings_ReadsBackWhatWasWritten(t *testing.T) {
+	logDir := filepath.Join(t.TempDir(), "logs")
+	books := []*book.Book{
+		{SourcePath: "/inbox/a.epub", Category: "Fiction", Subcategory: "SpaceOpera", CategoryWarning: `rule matched undeclared subcategory "SpaceOpera" under category "Fiction"`},
+		{SourcePath: "/inbox/b.epub", Category: "NonFiction", Subcategory: "History2", CategoryWarning: `rule matched undeclared subcategory "History2" under category "NonFiction"`},
+	}
+	if err := LogCategoryWarnings(books, warningsTestConfig(logDir)); err != nil {
+		t.Fatalf("LogCategoryWarnings error: %v", err)
+	}
+
+	entries, err := ReadCategoryWarnings(filepath.Join(logDir, "category-warnings.jsonl"))
+	if err != nil {
+		t.Fatalf("ReadCategoryWarnings error: %v", err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("got %d entries, want 2", len(entries))
+	}
+	if entries[0].SourcePath != "/inbox/a.epub" || entries[1].SourcePath != "/inbox/b.epub" {
+		t.Errorf("entries in unexpected order/content: %+v", entries)
+	}
+	if entries[0].Warning != books[0].CategoryWarning {
+		t.Errorf("Warning = %q, want %q", entries[0].Warning, books[0].CategoryWarning)
+	}
+	if entries[0].Timestamp.IsZero() {
+		t.Error("expected a non-zero Timestamp")
+	}
+}
+
 func countLines(data []byte) int {
 	n := 0
 	for _, line := range splitLines(data) {
