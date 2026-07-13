@@ -23,8 +23,6 @@
 </script>
 
 <nav class="sidebar">
-  <div class="logo">Book Organiser</div>
-
   {#each topLevelItems as item (item.view)}
     <button
       type="button"
@@ -55,17 +53,10 @@
     flex-shrink: 0;
     background: var(--bf-surface);
     border-right: 1px solid var(--bf-border);
-    padding: 20px 16px;
+    padding: 28px 16px 20px;
     display: flex;
     flex-direction: column;
     gap: 4px;
-  }
-  .logo {
-    font-weight: 800;
-    font-size: 16px;
-    color: var(--bf-text);
-    margin-bottom: 22px;
-    padding: 0 8px;
   }
   .nav-item,
   .nav-sub {
