@@ -60,8 +60,9 @@
 
 <style>
   .card {
-    border: 1px solid #ddd;
-    border-radius: 8px;
+    background: var(--bf-surface);
+    border: 1px solid var(--bf-border);
+    border-radius: 10px;
     padding: 10px 14px;
     display: flex;
     flex-direction: column;
@@ -69,7 +70,7 @@
   }
   .old-name {
     font-size: 11px;
-    color: #888;
+    color: var(--bf-text-muted);
     text-decoration: line-through;
   }
   .fields {
@@ -78,16 +79,19 @@
   }
   .fields input {
     padding: 6px 8px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--bf-border);
     border-radius: 6px;
     font-size: 13px;
+    font-family: inherit;
+    color: var(--bf-text);
+    background: var(--bf-surface);
   }
   .title { flex: 2; }
   .author { flex: 2; }
   .year { flex: 1; }
   .dest-path {
     font-size: 11.5px;
-    color: #666;
+    color: var(--bf-text-muted);
     word-break: break-word;
   }
   .badges {
@@ -101,10 +105,19 @@
     font-size: 11px;
     font-weight: 600;
   }
-  .status-Metadata { background: #e1f0e5; color: #2f7d53; }
-  .status-Heuristic { background: #f5e9d2; color: #9a6b10; }
-  .status-Partial { background: #f7e2d3; color: #b4501f; }
-  .status-Unresolved { background: #f7e2d3; color: #b4501f; }
-  .status-Edited { background: #dceae4; color: #2f6f5e; }
-  .dup { background: #f3deea; color: #8c3d68; }
+  .status-Metadata,
+  .status-Edited {
+    background: var(--bf-green-soft);
+    color: var(--bf-green);
+  }
+  .status-Heuristic,
+  .status-Partial,
+  .status-Unresolved {
+    background: var(--bf-amber-soft);
+    color: var(--bf-amber);
+  }
+  .dup {
+    background: var(--bf-blue-soft);
+    color: var(--bf-blue);
+  }
 </style>

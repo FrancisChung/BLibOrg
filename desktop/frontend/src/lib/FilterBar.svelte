@@ -50,8 +50,11 @@
     min-width: 220px;
     padding: 8px 12px;
     border-radius: 8px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--bf-border);
     font-size: 13.5px;
+    font-family: inherit;
+    color: var(--bf-text);
+    background: var(--bf-surface);
   }
   .chips {
     display: flex;
@@ -59,17 +62,19 @@
     flex-wrap: wrap;
   }
   button {
-    border: 1px solid #ccc;
-    background: #fff;
+    border: 1px solid var(--bf-border);
+    background: var(--bf-surface);
     border-radius: 100px;
     padding: 6px 12px;
     font-size: 12.5px;
     font-weight: 600;
+    font-family: inherit;
+    color: var(--bf-text);
     cursor: pointer;
   }
   button.active {
-    background: #2f6f5e;
-    border-color: #2f6f5e;
-    color: #fff;
+    background: var(--bf-blue-soft);
+    border-color: var(--bf-blue-soft);
+    color: var(--bf-blue);
   }
 </style>
