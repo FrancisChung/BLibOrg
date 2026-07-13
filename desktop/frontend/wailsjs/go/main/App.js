@@ -14,6 +14,14 @@ export function ConfirmApply(arg1, arg2) {
   return window['go']['main']['App']['ConfirmApply'](arg1, arg2);
 }
 
+export function ListCategoryWarnings() {
+  return window['go']['main']['App']['ListCategoryWarnings']();
+}
+
+export function ListOperationBatches() {
+  return window['go']['main']['App']['ListOperationBatches']();
+}
+
 export function Recompute(arg1) {
   return window['go']['main']['App']['Recompute'](arg1);
 }

@@ -8,6 +8,10 @@ export function ConfigStatus():Promise<appapi.ConfigStatusView>;
 
 export function ConfirmApply(arg1:number,arg2:string):Promise<boolean>;
 
+export function ListCategoryWarnings():Promise<Array<appapi.CategoryWarningView>>;
+
+export function ListOperationBatches():Promise<Array<appapi.OperationBatchView>>;
+
 export function Recompute(arg1:appapi.BookView):Promise<appapi.BookView>;
 
 export function Scan():Promise<Array<appapi.BookView>>;
