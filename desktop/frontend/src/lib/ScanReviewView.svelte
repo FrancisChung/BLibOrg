@@ -13,6 +13,7 @@
   let applying = false;
   let resultBySourcePath: Record<string, { ok: boolean; error: string; skipped: boolean }> = {};
   let recomputeWarning: Record<string, boolean> = {};
+  let debugStep = '';
 
   async function doScan() {
     scanning = true;
@@ -45,20 +46,26 @@
   }
 
   async function doApply() {
+    debugStep = '1: doApply() called';
     const eligible = visibleBooks.filter((b) => b.status !== 'Unresolved');
+    debugStep = `2: calling ConfirmApply(${eligible.length}, '')`;
     const confirmed = await ConfirmApply(eligible.length, '');
+    debugStep = `3: ConfirmApply returned ${confirmed}`;
     if (!confirmed) return;
 
     applying = true;
     applyError = '';
+    debugStep = `4: calling Apply() with ${visibleBooks.length} books`;
     try {
       const result = await Apply(visibleBooks);
+      debugStep = '5: Apply() resolved';
       const byPath: typeof resultBySourcePath = {};
       for (const r of result.results) {
         byPath[r.sourcePath] = { ok: r.ok, error: r.error, skipped: r.skipped };
       }
       resultBySourcePath = byPath;
     } catch (e) {
+      debugStep = '5: Apply() rejected';
       applyError = String(e);
     } finally {
       applying = false;
@@ -83,6 +90,9 @@
 {/if}
 {#if applyError}
   <div class="banner error">{applyError}</div>
+{/if}
+{#if debugStep}
+  <div class="debug-step">[debug] {debugStep}</div>
 {/if}
 
 {#if books.length > 0}
@@ -138,6 +148,14 @@
     background: var(--bf-blue-soft);
     color: var(--bf-blue);
     margin-right: 8px;
+  }
+  .debug-step {
+    font-family: monospace;
+    font-size: 12px;
+    background: #222;
+    color: #0f0;
+    padding: 8px 12px;
+    border-radius: 6px;
   }
   button:disabled {
     opacity: 0.6;
