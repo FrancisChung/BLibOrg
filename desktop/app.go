@@ -72,5 +72,18 @@ func (a *App) ConfirmApply(fileCount int, libraryFolder string) bool {
 	if err != nil {
 		return false
 	}
-	return result == "Move files"
+	return isAffirmative(result)
+}
+
+// isAffirmative interprets a MessageDialog result. Wails only honors custom
+// Buttons on macOS; on Linux/Windows the dialog falls back to a default
+// Yes/No, so a literal check against the custom label alone silently
+// rejects every confirmation on those platforms.
+func isAffirmative(result string) bool {
+	switch result {
+	case "Move files", "Yes", "OK":
+		return true
+	default:
+		return false
+	}
 }
