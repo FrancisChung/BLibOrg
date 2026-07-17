@@ -141,12 +141,24 @@ on Windows) — see [Configuration](#configuration) for its contents.
 
 ```bash
 cd desktop
-wails build
-# on webkit2gtk-4.1-only distros (see Prerequisites): wails build -tags webkit2_41
+./build.sh
+# on webkit2gtk-4.1-only distros (see Prerequisites): ./build.sh -tags webkit2_41
 ```
 
 Produces a single native binary under `desktop/build/bin/` for the host
 platform — no installer or bundled runtime beyond the OS webview.
+`build.sh` wraps `wails build` and forwards every argument to it (so
+`-tags webkit2_41` etc. still work); calling `wails build` directly still
+works too, it just skips the config sync described below.
+
+Before building, `build.sh` copies a `config.yaml` at the repo root (if
+present) into the fixed OS user-config location the app reads from — see
+[Configuration](#configuration). This is a convenience for keeping your
+rules/categories under version control at the repo root without the app
+ever reading that copy directly; **the sync only happens at build time**,
+so editing the repo-root `config.yaml` has no effect until you rebuild.
+The previous contents of the real config are backed up to `config.yaml.bak`
+next to it before being overwritten.
 
 ### Linux: taskbar icon
 
@@ -207,7 +219,10 @@ config file.
 
 **The app only ever reads this one fixed location** — not a `config.yaml` in
 the repo or the app's working directory, and there's no file picker or
-`--config` flag to point it elsewhere:
+`--config` flag to point it elsewhere. (`desktop/build.sh` can sync a
+repo-root `config.yaml` into this location at build time — see
+[Build a production binary](#build-a-production-binary) — but that's a
+build-time copy step, not something the app does itself at runtime.)
 
 | OS      | Path                                             |
 |---------|---------------------------------------------------|

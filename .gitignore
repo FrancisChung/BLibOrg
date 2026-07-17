@@ -151,7 +151,9 @@ vite.config.ts.timestamp-*
 cmd/manualtest/
 cmd/debugmeta/
 
-# The app never reads a repo-local config.yaml -- it always loads from the
-# fixed OS user-config path (see README's Configuration section). A stray
-# one here is a local test/scratch file, not something to commit.
+# The app never reads this file directly -- it always loads from the fixed
+# OS user-config path (see README's Configuration section). desktop/build.sh
+# syncs this file there at build time, as a convenience for keeping rules/
+# categories under version control; it's gitignored because it typically
+# has machine-specific absolute paths (working_folder, library_folder, etc).
 /config.yaml
