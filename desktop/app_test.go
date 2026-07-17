@@ -9,6 +9,7 @@ func TestIsAffirmative(t *testing.T) {
 		want   bool
 	}{
 		{"macOS custom button label", "Move files", true},
+		{"macOS custom undo button label", "Undo", true},
 		{"Linux/Windows default Yes (Buttons option is ignored there)", "Yes", true},
 		{"generic OK fallback", "OK", true},
 		{"macOS custom cancel label", "Cancel", false},

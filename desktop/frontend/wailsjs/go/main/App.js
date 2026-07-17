@@ -14,6 +14,10 @@ export function ConfirmApply(arg1, arg2) {
   return window['go']['main']['App']['ConfirmApply'](arg1, arg2);
 }
 
+export function ConfirmUndo(arg1) {
+  return window['go']['main']['App']['ConfirmUndo'](arg1);
+}
+
 export function ListCategoryWarnings() {
   return window['go']['main']['App']['ListCategoryWarnings']();
 }
@@ -28,4 +32,8 @@ export function Recompute(arg1) {
 
 export function Scan() {
   return window['go']['main']['App']['Scan']();
+}
+
+export function UndoBatch(arg1) {
+  return window['go']['main']['App']['UndoBatch'](arg1);
 }

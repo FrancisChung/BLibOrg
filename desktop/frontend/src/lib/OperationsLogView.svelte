@@ -1,14 +1,18 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { OperationBatchView } from './types';
-  import { ListOperationBatches } from '../../wailsjs/go/main/App';
+  import { ListOperationBatches, ConfirmUndo, UndoBatch } from '../../wailsjs/go/main/App';
 
   let batches: OperationBatchView[] = [];
   let loadError = '';
+  let undoError = '';
   let loading = true;
   let expanded: Record<string, boolean> = {};
+  let undoingBatchId: string | null = null;
 
-  onMount(async () => {
+  onMount(loadBatches);
+
+  async function loadBatches() {
     try {
       batches = await ListOperationBatches();
     } catch (e) {
@@ -16,10 +20,27 @@
     } finally {
       loading = false;
     }
-  });
+  }
 
   function toggle(batchId: string) {
     expanded = { ...expanded, [batchId]: !expanded[batchId] };
+  }
+
+  async function handleUndo(batch: OperationBatchView) {
+    const remaining = batch.entryCount - batch.undoneCount;
+    const confirmed = await ConfirmUndo(remaining);
+    if (!confirmed) return;
+
+    undoingBatchId = batch.batchId;
+    undoError = '';
+    try {
+      await UndoBatch(batch.batchId);
+    } catch (e) {
+      undoError = String(e);
+    } finally {
+      undoingBatchId = null;
+    }
+    await loadBatches();
   }
 </script>
 
@@ -29,35 +50,50 @@
   <div class="banner error">{loadError}</div>
 {:else if loading}
   <p class="empty">Loading…</p>
-{:else if batches.length === 0}
-  <p class="empty">No operations yet.</p>
 {:else}
-  <div class="batches">
-    {#each batches as batch (batch.batchId)}
-      <div class="batch">
-        <button type="button" class="batch-row" on:click={() => toggle(batch.batchId)}>
-          <div>
-            <div class="batch-id">Batch {batch.batchId}</div>
-            <div class="batch-meta">
-              {new Date(batch.timestamp).toLocaleString()} &middot; {batch.entryCount} file{batch.entryCount === 1 ? '' : 's'} moved{batch.undoneCount > 0 ? ` · ${batch.undoneCount} undone` : ''}
-            </div>
-          </div>
-        </button>
-        {#if expanded[batch.batchId]}
-          <div class="entries">
-            {#each batch.entries as entry}
-              <div class="entry">
-                <span class="old-path">{entry.oldPath}</span>
-                <span class="arrow">→</span>
-                <span class="new-path">{entry.newPath}</span>
-                {#if entry.undone}<span class="undone-pill">Undone</span>{/if}
+  {#if undoError}
+    <div class="banner error">{undoError}</div>
+  {/if}
+  {#if batches.length === 0}
+    <p class="empty">No operations yet.</p>
+  {:else}
+    <div class="batches">
+      {#each batches as batch (batch.batchId)}
+        <div class="batch">
+          <div class="batch-row">
+            <button type="button" class="batch-toggle" on:click={() => toggle(batch.batchId)}>
+              <div class="batch-id">Batch {batch.batchId}</div>
+              <div class="batch-meta">
+                {new Date(batch.timestamp).toLocaleString()} &middot; {batch.entryCount} file{batch.entryCount === 1 ? '' : 's'} moved{batch.undoneCount > 0 ? ` · ${batch.undoneCount} undone` : ''}
               </div>
-            {/each}
+            </button>
+            {#if batch.undoneCount < batch.entryCount}
+              <button
+                type="button"
+                class="undo-button"
+                disabled={undoingBatchId === batch.batchId}
+                on:click={() => handleUndo(batch)}
+              >
+                {undoingBatchId === batch.batchId ? 'Undoing…' : 'Undo'}
+              </button>
+            {/if}
           </div>
-        {/if}
-      </div>
-    {/each}
-  </div>
+          {#if expanded[batch.batchId]}
+            <div class="entries">
+              {#each batch.entries as entry}
+                <div class="entry">
+                  <span class="old-path">{entry.oldPath}</span>
+                  <span class="arrow">→</span>
+                  <span class="new-path">{entry.newPath}</span>
+                  {#if entry.undone}<span class="undone-pill">Undone</span>{/if}
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      {/each}
+    </div>
+  {/if}
 {/if}
 
 <style>
@@ -89,13 +125,36 @@
     border-radius: 10px;
   }
   .batch-row {
-    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 16px;
+  }
+  .batch-toggle {
+    flex: 1;
     text-align: left;
     background: none;
     border: none;
     font-family: inherit;
-    padding: 12px 16px;
+    padding: 0;
     cursor: pointer;
+  }
+  .undo-button {
+    flex-shrink: 0;
+    background: var(--bf-blue-soft);
+    color: var(--bf-blue);
+    border: none;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .undo-button:disabled {
+    opacity: 0.6;
+    cursor: default;
   }
   .batch-id {
     font-weight: 700;
