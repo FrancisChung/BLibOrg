@@ -148,6 +148,26 @@ wails build
 Produces a single native binary under `desktop/build/bin/` for the host
 platform — no installer or bundled runtime beyond the OS webview.
 
+### Linux: taskbar icon
+
+On Linux, Wails does not reliably set the running window's icon via the raw
+X11 icon hints (observed on Linux Mint/Cinnamon: the taskbar/window-list
+shows a generic icon instead of `appicon.png`, even though the icon data
+itself is valid). Desktop environments resolve a window's icon primarily
+through its `.desktop` file, so ship one:
+
+```bash
+cp desktop/build/linux/book-organiser.desktop ~/.local/share/applications/
+# edit Exec= and Icon= in that copy to the absolute paths of your checkout,
+# e.g. Exec=/home/you/book-organiser/desktop/build/bin/desktop
+update-desktop-database ~/.local/share/applications   # optional, refreshes the menu cache
+```
+
+`StartupWMClass=desktop` matches the `WM_CLASS` the built binary reports
+(derived from `wails.json`'s `outputfilename`). If that filename ever
+changes, update `StartupWMClass` to match, or the desktop environment won't
+associate the running window with this launcher.
+
 ### Frontend-only commands
 
 ```bash

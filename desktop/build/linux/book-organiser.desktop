@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Book Organiser
+Comment=Scan, categorise, and organise an ebook library
+Exec=/absolute/path/to/book-organiser/desktop/build/bin/desktop
+Icon=/absolute/path/to/book-organiser/desktop/build/appicon.png
+Terminal=false
+Categories=Utility;Office;
+StartupWMClass=desktop
