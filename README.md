@@ -244,6 +244,21 @@ rules:
 - [`docs/superpowers/specs/2026-07-08-book-organiser-design.md`](docs/superpowers/specs/2026-07-08-book-organiser-design.md) — finalized design spec.
 - [`docs/superpowers/plans/2026-07-08-backend-pipeline.md`](docs/superpowers/plans/2026-07-08-backend-pipeline.md) — backend implementation plan.
 
+## Gotchas
+
+- **`runtime.MessageDialog`'s custom `Buttons` are macOS-only.** On
+  Linux/Windows, Wails ignores a custom `Buttons` list and shows a default
+  Yes/No dialog instead — so code that checks the dialog result against one
+  of the custom labels (e.g. `result == "Move files"`) will silently and
+  permanently fail to match on those platforms, with no error surfaced.
+  This bit `ConfirmApply` in `desktop/app.go`: Apply appeared to do nothing
+  when clicked on Linux, because the confirm dialog's "Yes" click was never
+  recognized as an affirmative answer. Fixed by having `isAffirmative`
+  accept the platform's real default labels ("Yes", "OK") alongside the
+  custom one, instead of comparing against the custom label alone. When
+  adding another `MessageDialog` with custom buttons, match on multiple
+  known labels rather than a single literal string.
+
 ## Reference
 
 [na--/ebook-tools](https://github.com/na--/ebook-tools) was used as prior
