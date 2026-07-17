@@ -48,6 +48,10 @@ func (a *App) ListCategoryWarnings() ([]appapi.CategoryWarningView, error) {
 	return a.api.ListCategoryWarnings()
 }
 
+func (a *App) UndoBatch(batchID string) error {
+	return a.api.UndoBatch(batchID)
+}
+
 // ConfirmApply shows a native Yes/No dialog before Apply runs, since
 // moving files is the one hard-to-reverse action in this flow. Returns
 // true if the user confirmed.
@@ -75,13 +79,34 @@ func (a *App) ConfirmApply(fileCount int, libraryFolder string) bool {
 	return isAffirmative(result)
 }
 
+// ConfirmUndo shows a native Yes/No dialog before UndoBatch runs, mirroring
+// ConfirmApply -- undoing moves files again, and without a Redo UI yet
+// there's no quick way back from an accidental click.
+func (a *App) ConfirmUndo(fileCount int) bool {
+	message := fmt.Sprintf(
+		"Move %d file(s) back to their original location?",
+		fileCount,
+	)
+	result, err := runtime.MessageDialog(a.ctx, runtime.MessageDialogOptions{
+		Type:          runtime.QuestionDialog,
+		Title:         "Undo this batch?",
+		Message:       message,
+		Buttons:       []string{"Undo", "Cancel"},
+		DefaultButton: "Cancel",
+	})
+	if err != nil {
+		return false
+	}
+	return isAffirmative(result)
+}
+
 // isAffirmative interprets a MessageDialog result. Wails only honors custom
 // Buttons on macOS; on Linux/Windows the dialog falls back to a default
 // Yes/No, so a literal check against the custom label alone silently
 // rejects every confirmation on those platforms.
 func isAffirmative(result string) bool {
 	switch result {
-	case "Move files", "Yes", "OK":
+	case "Move files", "Undo", "Yes", "OK":
 		return true
 	default:
 		return false
