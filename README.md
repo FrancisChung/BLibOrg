@@ -264,3 +264,6 @@ rules:
 [na--/ebook-tools](https://github.com/na--/ebook-tools) was used as prior
 art, though this project deliberately doesn't replicate its full feature
 set.
+
+The app icon (`desktop/build/appicon.png`) is
+<a href="https://www.flaticon.com/free-icons/library" title="library icons">Library icons created by popo2021 - Flaticon</a>.
