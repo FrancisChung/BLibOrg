@@ -36,6 +36,7 @@ function makeBook(overrides: Partial<BookView> = {}): BookView {
 
 describe('ScanReviewView', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.mocked(ConfirmApply).mockResolvedValue(true);
     vi.mocked(Apply).mockResolvedValue({ batchId: 'b1', results: [] });
   });
@@ -98,5 +99,83 @@ describe('ScanReviewView', () => {
     await waitFor(() => {
       expect(screen.getByText('Error: boom')).toBeInTheDocument();
     });
+  });
+
+  it('defaults every scanned book to checked and includes all of them in Apply', async () => {
+    vi.mocked(Scan).mockResolvedValue([makeBook()]);
+    render(ScanReviewView);
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Scan' }));
+    await waitFor(() => {
+      expect(screen.getByRole('checkbox', { name: 'Select book.epub' })).toBeChecked();
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
+    await waitFor(() => {
+      expect(Apply).toHaveBeenCalledTimes(1);
+    });
+    expect(vi.mocked(Apply).mock.calls[0][0]).toHaveLength(1);
+  });
+
+  it('unchecking a book excludes it from the Apply payload', async () => {
+    const bookA = makeBook({ id: '/inbox/a.epub', sourcePath: '/inbox/a.epub', oldFilename: 'a.epub' });
+    const bookB = makeBook({ id: '/inbox/b.epub', sourcePath: '/inbox/b.epub', oldFilename: 'b.epub' });
+    vi.mocked(Scan).mockResolvedValue([bookA, bookB]);
+    render(ScanReviewView);
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Scan' }));
+    await waitFor(() => {
+      expect(screen.getByRole('checkbox', { name: 'Select a.epub' })).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getByRole('checkbox', { name: 'Select a.epub' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
+    await waitFor(() => {
+      expect(Apply).toHaveBeenCalledTimes(1);
+    });
+    const applied = vi.mocked(Apply).mock.calls[0][0];
+    expect(applied).toHaveLength(1);
+    expect(applied[0].sourcePath).toBe('/inbox/b.epub');
+  });
+
+  it('select-all only affects currently visible (filtered) books', async () => {
+    const bookA = makeBook({
+      id: '/inbox/a.epub',
+      sourcePath: '/inbox/a.epub',
+      oldFilename: 'a.epub',
+      title: { value: 'Atomic Kotlin', source: 'Heuristic' },
+    });
+    const bookB = makeBook({
+      id: '/inbox/b.epub',
+      sourcePath: '/inbox/b.epub',
+      oldFilename: 'b.epub',
+      title: { value: 'Some Other Book', source: 'Heuristic' },
+    });
+    vi.mocked(Scan).mockResolvedValue([bookA, bookB]);
+    render(ScanReviewView);
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Scan' }));
+    await waitFor(() => {
+      expect(screen.getByRole('checkbox', { name: 'Select a.epub' })).toBeInTheDocument();
+    });
+
+    const search = screen.getByPlaceholderText('Search title, author, or filename…');
+    await fireEvent.input(search, { target: { value: 'Atomic' } });
+    await waitFor(() => {
+      expect(screen.queryByRole('checkbox', { name: 'Select b.epub' })).not.toBeInTheDocument();
+    });
+
+    // Only "a" is visible now; unchecking select-all must only affect "a".
+    await fireEvent.click(screen.getByRole('checkbox', { name: 'Select all' }));
+
+    await fireEvent.input(search, { target: { value: '' } });
+    await waitFor(() => {
+      expect(screen.getByRole('checkbox', { name: 'Select b.epub' })).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole('checkbox', { name: 'Select a.epub' })).not.toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Select b.epub' })).toBeChecked();
   });
 });

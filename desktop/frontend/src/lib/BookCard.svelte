@@ -3,8 +3,9 @@
   import type { BookView } from './types';
 
   export let book: BookView;
+  export let checked: boolean = true;
 
-  const dispatch = createEventDispatcher<{ edited: BookView }>();
+  const dispatch = createEventDispatcher<{ edited: BookView; toggled: boolean }>();
 
   const STATUS_LABEL: Record<string, string> = {
     Metadata: 'Metadata',
@@ -28,10 +29,23 @@
       dispatch('edited', book);
     }, 300);
   }
+
+  function toggleChecked(e: Event) {
+    dispatch('toggled', (e.target as HTMLInputElement).checked);
+  }
 </script>
 
 <div class="card">
-  <div class="old-name">{book.oldFilename}</div>
+  <div class="card-header">
+    <input
+      type="checkbox"
+      class="select"
+      {checked}
+      on:change={toggleChecked}
+      aria-label="Select {book.oldFilename}"
+    />
+    <div class="old-name">{book.oldFilename}</div>
+  </div>
   <div class="fields">
     <input
       class="title"
@@ -67,6 +81,14 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+  }
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .select {
+    flex-shrink: 0;
   }
   .old-name {
     font-size: 11px;

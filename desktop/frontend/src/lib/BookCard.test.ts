@@ -60,4 +60,25 @@ describe('BookCard', () => {
     expect(detail.author.value).toBe('Bruce Eckel, Svetlana Isakova');
     vi.useRealTimers();
   });
+
+  it('checkbox reflects the checked prop and defaults to checked', () => {
+    render(BookCard, { book: makeBook() });
+    expect(screen.getByRole('checkbox', { name: 'Select book.epub' })).toBeChecked();
+  });
+
+  it('renders unchecked when checked prop is false', () => {
+    render(BookCard, { book: makeBook(), checked: false });
+    expect(screen.getByRole('checkbox', { name: 'Select book.epub' })).not.toBeChecked();
+  });
+
+  it('dispatches "toggled" with the new value when the checkbox is clicked', async () => {
+    const { component } = render(BookCard, { book: makeBook(), checked: true });
+    const handler = vi.fn();
+    component.$on('toggled', handler);
+
+    await fireEvent.click(screen.getByRole('checkbox', { name: 'Select book.epub' }));
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler.mock.calls[0][0].detail).toBe(false);
+  });
 });

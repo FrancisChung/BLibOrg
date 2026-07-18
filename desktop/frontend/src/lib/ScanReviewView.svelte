@@ -13,6 +13,7 @@
   let applying = false;
   let resultBySourcePath: Record<string, { ok: boolean; error: string; skipped: boolean }> = {};
   let recomputeWarning: Record<string, boolean> = {};
+  let checked: Record<string, boolean> = {};
 
   async function doScan() {
     scanning = true;
@@ -21,9 +22,11 @@
     recomputeWarning = {};
     try {
       books = await Scan();
+      checked = Object.fromEntries(books.map((b) => [b.sourcePath, true]));
     } catch (e) {
       scanError = String(e);
       books = [];
+      checked = {};
     } finally {
       scanning = false;
     }
@@ -44,15 +47,28 @@
     }
   }
 
+  function onToggled(sourcePath: string, value: boolean) {
+    checked = { ...checked, [sourcePath]: value };
+  }
+
+  function toggleAllVisible(e: Event) {
+    const value = (e.target as HTMLInputElement).checked;
+    const updates: Record<string, boolean> = {};
+    for (const b of visibleBooks) {
+      updates[b.sourcePath] = value;
+    }
+    checked = { ...checked, ...updates };
+  }
+
   async function doApply() {
-    const eligible = visibleBooks.filter((b) => b.status !== 'Unresolved');
+    const eligible = selectedBooks.filter((b) => b.status !== 'Unresolved');
     const confirmed = await ConfirmApply(eligible.length, '');
     if (!confirmed) return;
 
     applying = true;
     applyError = '';
     try {
-      const result = await Apply(visibleBooks);
+      const result = await Apply(selectedBooks);
       const byPath: typeof resultBySourcePath = {};
       for (const r of result.results) {
         byPath[r.sourcePath] = { ok: r.ok, error: r.error, skipped: r.skipped };
@@ -66,13 +82,15 @@
   }
 
   $: visibleBooks = books.filter((b) => matchesFilter(b, activeFilter) && matchesQuery(b, query));
+  $: selectedBooks = visibleBooks.filter((b) => checked[b.sourcePath]);
+  $: allVisibleChecked = visibleBooks.length > 0 && visibleBooks.every((b) => checked[b.sourcePath]);
 </script>
 
 <div class="topbar">
   <h2>Scan &amp; Review</h2>
   <div>
     <button class="secondary" on:click={doScan} disabled={scanning}>{scanning ? 'Scanning…' : 'Scan'}</button>
-    <button on:click={doApply} disabled={applying || books.length === 0}>
+    <button on:click={doApply} disabled={applying || selectedBooks.length === 0}>
       {applying ? 'Applying…' : 'Apply'}
     </button>
   </div>
@@ -92,10 +110,20 @@
     on:filterChange={(e) => (activeFilter = e.detail)}
   />
 
+  <label class="select-all">
+    <input type="checkbox" checked={allVisibleChecked} on:change={toggleAllVisible} />
+    Select all
+  </label>
+
   <div class="cards">
     {#each visibleBooks as book (book.id)}
       <div class="card-row">
-        <BookCard {book} on:edited={onEdited} />
+        <BookCard
+          {book}
+          checked={checked[book.sourcePath]}
+          on:edited={onEdited}
+          on:toggled={(e) => onToggled(book.sourcePath, e.detail)}
+        />
         {#if recomputeWarning[book.sourcePath]}
           <div class="recompute-warning">⚠ couldn't update the destination path — showing the last known value</div>
         {/if}
@@ -148,6 +176,15 @@
     padding: 10px 14px;
     border-radius: 8px;
     font-size: 13px;
+  }
+  .select-all {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--bf-text-muted);
+    cursor: pointer;
+    width: fit-content;
   }
   .cards {
     display: flex;
