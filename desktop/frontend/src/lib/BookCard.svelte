@@ -65,10 +65,11 @@
       on:change={toggleChecked}
       aria-label="Select {book.oldFilename}"
     />
-    <!-- svelte-ignore a11y_no_static_element_interactions -- double-click-to-open is a
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <!-- svelte-ignore a11y_click_events_have_key_events -- click-to-open is a
          supplementary affordance (like a file manager icon), not the row's primary
          interaction, so it intentionally has no keyboard equivalent and no button/link role -->
-    <div class="old-name" on:dblclick={openOriginal}>{book.oldFilename}</div>
+    <div class="old-name" on:click={openOriginal}>{book.oldFilename}</div>
   </div>
   {#if openError}
     <div class="banner error">{openError}</div>

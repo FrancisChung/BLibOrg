@@ -104,11 +104,11 @@ describe('BookCard', () => {
     expect(detail.year.value).toBe('2021');
   });
 
-  it('double-clicking the filename opens the original file', async () => {
+  it('clicking the filename opens the original file', async () => {
     vi.mocked(OpenFile).mockResolvedValue(undefined);
     render(BookCard, { book: makeBook() });
 
-    await fireEvent.dblClick(screen.getByText('book.epub'));
+    await fireEvent.click(screen.getByText('book.epub'));
 
     await waitFor(() => {
       expect(OpenFile).toHaveBeenCalledWith('/inbox/book.epub');
@@ -119,7 +119,7 @@ describe('BookCard', () => {
     vi.mocked(OpenFile).mockRejectedValue(new Error('no application registered for this file type'));
     render(BookCard, { book: makeBook() });
 
-    await fireEvent.dblClick(screen.getByText('book.epub'));
+    await fireEvent.click(screen.getByText('book.epub'));
 
     await waitFor(() => {
       expect(screen.getByText('Error: no application registered for this file type')).toBeInTheDocument();
