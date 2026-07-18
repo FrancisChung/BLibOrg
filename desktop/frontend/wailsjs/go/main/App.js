@@ -26,6 +26,10 @@ export function ListOperationBatches() {
   return window['go']['main']['App']['ListOperationBatches']();
 }
 
+export function OpenFile(arg1) {
+  return window['go']['main']['App']['OpenFile'](arg1);
+}
+
 export function Recompute(arg1) {
   return window['go']['main']['App']['Recompute'](arg1);
 }

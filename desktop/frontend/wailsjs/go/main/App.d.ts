@@ -14,6 +14,8 @@ export function ListCategoryWarnings():Promise<Array<appapi.CategoryWarningView>
 
 export function ListOperationBatches():Promise<Array<appapi.OperationBatchView>>;
 
+export function OpenFile(arg1:string):Promise<void>;
+
 export function Recompute(arg1:appapi.BookView):Promise<appapi.BookView>;
 
 export function Scan():Promise<Array<appapi.BookView>>;

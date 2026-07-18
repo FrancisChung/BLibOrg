@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"os"
 
 	"github.com/FrancisChung/book-organiser/internal/appapi"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -50,6 +52,28 @@ func (a *App) ListCategoryWarnings() ([]appapi.CategoryWarningView, error) {
 
 func (a *App) UndoBatch(batchID string) error {
 	return a.api.UndoBatch(batchID)
+}
+
+// OpenFile opens the file at path in the OS default application for its
+// type. runtime.BrowserOpenURL is fire-and-forget (it returns nothing), so
+// the one failure this can actually report is the file no longer existing
+// at the recorded path -- a real scenario since Scan's results can go
+// stale if the file is moved or deleted outside the app before Open is
+// clicked.
+func (a *App) OpenFile(path string) error {
+	if _, err := os.Stat(path); err != nil {
+		return fmt.Errorf("open %s: %w", path, err)
+	}
+	runtime.BrowserOpenURL(a.ctx, fileURI(path))
+	return nil
+}
+
+// fileURI converts an absolute filesystem path into a file:// URI, safely
+// escaping characters (spaces, parentheses, etc.) that book filenames
+// routinely contain but that aren't valid unescaped in a URI.
+func fileURI(path string) string {
+	u := url.URL{Scheme: "file", Path: path}
+	return u.String()
 }
 
 // ConfirmApply shows a native Yes/No dialog before Apply runs, since

@@ -1,7 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, fireEvent, screen } from '@testing-library/svelte';
+import { render, fireEvent, screen, waitFor } from '@testing-library/svelte';
 import BookCard from './BookCard.svelte';
 import type { BookView } from './types';
+
+vi.mock('../../wailsjs/go/main/App', () => ({
+  OpenFile: vi.fn(),
+}));
+
+import { OpenFile } from '../../wailsjs/go/main/App';
 
 function makeBook(overrides: Partial<BookView> = {}): BookView {
   return {
@@ -96,5 +102,27 @@ describe('BookCard', () => {
     expect(detail.author.value).toBe('Atomic Kotlin');
     expect(detail.author.source).toBe('Edited');
     expect(detail.year.value).toBe('2021');
+  });
+
+  it('double-clicking the filename opens the original file', async () => {
+    vi.mocked(OpenFile).mockResolvedValue(undefined);
+    render(BookCard, { book: makeBook() });
+
+    await fireEvent.dblClick(screen.getByText('book.epub'));
+
+    await waitFor(() => {
+      expect(OpenFile).toHaveBeenCalledWith('/inbox/book.epub');
+    });
+  });
+
+  it('shows an error banner when OpenFile rejects', async () => {
+    vi.mocked(OpenFile).mockRejectedValue(new Error('no application registered for this file type'));
+    render(BookCard, { book: makeBook() });
+
+    await fireEvent.dblClick(screen.getByText('book.epub'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Error: no application registered for this file type')).toBeInTheDocument();
+    });
   });
 });

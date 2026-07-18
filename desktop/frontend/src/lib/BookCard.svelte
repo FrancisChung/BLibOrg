@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import type { BookView } from './types';
+  import { OpenFile } from '../../wailsjs/go/main/App';
 
   export let book: BookView;
   export let checked: boolean = true;
@@ -21,6 +22,7 @@
   };
 
   let debounceHandle: ReturnType<typeof setTimeout> | undefined;
+  let openError = '';
 
   function scheduleEdit(field: 'title' | 'author' | 'year', value: string) {
     book = { ...book, [field]: { value, source: 'Edited' } };
@@ -43,6 +45,15 @@
     };
     dispatch('edited', book);
   }
+
+  async function openOriginal() {
+    openError = '';
+    try {
+      await OpenFile(book.sourcePath);
+    } catch (e) {
+      openError = String(e);
+    }
+  }
 </script>
 
 <div class="card">
@@ -54,8 +65,14 @@
       on:change={toggleChecked}
       aria-label="Select {book.oldFilename}"
     />
-    <div class="old-name">{book.oldFilename}</div>
+    <!-- svelte-ignore a11y_no_static_element_interactions -- double-click-to-open is a
+         supplementary affordance (like a file manager icon), not the row's primary
+         interaction, so it intentionally has no keyboard equivalent and no button/link role -->
+    <div class="old-name" on:dblclick={openOriginal}>{book.oldFilename}</div>
   </div>
+  {#if openError}
+    <div class="banner error">{openError}</div>
+  {/if}
   <div class="fields">
     <input
       class="title"
@@ -106,6 +123,18 @@
   .old-name {
     font-size: 11px;
     color: var(--bf-text-muted);
+    cursor: pointer;
+    text-decoration: underline dotted;
+  }
+  .old-name:hover {
+    color: var(--bf-blue);
+  }
+  .banner.error {
+    background: var(--bf-amber-soft);
+    color: var(--bf-amber);
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 12px;
   }
   .fields {
     display: flex;
