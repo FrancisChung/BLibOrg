@@ -180,6 +180,34 @@ update-desktop-database ~/.local/share/applications   # optional, refreshes the 
 changes, update `StartupWMClass` to match, or the desktop environment won't
 associate the running window with this launcher.
 
+**Without this file installed, the taskbar icon silently reverts to a
+generic/broken-looking icon** — there's no error, it just looks wrong,
+and it's easy to lose track of having installed it (e.g. after a
+`~/.local/share/applications` cleanup). If the icon looks off again,
+check `ls ~/.local/share/applications/book-organiser.desktop` first
+before assuming something in the app itself regressed.
+
+**Two separate icon files, two separate renderers, don't conflate them:**
+- `desktop/build/appicon.png` is compiled into the binary via `//go:embed`
+  and wired through `options.Linux.Icon` in `desktop/main.go`. It's
+  flattened onto an **opaque white background** (no alpha channel) on
+  purpose: this specific consumer is Wails' own legacy X11
+  `icon_pixmap`+mask code, which doesn't apply alpha correctly on Linux
+  Mint/Cinnamon — a transparent PNG here renders as a black box, because
+  the pixels *underneath* the transparency happen to be black. Do not
+  "fix" this one to be transparent again.
+- `desktop/build/appicon-transparent.png` is only ever referenced by the
+  `.desktop` file's `Icon=` line, which the desktop environment loads
+  through its normal icon-theme/pixbuf pathway — a completely different
+  code path from the one above, and one that *does* composite alpha
+  correctly. This file keeps its real transparency, so the icon blends
+  into the dark taskbar like every other app's icon instead of showing as
+  a jarring white square.
+
+If you ever regenerate the app icon from a new source image, flatten a
+copy for `appicon.png` (the embedded one) but keep `appicon-transparent.png`
+as a genuinely transparent PNG — the two are not interchangeable.
+
 ### Frontend-only commands
 
 ```bash
