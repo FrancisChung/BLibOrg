@@ -3,8 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"os"
+	"os/exec"
+	osruntime "runtime"
 
 	"github.com/FrancisChung/book-organiser/internal/appapi"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -55,25 +56,36 @@ func (a *App) UndoBatch(batchID string) error {
 }
 
 // OpenFile opens the file at path in the OS default application for its
-// type. runtime.BrowserOpenURL is fire-and-forget (it returns nothing), so
-// the one failure this can actually report is the file no longer existing
-// at the recorded path -- a real scenario since Scan's results can go
-// stale if the file is moved or deleted outside the app before Open is
-// clicked.
+// type. This shells out to the platform's native opener rather than using
+// runtime.BrowserOpenURL: Wails v2.13.0 added security hardening that
+// rejects file:// URLs outright (blocking the file, javascript, data, and
+// ftp schemes), so routing local files through it always fails with
+// "Invalid URL scheme not allowed". The other real failure OpenFile can
+// report is the file no longer existing at the recorded path -- a real
+// scenario since Scan's results can go stale if the file is moved or
+// deleted outside the app before Open is clicked.
 func (a *App) OpenFile(path string) error {
 	if _, err := os.Stat(path); err != nil {
 		return fmt.Errorf("open %s: %w", path, err)
 	}
-	runtime.BrowserOpenURL(a.ctx, fileURI(path))
+	name, args := openCommand(path)
+	if err := exec.Command(name, args...).Start(); err != nil {
+		return fmt.Errorf("open %s: %w", path, err)
+	}
 	return nil
 }
 
-// fileURI converts an absolute filesystem path into a file:// URI, safely
-// escaping characters (spaces, parentheses, etc.) that book filenames
-// routinely contain but that aren't valid unescaped in a URI.
-func fileURI(path string) string {
-	u := url.URL{Scheme: "file", Path: path}
-	return u.String()
+// openCommand returns the platform-native command used to open path in its
+// default application.
+func openCommand(path string) (string, []string) {
+	switch osruntime.GOOS {
+	case "darwin":
+		return "open", []string{path}
+	case "windows":
+		return "rundll32", []string{"url.dll,FileProtocolHandler", path}
+	default:
+		return "xdg-open", []string{path}
+	}
 }
 
 // ConfirmApply shows a native Yes/No dialog before Apply runs, since

@@ -2,6 +2,7 @@ package main
 
 import (
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -28,22 +29,31 @@ func TestIsAffirmative(t *testing.T) {
 	}
 }
 
-func TestFileURI_EscapesSpacesAndParens(t *testing.T) {
-	got := fileURI("/library/Atomic Kotlin (2021) - Bruce Eckel.epub")
-	want := "file:///library/Atomic%20Kotlin%20%282021%29%20-%20Bruce%20Eckel.epub"
-	if got != want {
-		t.Errorf("fileURI() = %q, want %q", got, want)
+func TestOpenCommand_PicksPlatformOpener(t *testing.T) {
+	path := "/library/Atomic Kotlin (2021) - Bruce Eckel.epub"
+	name, args := openCommand(path)
+
+	var wantName string
+	var wantArgs []string
+	switch runtime.GOOS {
+	case "darwin":
+		wantName, wantArgs = "open", []string{path}
+	case "windows":
+		wantName, wantArgs = "rundll32", []string{"url.dll,FileProtocolHandler", path}
+	default:
+		wantName, wantArgs = "xdg-open", []string{path}
+	}
+
+	if name != wantName || len(args) != len(wantArgs) || args[len(args)-1] != wantArgs[len(wantArgs)-1] {
+		t.Errorf("openCommand(%q) = %q, %q, want %q, %q", path, name, args, wantName, wantArgs)
 	}
 }
 
 func TestOpenFile_NonExistentFileReturnsError(t *testing.T) {
-	// Only the non-existent-file path is safe to unit test: OpenFile
-	// returns before ever reaching runtime.BrowserOpenURL, which calls
-	// log.Fatal (terminating the process, not a recoverable panic) when
-	// ctx lacks a real Wails frontend value -- as a bare NewApp() always
-	// does outside a live Wails runtime. This matches the existing
-	// precedent set by ConfirmApply/ConfirmUndo having no direct tests
-	// for the same reason.
+	// Only the non-existent-file path is safe to unit test here: for an
+	// existing file, OpenFile actually launches the platform opener
+	// (xdg-open/open/rundll32), which would pop open a real application
+	// on whatever machine runs the test suite.
 	app := NewApp()
 	err := app.OpenFile(filepath.Join(t.TempDir(), "does-not-exist.epub"))
 	if err == nil {
