@@ -33,6 +33,16 @@
   function toggleChecked(e: Event) {
     dispatch('toggled', (e.target as HTMLInputElement).checked);
   }
+
+  function swapTitleAuthor() {
+    if (debounceHandle) clearTimeout(debounceHandle);
+    book = {
+      ...book,
+      title: { value: book.author.value, source: 'Edited' },
+      author: { value: book.title.value, source: 'Edited' },
+    };
+    dispatch('edited', book);
+  }
 </script>
 
 <div class="card">
@@ -52,6 +62,9 @@
       value={book.title.value}
       on:input={(e) => scheduleEdit('title', (e.target as HTMLInputElement).value)}
     />
+    <button type="button" class="swap" on:click={swapTitleAuthor} aria-label="Swap title and author">
+      &lt;&nbsp;&gt;
+    </button>
     <input
       class="author"
       value={book.author.value}
@@ -110,6 +123,18 @@
   .title { flex: 2; }
   .author { flex: 2; }
   .year { flex: 1; }
+  .swap {
+    flex: 0 0 auto;
+    align-self: center;
+    background: none;
+    border: 1px solid var(--bf-border);
+    border-radius: 6px;
+    color: var(--bf-text-muted);
+    font-family: inherit;
+    font-size: 11px;
+    padding: 4px 6px;
+    cursor: pointer;
+  }
   .dest-path {
     font-size: 11.5px;
     color: var(--bf-text-muted);

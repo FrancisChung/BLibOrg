@@ -81,4 +81,20 @@ describe('BookCard', () => {
     expect(handler).toHaveBeenCalledTimes(1);
     expect(handler.mock.calls[0][0].detail).toBe(false);
   });
+
+  it('swap button exchanges title and author, marks both Edited, and dispatches immediately', async () => {
+    const { component } = render(BookCard, { book: makeBook() });
+    const handler = vi.fn();
+    component.$on('edited', handler);
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Swap title and author' }));
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    const detail = handler.mock.calls[0][0].detail;
+    expect(detail.title.value).toBe('Bruce Eckel, Svetlana Isakova');
+    expect(detail.title.source).toBe('Edited');
+    expect(detail.author.value).toBe('Atomic Kotlin');
+    expect(detail.author.source).toBe('Edited');
+    expect(detail.year.value).toBe('2021');
+  });
 });
