@@ -12,7 +12,8 @@ set -euo pipefail
 # of git via .gitignore); it's optional, so this step is skipped if it's
 # absent.
 #
-# Usage: same as `wails build`, e.g. ./build.sh -tags webkit2_41
+# Usage: same as `wails build`. Defaults to -tags webkit2_41 when no
+# arguments are given; pass your own args to override, e.g. ./build.sh -clean
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -32,4 +33,7 @@ else
 fi
 
 cd "$SCRIPT_DIR"
+if [ "$#" -eq 0 ]; then
+  set -- -tags webkit2_41
+fi
 wails build "$@"
