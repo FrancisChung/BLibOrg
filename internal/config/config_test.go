@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -94,5 +95,36 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	}
 	if loaded.Rules[0] != original.Rules[0] {
 		t.Errorf("Rules round-trip mismatch:\n got  %+v\n want %+v", loaded.Rules[0], original.Rules[0])
+	}
+}
+
+func TestValidateRules_InvalidRegexReported(t *testing.T) {
+	cfg := Config{
+		Rules: []Rule{
+			{MatchField: "filename", MatchValue: "(?i)docker"},
+			{MatchField: "filename", MatchValue: `(?i)\bc++\b`},
+			{MatchField: "author", MatchValue: "++broken but not a filename rule"},
+		},
+	}
+
+	warnings := ValidateRules(cfg)
+	if len(warnings) != 1 {
+		t.Fatalf("ValidateRules() = %v, want exactly 1 warning", warnings)
+	}
+	if !strings.Contains(warnings[0], "rule 2") || !strings.Contains(warnings[0], "c++") {
+		t.Errorf("warning = %q, want it to identify rule 2 and its pattern", warnings[0])
+	}
+}
+
+func TestValidateRules_AllValidReturnsNoWarnings(t *testing.T) {
+	cfg := Config{
+		Rules: []Rule{
+			{MatchField: "filename", MatchValue: "(?i)docker"},
+			{MatchField: "author", MatchValue: "Isaac Asimov"},
+		},
+	}
+
+	if warnings := ValidateRules(cfg); len(warnings) != 0 {
+		t.Errorf("ValidateRules() = %v, want none", warnings)
 	}
 }

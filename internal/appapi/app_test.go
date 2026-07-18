@@ -57,6 +57,37 @@ func TestConfigStatus_MissingFile(t *testing.T) {
 	}
 }
 
+func TestConfigStatus_InvalidRuleRegexSurfacedAsWarning(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	cfg := config.Config{
+		General: config.General{
+			WorkingFolder:  dir,
+			LibraryFolder:  filepath.Join(dir, "library"),
+			LogFolder:      filepath.Join(dir, "logs"),
+			FilenameFormat: "{title} ({year}) - {author}",
+		},
+		Categories: map[string]config.Category{"Uncategorized": {}},
+		Rules: []config.Rule{
+			{MatchField: "filename", MatchValue: `(?i)\bc++\b`, Category: "Technology"},
+		},
+	}
+	if err := config.Save(path, cfg); err != nil {
+		t.Fatalf("Save config: %v", err)
+	}
+
+	app := NewApp()
+	app.configPath = func() (string, error) { return path, nil }
+
+	status := app.ConfigStatus()
+	if status.Error != "" {
+		t.Errorf("Error = %q, want empty (an invalid rule regex is a warning, not a load failure)", status.Error)
+	}
+	if len(status.Warnings) != 1 {
+		t.Fatalf("Warnings = %v, want exactly 1", status.Warnings)
+	}
+}
+
 func TestDefaultConfigPath_EndsWithExpectedSuffix(t *testing.T) {
 	path, err := DefaultConfigPath()
 	if err != nil {

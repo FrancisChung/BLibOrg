@@ -9,12 +9,14 @@
 
   let activeView: SidebarView = 'scan';
   let configError = '';
+  let configWarnings: string[] = [];
 
   onMount(async () => {
     const status = await ConfigStatus();
     if (status.error) {
       configError = `No usable config at ${status.path}: ${status.error}`;
     }
+    configWarnings = status.warnings ?? [];
   });
 
   function onNavigate(e: CustomEvent<SidebarView>) {
@@ -28,6 +30,9 @@
     {#if configError}
       <div class="banner error">{configError}</div>
     {/if}
+    {#each configWarnings as warning}
+      <div class="banner warning">Config: {warning}</div>
+    {/each}
     {#if activeView === 'scan'}
       <ScanReviewView />
     {:else if activeView === 'operations'}
@@ -51,7 +56,8 @@
     flex-direction: column;
     gap: 16px;
   }
-  .banner.error {
+  .banner.error,
+  .banner.warning {
     background: var(--bf-amber-soft);
     color: var(--bf-amber);
     padding: 10px 14px;

@@ -34,12 +34,13 @@ export interface ApplyResult {
   results: ApplyResultEntry[];
 }
 
-export type StatusFilter = 'all' | 'Partial' | 'duplicates' | 'Heuristic' | 'Metadata';
+export type StatusFilter = 'all' | 'Partial' | 'duplicates' | 'Heuristic' | 'Metadata' | 'uncategorized';
 
 export const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'Partial', label: 'Needs review' },
   { key: 'duplicates', label: 'Duplicates' },
+  { key: 'uncategorized', label: 'Uncategorized' },
   { key: 'Heuristic', label: 'Heuristic' },
   { key: 'Metadata', label: 'Metadata' },
 ];
@@ -47,6 +48,7 @@ export const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
 export function matchesFilter(b: BookView, filter: StatusFilter): boolean {
   if (filter === 'all') return true;
   if (filter === 'duplicates') return b.duplicateStatus !== 'NotDuplicate';
+  if (filter === 'uncategorized') return b.category === 'Uncategorized';
   return b.status === filter;
 }
 

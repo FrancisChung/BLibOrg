@@ -178,4 +178,33 @@ describe('ScanReviewView', () => {
     expect(screen.getByRole('checkbox', { name: 'Select a.epub' })).not.toBeChecked();
     expect(screen.getByRole('checkbox', { name: 'Select b.epub' })).toBeChecked();
   });
+
+  it('the Uncategorized filter chip shows only books without a category', async () => {
+    const categorized = makeBook({
+      id: '/inbox/a.epub',
+      sourcePath: '/inbox/a.epub',
+      oldFilename: 'a.epub',
+      category: 'Technology',
+    });
+    const uncategorized = makeBook({
+      id: '/inbox/b.epub',
+      sourcePath: '/inbox/b.epub',
+      oldFilename: 'b.epub',
+      category: 'Uncategorized',
+    });
+    vi.mocked(Scan).mockResolvedValue([categorized, uncategorized]);
+    render(ScanReviewView);
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Scan' }));
+    await waitFor(() => {
+      expect(screen.getByText('a.epub')).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Uncategorized' }));
+
+    await waitFor(() => {
+      expect(screen.queryByText('a.epub')).not.toBeInTheDocument();
+    });
+    expect(screen.getByText('b.epub')).toBeInTheDocument();
+  });
 });

@@ -148,6 +148,7 @@ export namespace appapi {
 	export class ConfigStatusView {
 	    path: string;
 	    error: string;
+	    warnings: string[];
 	
 	    static createFrom(source: any = {}) {
 	        return new ConfigStatusView(source);
@@ -157,6 +158,7 @@ export namespace appapi {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.path = source["path"];
 	        this.error = source["error"];
+	        this.warnings = source["warnings"];
 	    }
 	}
 	

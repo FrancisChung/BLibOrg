@@ -32,8 +32,9 @@ func NewApp() *App {
 // failed, why -- so the UI can show a precise "no config found at <path>"
 // message instead of a blank screen.
 type ConfigStatusView struct {
-	Path  string `json:"path"`
-	Error string `json:"error"`
+	Path     string   `json:"path"`
+	Error    string   `json:"error"`
+	Warnings []string `json:"warnings"`
 }
 
 func (a *App) ConfigStatus() ConfigStatusView {
@@ -41,10 +42,11 @@ func (a *App) ConfigStatus() ConfigStatusView {
 	if err != nil {
 		return ConfigStatusView{Error: err.Error()}
 	}
-	if _, err := config.Load(path); err != nil {
+	cfg, err := config.Load(path)
+	if err != nil {
 		return ConfigStatusView{Path: path, Error: err.Error()}
 	}
-	return ConfigStatusView{Path: path}
+	return ConfigStatusView{Path: path, Warnings: config.ValidateRules(cfg)}
 }
 
 // loadConfig resolves the config path and loads it, for use by Scan,

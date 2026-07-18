@@ -100,6 +100,9 @@
     {#if book.duplicateStatus !== 'NotDuplicate'}
       <span class="pill dup">{DUP_LABEL[book.duplicateStatus] ?? book.duplicateStatus}</span>
     {/if}
+    {#if book.category === 'Uncategorized'}
+      <span class="pill uncategorized">Uncategorized</span>
+    {/if}
   </div>
 </div>
 
@@ -195,5 +198,9 @@
   .dup {
     background: var(--bf-blue-soft);
     color: var(--bf-blue);
+  }
+  .uncategorized {
+    background: var(--bf-amber-soft);
+    color: var(--bf-amber);
   }
 </style>

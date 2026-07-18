@@ -21,6 +21,17 @@ describe('FilterBar', () => {
     expect(handler.mock.calls[0][0].detail).toBe('duplicates');
   });
 
+  it('emits filterChange("uncategorized") when the Uncategorized chip is clicked', async () => {
+    const { component } = render(FilterBar, { query: '', activeFilter: 'all' });
+    const handler = vi.fn();
+    component.$on('filterChange', handler);
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Uncategorized' }));
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler.mock.calls[0][0].detail).toBe('uncategorized');
+  });
+
   it('emits queryChange as the search input changes', async () => {
     const { component } = render(FilterBar, { query: '', activeFilter: 'all' });
     const handler = vi.fn();

@@ -65,4 +65,17 @@ describe('App', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Operations' }));
     expect(screen.getByText(/No usable config at/)).toBeInTheDocument();
   });
+
+  it('shows a banner for each config rule warning', async () => {
+    vi.mocked(ConfigStatus).mockResolvedValue({
+      path: '/fake/config.yaml',
+      error: '',
+      warnings: ['rule 9 (match_value "(?i)\\bc++\\b"): invalid regex: invalid nested repetition operator: `++`'],
+    });
+    render(App);
+
+    await waitFor(() => {
+      expect(screen.getByText(/rule 9/)).toBeInTheDocument();
+    });
+  });
 });

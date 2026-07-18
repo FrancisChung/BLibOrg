@@ -1,8 +1,12 @@
 package config
 
-import "os"
+import (
+	"fmt"
+	"os"
+	"regexp"
 
-import "gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v3"
+)
 
 type Config struct {
 	General    General             `yaml:"general"`
@@ -43,6 +47,23 @@ func Load(path string) (Config, error) {
 		return Config{}, err
 	}
 	return cfg, nil
+}
+
+// ValidateRules compiles every filename-matching rule's regex and returns a
+// human-readable warning for each one that fails, so a typo'd pattern (e.g.
+// unescaped regex metacharacters) doesn't silently never match instead of
+// being reported.
+func ValidateRules(cfg Config) []string {
+	var warnings []string
+	for i, rule := range cfg.Rules {
+		if rule.MatchField != "filename" {
+			continue
+		}
+		if _, err := regexp.Compile(rule.MatchValue); err != nil {
+			warnings = append(warnings, fmt.Sprintf("rule %d (match_value %q): invalid regex: %v", i+1, rule.MatchValue, err))
+		}
+	}
+	return warnings
 }
 
 func Save(path string, cfg Config) error {

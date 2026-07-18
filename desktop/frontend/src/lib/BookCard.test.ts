@@ -47,6 +47,16 @@ describe('BookCard', () => {
     expect(screen.getByText('Likely dup')).toBeInTheDocument();
   });
 
+  it('shows an Uncategorized badge when category is Uncategorized', () => {
+    render(BookCard, { book: makeBook({ category: 'Uncategorized' }) });
+    expect(screen.getByText('Uncategorized')).toBeInTheDocument();
+  });
+
+  it('does not show an Uncategorized badge once the book has a category', () => {
+    render(BookCard, { book: makeBook({ category: 'Technology' }) });
+    expect(screen.queryByText('Uncategorized')).not.toBeInTheDocument();
+  });
+
   it('dispatches "edited" with source set to Edited after debounce, on title change', async () => {
     vi.useFakeTimers();
     const { component } = render(BookCard, { book: makeBook() });
