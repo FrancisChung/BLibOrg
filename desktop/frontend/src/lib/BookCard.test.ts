@@ -49,12 +49,43 @@ describe('BookCard', () => {
 
   it('shows an Uncategorized badge when category is Uncategorized', () => {
     render(BookCard, { book: makeBook({ category: 'Uncategorized' }) });
-    expect(screen.getByText('Uncategorized')).toBeInTheDocument();
+    expect(screen.getByText('Uncategorized', { selector: '.pill' })).toBeInTheDocument();
   });
 
   it('does not show an Uncategorized badge once the book has a category', () => {
     render(BookCard, { book: makeBook({ category: 'Technology' }) });
     expect(screen.queryByText('Uncategorized')).not.toBeInTheDocument();
+  });
+
+  it('highlights the category/subcategory folder within the destination path', () => {
+    render(
+      BookCard,
+      {
+        book: makeBook({
+          category: 'Technology',
+          subcategory: 'C++',
+          destPath: '/library/Technology/C++/Effective Modern C++ (2014) - Scott Meyers.epub',
+        }),
+      },
+    );
+    const folder = screen.getByText('Technology/C++');
+    expect(folder).toBeInTheDocument();
+    expect(folder.className).toContain('dest-folder');
+  });
+
+  it('highlights the folder in amber when the book is Uncategorized', () => {
+    render(
+      BookCard,
+      {
+        book: makeBook({
+          category: 'Uncategorized',
+          subcategory: '',
+          destPath: '/library/Uncategorized/Atomic Kotlin (2021) - Bruce Eckel.epub',
+        }),
+      },
+    );
+    const folder = screen.getByText('Uncategorized', { selector: '.dest-folder' });
+    expect(folder.className).toContain('uncategorized');
   });
 
   it('dispatches "edited" with source set to Edited after debounce, on title change', async () => {

@@ -54,6 +54,24 @@
       openError = String(e);
     }
   }
+
+  // destPath is always <libraryFolder>/<category>[/<subcategory>]/<filename>
+  // (see rename.BuildPath), so the category/subcategory segment is always
+  // the last 1-2 path components before the filename. Discard those parsed
+  // segments and use book.category/subcategory as the label instead -- they
+  // aren't sanitized on the way into destPath, so this is equivalent, and
+  // it keeps the highlighted label consistent with the category pill even
+  // if destPath is ever out of sync (e.g. mid-edit recompute).
+  function splitDestPath(b: BookView): { prefix: string; folder: string; filename: string } {
+    const parts = b.destPath.split(/[\\/]+/).filter(Boolean);
+    const filename = parts.pop() ?? '';
+    const depth = b.subcategory ? 2 : b.category ? 1 : 0;
+    parts.splice(parts.length - depth, depth);
+    const folder = b.subcategory ? `${b.category}/${b.subcategory}` : b.category;
+    return { prefix: parts.join('/'), folder, filename };
+  }
+
+  $: destParts = splitDestPath(book);
 </script>
 
 <div class="card">
@@ -94,7 +112,13 @@
       on:input={(e) => scheduleEdit('year', (e.target as HTMLInputElement).value)}
     />
   </div>
-  <div class="dest-path">→ {book.destPath}</div>
+  <div class="dest-path">
+    →
+    {#if destParts.prefix}{destParts.prefix}/{/if}<span
+      class="dest-folder"
+      class:uncategorized={book.category === 'Uncategorized'}>{destParts.folder}</span
+    >{#if destParts.folder}/{/if}{destParts.filename}
+  </div>
   <div class="badges">
     <span class="pill status-{book.status}">{STATUS_LABEL[book.status] ?? book.status}</span>
     {#if book.duplicateStatus !== 'NotDuplicate'}
@@ -172,6 +196,13 @@
     font-size: 11.5px;
     color: var(--bf-text-muted);
     word-break: break-word;
+  }
+  .dest-folder {
+    font-weight: 700;
+    color: var(--bf-blue);
+  }
+  .dest-folder.uncategorized {
+    color: var(--bf-amber);
   }
   .badges {
     display: flex;
