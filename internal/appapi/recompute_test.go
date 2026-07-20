@@ -85,3 +85,44 @@ func TestRecompute_PartialStatusWhenAuthorMissing(t *testing.T) {
 		t.Errorf("Status = %q, want Partial", got.Status)
 	}
 }
+
+func TestRecompute_ManualCategoryPickSurvivesRecompute(t *testing.T) {
+	working := t.TempDir()
+	library := filepath.Join(t.TempDir(), "library")
+	logDir := filepath.Join(t.TempDir(), "logs")
+	configPath := writeTestConfigWithRules(t, working, library, logDir,
+		nil, // no rules that would match -- would fall back to Uncategorized without the manual override
+		map[string]config.Category{
+			"Fiction":       {Subcategories: []string{"Sci-Fi"}},
+			"Uncategorized": {},
+		},
+	)
+
+	app := NewApp()
+	app.configPath = func() (string, error) { return configPath, nil }
+
+	edited := BookView{
+		SourcePath:     filepath.Join(working, "some.epub"),
+		Title:          Field{Value: "Foundation", Source: "Metadata"},
+		Author:         Field{Value: "Someone Unmatched", Source: "Metadata"},
+		Year:           Field{Value: "1951", Source: "Metadata"},
+		Category:       "Fiction",
+		Subcategory:    "Sci-Fi",
+		CategoryManual: true,
+	}
+
+	got, err := app.Recompute(edited)
+	if err != nil {
+		t.Fatalf("Recompute returned error: %v", err)
+	}
+	if got.Category != "Fiction" || got.Subcategory != "Sci-Fi" {
+		t.Errorf("Category/Subcategory = %q/%q, want Fiction/Sci-Fi (manual pick preserved)", got.Category, got.Subcategory)
+	}
+	if got.Status != "Edited" {
+		t.Errorf("Status = %q, want Edited", got.Status)
+	}
+	wantDestFragment := filepath.Join("Fiction", "Sci-Fi", "Foundation (1951) - Someone Unmatched.epub")
+	if !strings.HasSuffix(got.DestPath, wantDestFragment) {
+		t.Errorf("DestPath = %q, want suffix %q", got.DestPath, wantDestFragment)
+	}
+}

@@ -98,6 +98,26 @@ func TestBookStatus(t *testing.T) {
 			},
 			want: SourcePartial,
 		},
+		{
+			name: "manual category pick reports Edited even when title/author/year are all Metadata",
+			book: Book{
+				Title:          Field{"T", SourceMetadata},
+				Author:         Field{"A", SourceMetadata},
+				Year:           Field{"2024", SourceMetadata},
+				CategoryManual: true,
+			},
+			want: SourceManual,
+		},
+		{
+			name: "manual category pick does not override an unresolved title",
+			book: Book{
+				Title:          Field{"", SourceUnresolved},
+				Author:         Field{"A", SourceMetadata},
+				Year:           Field{"2024", SourceMetadata},
+				CategoryManual: true,
+			},
+			want: SourceUnresolved,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

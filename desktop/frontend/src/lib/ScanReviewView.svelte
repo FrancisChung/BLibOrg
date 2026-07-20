@@ -1,8 +1,9 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import FilterBar from './FilterBar.svelte';
   import BookCard from './BookCard.svelte';
-  import { matchesFilter, matchesQuery, type BookView, type StatusFilter } from './types';
-  import { Scan, Recompute, Apply, ConfirmApply } from '../../wailsjs/go/main/App';
+  import { matchesFilter, matchesQuery, type BookView, type DestinationView, type StatusFilter } from './types';
+  import { Scan, Recompute, Apply, ConfirmApply, Categories } from '../../wailsjs/go/main/App';
 
   let books: BookView[] = [];
   let query = '';
@@ -14,6 +15,17 @@
   let resultBySourcePath: Record<string, { ok: boolean; error: string; skipped: boolean }> = {};
   let recomputeWarning: Record<string, boolean> = {};
   let checked: Record<string, boolean> = {};
+  let destinations: DestinationView[] = [];
+
+  onMount(async () => {
+    try {
+      destinations = (await Categories()) ?? [];
+    } catch (e) {
+      // Non-fatal: the destination dropdown just has no options if this
+      // fails. Scan/Apply, this view's primary purpose, are unaffected.
+      console.error('Categories failed', e);
+    }
+  });
 
   async function doScan() {
     scanning = true;
@@ -120,6 +132,7 @@
       <div class="card-row">
         <BookCard
           {book}
+          {destinations}
           checked={checked[book.sourcePath]}
           on:edited={onEdited}
           on:toggled={(e) => onToggled(book.sourcePath, e.detail)}

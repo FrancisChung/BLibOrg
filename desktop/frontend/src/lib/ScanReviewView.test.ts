@@ -7,10 +7,11 @@ vi.mock('../../wailsjs/go/main/App', () => ({
   Recompute: vi.fn(),
   Apply: vi.fn(),
   ConfirmApply: vi.fn(),
+  Categories: vi.fn(),
 }));
 
 import ScanReviewView from './ScanReviewView.svelte';
-import { Scan, Apply, ConfirmApply } from '../../wailsjs/go/main/App';
+import { Scan, Apply, ConfirmApply, Categories } from '../../wailsjs/go/main/App';
 
 function makeBook(overrides: Partial<BookView> = {}): BookView {
   return {
@@ -27,6 +28,7 @@ function makeBook(overrides: Partial<BookView> = {}): BookView {
     category: 'Uncategorized',
     subcategory: '',
     categoryWarning: '',
+    categoryManual: false,
     destPath: '/library/Uncategorized/Atomic Kotlin (2021) - Bruce Eckel.epub',
     duplicateStatus: 'NotDuplicate',
     duplicateGroupId: '',
@@ -39,6 +41,7 @@ describe('ScanReviewView', () => {
     vi.clearAllMocks();
     vi.mocked(ConfirmApply).mockResolvedValue(true);
     vi.mocked(Apply).mockResolvedValue({ batchId: 'b1', results: [] });
+    vi.mocked(Categories).mockResolvedValue([]);
   });
 
   it('Apply only moves the currently visible (filtered) books, not the whole scan', async () => {
@@ -206,5 +209,17 @@ describe('ScanReviewView', () => {
       expect(screen.queryByText('a.epub')).not.toBeInTheDocument();
     });
     expect(screen.getByText('b.epub')).toBeInTheDocument();
+  });
+
+  it('fetches destinations on mount and shows them in every book\'s picker', async () => {
+    vi.mocked(Categories).mockResolvedValue([{ category: 'Fiction', subcategory: 'Sci-Fi' }]);
+    vi.mocked(Scan).mockResolvedValue([makeBook({ category: 'Uncategorized' })]);
+    render(ScanReviewView);
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Scan' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Fiction / Sci-Fi')).toBeInTheDocument();
+    });
   });
 });

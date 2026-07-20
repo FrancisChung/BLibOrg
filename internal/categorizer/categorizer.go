@@ -18,6 +18,10 @@ const UncategorizedName = "Uncategorized"
 // if nothing matches, it falls back to the embedded genre/subject metadata
 // against configured subcategory names; if that also fails, Uncategorized.
 func Categorize(b *book.Book, cfg config.Config) {
+	if b.CategoryManual {
+		return
+	}
+
 	filename := filepath.Base(b.SourcePath)
 
 	for _, rule := range cfg.Rules {

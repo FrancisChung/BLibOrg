@@ -99,4 +99,39 @@ func TestDefaultConfigPath_EndsWithExpectedSuffix(t *testing.T) {
 	}
 }
 
+func TestCategories_ReturnsSortedDestinationsExcludingUncategorized(t *testing.T) {
+	working := t.TempDir()
+	configPath := writeTestConfigWithRules(t, working, filepath.Join(t.TempDir(), "library"), filepath.Join(t.TempDir(), "logs"),
+		nil,
+		map[string]config.Category{
+			"Technology":    {Subcategories: []string{"Python", "Java"}},
+			"Food":          {Subcategories: []string{"Mexican"}},
+			"Fiction":       {},
+			"Uncategorized": {},
+		},
+	)
+
+	app := NewApp()
+	app.configPath = func() (string, error) { return configPath, nil }
+
+	got, err := app.Categories()
+	if err != nil {
+		t.Fatalf("Categories returned error: %v", err)
+	}
+	want := []DestinationView{
+		{Category: "Fiction", Subcategory: ""},
+		{Category: "Food", Subcategory: "Mexican"},
+		{Category: "Technology", Subcategory: "Java"},
+		{Category: "Technology", Subcategory: "Python"},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("Categories() = %+v, want %+v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("Categories()[%d] = %+v, want %+v", i, got[i], want[i])
+		}
+	}
+}
+
 var _ = os.TempDir // keep os imported for future tests in this file

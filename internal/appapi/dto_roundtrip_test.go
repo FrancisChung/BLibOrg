@@ -45,3 +45,18 @@ func TestViewToBook_UnknownSourceStringBecomesUnresolved(t *testing.T) {
 		t.Errorf("Title.Source = %v, want SourceUnresolved for an unrecognized source string", b.Title.Source)
 	}
 }
+
+func TestViewToBook_RoundTripsCategoryFields(t *testing.T) {
+	v := BookView{
+		SourcePath:     "/inbox/foundation.epub",
+		Category:       "Fiction",
+		Subcategory:    "Sci-Fi",
+		CategoryManual: true,
+	}
+
+	b := viewToBook(v)
+
+	if b.Category != "Fiction" || b.Subcategory != "Sci-Fi" || !b.CategoryManual {
+		t.Errorf("Category/Subcategory/CategoryManual = %q/%q/%v, want Fiction/Sci-Fi/true", b.Category, b.Subcategory, b.CategoryManual)
+	}
+}
