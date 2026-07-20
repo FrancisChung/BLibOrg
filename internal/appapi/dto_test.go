@@ -87,3 +87,22 @@ func TestBookToView_UnresolvedTitle(t *testing.T) {
 		t.Errorf("Status = %q, want Unresolved", v.Status)
 	}
 }
+
+func TestBookToView_CarriesCategoryManual(t *testing.T) {
+	b := &book.Book{
+		SourcePath:     "/inbox/foundation.epub",
+		Title:          book.Field{Value: "Foundation", Source: book.SourceMetadata},
+		Category:       "Fiction",
+		Subcategory:    "Sci-Fi",
+		CategoryManual: true,
+	}
+
+	v := bookToView(b)
+
+	if !v.CategoryManual {
+		t.Error("CategoryManual = false, want true")
+	}
+	if v.Category != "Fiction" || v.Subcategory != "Sci-Fi" {
+		t.Errorf("Category/Subcategory = %q/%q, want Fiction/Sci-Fi", v.Category, v.Subcategory)
+	}
+}

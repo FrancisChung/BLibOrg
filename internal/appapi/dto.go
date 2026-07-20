@@ -34,6 +34,7 @@ type BookView struct {
 	Category         string `json:"category"`
 	Subcategory      string `json:"subcategory"`
 	CategoryWarning  string `json:"categoryWarning"`
+	CategoryManual   bool   `json:"categoryManual"`
 	DestPath         string `json:"destPath"`
 	DuplicateStatus  string `json:"duplicateStatus"`
 	DuplicateGroupID string `json:"duplicateGroupId"`
@@ -71,6 +72,7 @@ func bookToView(b *book.Book) BookView {
 		Category:         b.Category,
 		Subcategory:      b.Subcategory,
 		CategoryWarning:  b.CategoryWarning,
+		CategoryManual:   b.CategoryManual,
 		DestPath:         b.DestPath,
 		DuplicateStatus:  duplicateStatusToView(b.DuplicateStatus),
 		DuplicateGroupID: b.DuplicateGroupID,
@@ -106,9 +108,12 @@ func duplicateStatusFromView(s string) book.DuplicateStatus {
 }
 
 // viewToBook converts a BookView back into a book.Book carrying only the
-// fields that are genuine inputs to Categorize/BuildPath/Status (Category,
-// Subcategory, DestPath, and Status itself are outputs, not carried over --
-// callers recompute them).
+// fields that are genuine inputs to Categorize/BuildPath/Status. DestPath
+// and Status itself are pure outputs, never carried over. Category and
+// Subcategory ARE carried over (as of CategoryManual support) so a manual
+// destination pick survives into Categorize, which itself immediately
+// returns without touching them when CategoryManual is true; when it's
+// false these values are just overwritten by Categorize as before.
 func viewToBook(v BookView) *book.Book {
 	return &book.Book{
 		SourcePath:       v.SourcePath,
@@ -118,6 +123,9 @@ func viewToBook(v BookView) *book.Book {
 		Title:            fieldFromView(v.Title),
 		Author:           fieldFromView(v.Author),
 		Year:             fieldFromView(v.Year),
+		Category:         v.Category,
+		Subcategory:      v.Subcategory,
+		CategoryManual:   v.CategoryManual,
 		DuplicateGroupID: v.DuplicateGroupID,
 		DuplicateStatus:  duplicateStatusFromView(v.DuplicateStatus),
 	}
