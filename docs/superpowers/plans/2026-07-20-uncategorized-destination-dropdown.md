@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Let a user manually pick a real category/subcategory destination for an Uncategorized book card from a right-justified dropdown, with the pick surviving further edits and Apply moving the file there.
+**Goal:** Let a user manually pick a real category/subcategory destination for any book card (not just Uncategorized ones — widened mid-implementation, see Global Constraints) from a right-justified dropdown, with the pick surviving further edits and Apply moving the file there.
 
 **Architecture:** Add a `CategoryManual bool` flag to `book.Book` that makes `categorizer.Categorize` a no-op and makes `book.Book.Status()` report `SourceManual` ("Edited"). Thread that flag through the `appapi` DTO layer so it survives the existing `Recompute` round trip. Expose `config.yaml`'s categories to the frontend via a new `Categories()` read. In `BookCard.svelte`, a `<select>` in the existing badges row lets the user pick a destination, reusing the existing `edited` → `Recompute()` flow that title/author edits already use — no changes to Apply itself.
 
@@ -14,7 +14,7 @@
 - `Categories()` must exclude the `"Uncategorized"` category itself and return results sorted by Category then Subcategory (Go map iteration order is not stable — this must be sorted server-side).
 - The dropdown shares the card's existing badges row (right-aligned via `justify-content: space-between`) — no new row is added to the card.
 - The dropdown is a single flat list of `"Category / Subcategory"` entries (plain `"Category"` when a category has no subcategories) — not a two-step category-then-subcategory picker.
-- The dropdown stays visible (and reflects the pick) once `categoryManual` is true, even though `category` is no longer literally `"Uncategorized"`.
+- **Amended 2026-07-20, after Tasks 1-2 landed:** the dropdown is shown on every card unconditionally, not only when `category === 'Uncategorized'`. A user can override any book's destination, including one that already matched a `config.yaml` rule. It always pre-selects whichever `destinations` entry matches the book's current `category`/`subcategory` (rule-derived or manual — the lookup doesn't distinguish). This supersedes Task 8 and Task 9's original text below wherever they reference an `'Uncategorized'` visibility condition; the rest of the mechanism (CategoryManual flag, sticks through edits, flat list, right-justified in the badges row) is unchanged.
 - No "revert to auto" option in the dropdown — out of scope per the spec.
 
 ---
@@ -756,10 +756,11 @@ function makeBook(overrides: Partial<BookView> = {}): BookView {
 const destinations = [
   { category: 'Fiction', subcategory: 'Sci-Fi' },
   { category: 'Food', subcategory: '' },
+  { category: 'Technology', subcategory: 'Java' },
 ];
 ```
 
-Add these tests to the `describe('BookCard', ...)` block:
+Add these tests to the `describe('BookCard', ...)` block. (Scope note: the dropdown is shown on every card regardless of category — widened from the original "Uncategorized only" plan text after Tasks 1-2 had already landed; see the Global Constraints amendment at the top of this plan.)
 
 ```ts
   it('shows a destination dropdown for an Uncategorized book', () => {
@@ -770,9 +771,11 @@ Add these tests to the `describe('BookCard', ...)` block:
     expect(screen.getByText('Food')).toBeInTheDocument();
   });
 
-  it('does not show a destination dropdown for a categorized, non-manual book', () => {
-    render(BookCard, { book: makeBook({ category: 'Technology' }), destinations });
-    expect(screen.queryByRole('combobox', { name: 'Choose a destination' })).not.toBeInTheDocument();
+  it('shows a destination dropdown for a categorized, non-manual book too, pre-selecting its current category', () => {
+    render(BookCard, { book: makeBook({ category: 'Technology', subcategory: 'Java' }), destinations });
+    const select = screen.getByRole('combobox', { name: 'Choose a destination' }) as HTMLSelectElement;
+    expect(select).toBeInTheDocument();
+    expect(select.value).toBe('2');
   });
 
   it('selecting a destination dispatches edited immediately with category/subcategory and categoryManual set', async () => {
@@ -858,21 +861,21 @@ with:
         <span class="pill uncategorized">Uncategorized</span>
       {/if}
     </div>
-    {#if book.category === 'Uncategorized' || book.categoryManual}
-      <select
-        class="destination-picker"
-        aria-label="Choose a destination"
-        value={String(selectedDestinationIndex)}
-        on:change={onDestinationChange}
-      >
-        <option value="-1" disabled>Choose a destination…</option>
-        {#each destinations as dest, i}
-          <option value={String(i)}>{dest.subcategory ? `${dest.category} / ${dest.subcategory}` : dest.category}</option>
-        {/each}
-      </select>
-    {/if}
+    <select
+      class="destination-picker"
+      aria-label="Choose a destination"
+      value={String(selectedDestinationIndex)}
+      on:change={onDestinationChange}
+    >
+      <option value="-1" disabled>Choose a destination…</option>
+      {#each destinations as dest, i}
+        <option value={String(i)}>{dest.subcategory ? `${dest.category} / ${dest.subcategory}` : dest.category}</option>
+      {/each}
+    </select>
   </div>
 ```
+
+The dropdown is rendered unconditionally on every card — no `{#if}` gate on `category`/`categoryManual` (widened scope, see Global Constraints amendment).
 
 Update the `.badges` CSS rule (currently lines 207-210) and add `.badges-left`/`.destination-picker`:
 
@@ -911,9 +914,10 @@ Expected: PASS, all tests in the file — the 4 new ones and every pre-existing 
 ```bash
 git add desktop/frontend/src/lib/BookCard.svelte desktop/frontend/src/lib/BookCard.test.ts
 git commit -m "$(cat <<'EOF'
-Add destination dropdown to BookCard for Uncategorized books
+Add destination dropdown to every BookCard
 
-Right-justified in the existing badges row. Picking an option marks
+Right-justified in the existing badges row, shown unconditionally
+(not just for Uncategorized books). Picking an option marks
 categoryManual and dispatches the same edited event title/author
 edits already use, so Recompute picks up the new destination with no
 new parent-side wiring.
@@ -993,7 +997,7 @@ function makeBook(overrides: Partial<BookView> = {}): BookView {
 Add a new test to the `describe('ScanReviewView', ...)` block:
 
 ```ts
-  it('fetches destinations on mount and shows them in the picker for an Uncategorized book', async () => {
+  it('fetches destinations on mount and shows them in every book\'s picker', async () => {
     vi.mocked(Categories).mockResolvedValue([{ category: 'Fiction', subcategory: 'Sci-Fi' }]);
     vi.mocked(Scan).mockResolvedValue([makeBook({ category: 'Uncategorized' })]);
     render(ScanReviewView);
@@ -1074,8 +1078,8 @@ Fetch categories on mount and pass them to every BookCard
 
 Wires appapi.App.Categories() (added in an earlier task) up to the
 new destination-dropdown UI in BookCard, completing the feature end
-to end: pick a destination on an Uncategorized card, status shows
-Edited, dest path updates, Apply moves the file there.
+to end: pick a destination on any card, status shows Edited, dest
+path updates, Apply moves the file there.
 
 Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
 EOF
@@ -1089,8 +1093,8 @@ EOF
 The plan's automated tests cover the logic; per this project's UI-change convention, also verify in the running app before considering the feature done:
 
 1. Run the app (`cd desktop && wails dev`, or per this repo's `run` skill/convention).
-2. Scan a folder containing at least one book that doesn't match any `config.yaml` rule (lands in Uncategorized).
-3. Confirm the Uncategorized card shows a right-justified dropdown in the badges row, listing every category/subcategory from `config.yaml` (not "Uncategorized" itself).
-4. Pick a destination. Confirm: the status pill changes to "Edited", the "Uncategorized" pill disappears, the dest-path line below updates to the new folder, and the dropdown still shows the picked value.
-5. Edit the book's Title or Author afterward. Confirm the picked category/dest-path do NOT revert to Uncategorized.
-6. Check the card and click Apply. Confirm the file actually moves to the picked destination on disk.
+2. Scan a folder containing at least one book that doesn't match any `config.yaml` rule (lands in Uncategorized) and at least one that does match a rule (lands in a real category).
+3. Confirm EVERY card — both the Uncategorized one and the already-categorized one — shows a right-justified dropdown in the badges row, listing every category/subcategory from `config.yaml` (not "Uncategorized" itself), pre-selecting the card's current category on the already-categorized one.
+4. Pick a different destination on each. Confirm: the status pill changes to "Edited", the "Uncategorized" pill disappears (for the one that had it), the dest-path line below updates to the new folder, and the dropdown still shows the picked value.
+5. Edit one book's Title or Author afterward. Confirm the picked category/dest-path do NOT revert.
+6. Check the cards and click Apply. Confirm the files actually move to the picked destinations on disk.

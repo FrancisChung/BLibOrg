@@ -31,6 +31,21 @@ user-selected destination.
   - It shares the existing badges row (status/dup/Uncategorized pills),
     right-aligned in that row, rather than getting its own new row.
 
+## Amendment (2026-07-20, mid-implementation)
+
+Scope widened after Tasks 1-2 were already implemented: the destination
+dropdown is now shown on **every** card, not only ones currently
+`Uncategorized`. A user can override any book's destination — including one
+that already matched a `config.yaml` rule — the same way. Everything else
+about the mechanism is unchanged: it's still the same `CategoryManual` flag,
+still sticks through later Title/Author edits, still a flat
+"Category / Subcategory" list, still right-justified in the badges row. The
+only concrete effect is that `BookCard.svelte`'s dropdown is no longer
+wrapped in an `{#if book.category === 'Uncategorized' || book.categoryManual}`
+condition — it renders unconditionally, always pre-selecting whatever
+`book.category`/`book.subcategory` currently is (rule-derived or manual,
+the lookup doesn't care which).
+
 ## Current architecture (relevant pieces)
 
 - `internal/categorizer.Categorize(b *book.Book, cfg config.Config)` always
@@ -127,9 +142,9 @@ user-selected destination.
 **`desktop/frontend/src/lib/BookCard.svelte`**
 - New `export let destinations: DestinationView[] = [];` prop.
 - In the `.badges` row: add `justify-content: space-between` (badges
-  already render left; nothing needs to move). Add a `<select>` rendered
-  when `book.category === 'Uncategorized' || book.categoryManual`, right
-  side of that row.
+  already render left; nothing needs to move). Add a `<select>`, right side
+  of that row, rendered unconditionally on every card (see Amendment above
+  — no longer gated on `category === 'Uncategorized'`).
 - Options: one per `destinations` entry, label `"${category} / ${subcategory}"`
   when `subcategory` is non-empty else just `category`; the option's
   `value` is its index into `destinations` (as a string) rather than an
@@ -174,12 +189,11 @@ user-selected destination.
 - **`dto` round trip** (`internal/appapi/dto_roundtrip_test.go`):
   `category`/`subcategory`/`categoryManual` survive `bookToView` →
   `viewToBook` → `bookToView`.
-- **`BookCard.test.ts`**: dropdown is absent for a categorized, non-manual
-  book; present for `category === 'Uncategorized'`; selecting an option
-  dispatches `edited` with `category`/`subcategory` set from the option and
-  `categoryManual: true`; dropdown remains present and reflects the new
-  value after `book.categoryManual` becomes true even though `category` is
-  no longer `'Uncategorized'`.
+- **`BookCard.test.ts`**: dropdown is present on every card regardless of
+  `category`/`categoryManual`, pre-selecting whatever `category`/
+  `subcategory` the book currently has; selecting an option dispatches
+  `edited` with `category`/`subcategory` set from the option and
+  `categoryManual: true`.
 
 ## Out of scope
 
