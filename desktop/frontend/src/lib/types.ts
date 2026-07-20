@@ -17,9 +17,15 @@ export interface BookView {
   category: string;
   subcategory: string;
   categoryWarning: string;
+  categoryManual: boolean;
   destPath: string;
   duplicateStatus: string;
   duplicateGroupId: string;
+}
+
+export interface DestinationView {
+  category: string;
+  subcategory: string;
 }
 
 export interface ApplyResultEntry {
