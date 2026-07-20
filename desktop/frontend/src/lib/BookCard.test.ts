@@ -24,12 +24,19 @@ function makeBook(overrides: Partial<BookView> = {}): BookView {
     category: 'Uncategorized',
     subcategory: '',
     categoryWarning: '',
+    categoryManual: false,
     destPath: '/library/Uncategorized/Atomic Kotlin (2021) - Bruce Eckel, Svetlana Isakova.epub',
     duplicateStatus: 'NotDuplicate',
     duplicateGroupId: '',
     ...overrides,
   };
 }
+
+const destinations = [
+  { category: 'Fiction', subcategory: 'Sci-Fi' },
+  { category: 'Food', subcategory: '' },
+  { category: 'Technology', subcategory: 'Java' },
+];
 
 describe('BookCard', () => {
   it('renders old filename, editable fields, dest path, and status pill', () => {
@@ -165,5 +172,44 @@ describe('BookCard', () => {
     await waitFor(() => {
       expect(screen.getByText('Error: no application registered for this file type')).toBeInTheDocument();
     });
+  });
+
+  it('shows a destination dropdown for an Uncategorized book', () => {
+    render(BookCard, { book: makeBook(), destinations });
+    const select = screen.getByRole('combobox', { name: 'Choose a destination' });
+    expect(select).toBeInTheDocument();
+    expect(screen.getByText('Fiction / Sci-Fi')).toBeInTheDocument();
+    expect(screen.getByText('Food')).toBeInTheDocument();
+  });
+
+  it('shows a destination dropdown for a categorized, non-manual book too, pre-selecting its current category', () => {
+    render(BookCard, { book: makeBook({ category: 'Technology', subcategory: 'Java' }), destinations });
+    const select = screen.getByRole('combobox', { name: 'Choose a destination' }) as HTMLSelectElement;
+    expect(select).toBeInTheDocument();
+    expect(select.value).toBe('2');
+  });
+
+  it('selecting a destination dispatches edited immediately with category/subcategory and categoryManual set', async () => {
+    const { component } = render(BookCard, { book: makeBook(), destinations });
+    const handler = vi.fn();
+    component.$on('edited', handler);
+
+    const select = screen.getByRole('combobox', { name: 'Choose a destination' });
+    await fireEvent.change(select, { target: { value: '0' } });
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    const detail = handler.mock.calls[0][0].detail;
+    expect(detail.category).toBe('Fiction');
+    expect(detail.subcategory).toBe('Sci-Fi');
+    expect(detail.categoryManual).toBe(true);
+  });
+
+  it('keeps the destination dropdown visible and shows the picked value once categoryManual is true', () => {
+    render(BookCard, {
+      book: makeBook({ category: 'Fiction', subcategory: 'Sci-Fi', categoryManual: true }),
+      destinations,
+    });
+    const select = screen.getByRole('combobox', { name: 'Choose a destination' }) as HTMLSelectElement;
+    expect(select.value).toBe('0');
   });
 });

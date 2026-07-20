@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import type { BookView } from './types';
+  import type { BookView, DestinationView } from './types';
   import { OpenFile } from '../../wailsjs/go/main/App';
 
   export let book: BookView;
@@ -43,6 +43,20 @@
       title: { value: book.author.value, source: 'Edited' },
       author: { value: book.title.value, source: 'Edited' },
     };
+    dispatch('edited', book);
+  }
+
+  export let destinations: DestinationView[] = [];
+
+  $: selectedDestinationIndex = destinations.findIndex(
+    (d) => d.category === book.category && d.subcategory === book.subcategory,
+  );
+
+  function onDestinationChange(e: Event) {
+    const idx = Number((e.target as HTMLSelectElement).value);
+    const dest = destinations[idx];
+    if (!dest) return;
+    book = { ...book, category: dest.category, subcategory: dest.subcategory, categoryManual: true };
     dispatch('edited', book);
   }
 
@@ -120,13 +134,26 @@
     >{#if destParts.folder}/{/if}{destParts.filename}
   </div>
   <div class="badges">
-    <span class="pill status-{book.status}">{STATUS_LABEL[book.status] ?? book.status}</span>
-    {#if book.duplicateStatus !== 'NotDuplicate'}
-      <span class="pill dup">{DUP_LABEL[book.duplicateStatus] ?? book.duplicateStatus}</span>
-    {/if}
-    {#if book.category === 'Uncategorized'}
-      <span class="pill uncategorized">Uncategorized</span>
-    {/if}
+    <div class="badges-left">
+      <span class="pill status-{book.status}">{STATUS_LABEL[book.status] ?? book.status}</span>
+      {#if book.duplicateStatus !== 'NotDuplicate'}
+        <span class="pill dup">{DUP_LABEL[book.duplicateStatus] ?? book.duplicateStatus}</span>
+      {/if}
+      {#if book.category === 'Uncategorized'}
+        <span class="pill uncategorized">Uncategorized</span>
+      {/if}
+    </div>
+    <select
+      class="destination-picker"
+      aria-label="Choose a destination"
+      value={String(selectedDestinationIndex)}
+      on:change={onDestinationChange}
+    >
+      <option value="-1" disabled>Choose a destination…</option>
+      {#each destinations as dest, i}
+        <option value={String(i)}>{dest.subcategory ? `${dest.category} / ${dest.subcategory}` : dest.category}</option>
+      {/each}
+    </select>
   </div>
 </div>
 
@@ -206,7 +233,25 @@
   }
   .badges {
     display: flex;
+    align-items: center;
+    justify-content: space-between;
     gap: 6px;
+  }
+  .badges-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .destination-picker {
+    padding: 4px 8px;
+    border: 1px solid var(--bf-border);
+    border-radius: 6px;
+    font-size: 11px;
+    font-family: inherit;
+    color: var(--bf-text);
+    background: var(--bf-surface);
+    max-width: 220px;
   }
   .pill {
     display: inline-flex;
