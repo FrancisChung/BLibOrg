@@ -45,6 +45,21 @@ func TestParse_RealWorldExamples(t *testing.T) {
 			stem: "Bruce Eckel, Svetlana Isakova - Atomic Kotlin (2021, Mindview LLC) - libgen.li",
 			want: Result{Title: "Atomic Kotlin", Author: "Bruce Eckel, Svetlana Isakova", Year: "2021"},
 		},
+		{
+			name: "trailing semicolon on a title-only stem is stripped",
+			stem: "Design Patterns;",
+			want: Result{Title: "Design Patterns", Author: "", Year: ""},
+		},
+		{
+			name: "trailing semicolon on the author side is stripped",
+			stem: "Effective java programming - Robert Martin;",
+			want: Result{Title: "Effective java programming", Author: "Robert Martin", Year: ""},
+		},
+		{
+			name: "semicolon-separated co-authors are normalized to comma-separated",
+			stem: "Kotlin in Action - Dmitry Jemerov;Svetlana Isakova",
+			want: Result{Title: "Kotlin in Action", Author: "Dmitry Jemerov, Svetlana Isakova", Year: ""},
+		},
 	}
 
 	for _, tt := range tests {

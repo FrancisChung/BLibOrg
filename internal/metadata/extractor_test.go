@@ -64,3 +64,21 @@ trailer
 		t.Error("expected error for unsupported extension, got nil")
 	}
 }
+
+func TestExtract_CleansTitleAndAuthor(t *testing.T) {
+	epubPath := writeEpubFixture(t, `<?xml version="1.0"?>
+<package xmlns="http://www.idpf.org/2007/opf"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+<dc:title>Foundation.</dc:title>
+<dc:creator>Bruce Eckel;Svetlana Isakova;</dc:creator>
+</metadata></package>`)
+	result, err := Extract(epubPath)
+	if err != nil {
+		t.Fatalf("Extract(.epub) error: %v", err)
+	}
+	if result.Title != "Foundation" {
+		t.Errorf("Title = %q, want trailing period stripped", result.Title)
+	}
+	if result.Author != "Bruce Eckel, Svetlana Isakova" {
+		t.Errorf("Author = %q, want trailing semicolon stripped and internal semicolon normalized to comma", result.Author)
+	}
+}

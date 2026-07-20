@@ -107,5 +107,9 @@ func Parse(filenameStem string, knownJunkTags []string) Result {
 		result.Title = s
 	}
 
+	result.Title = textutil.CleanField(result.Title)
+	result.Author = textutil.CleanField(result.Author)
+	result.Author = textutil.NormalizeAuthorSeparators(result.Author)
+
 	return result
 }
