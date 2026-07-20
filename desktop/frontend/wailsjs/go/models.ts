@@ -79,6 +79,7 @@ export namespace appapi {
 	    category: string;
 	    subcategory: string;
 	    categoryWarning: string;
+	    categoryManual: boolean;
 	    destPath: string;
 	    duplicateStatus: string;
 	    duplicateGroupId: string;
@@ -102,6 +103,7 @@ export namespace appapi {
 	        this.category = source["category"];
 	        this.subcategory = source["subcategory"];
 	        this.categoryWarning = source["categoryWarning"];
+	        this.categoryManual = source["categoryManual"];
 	        this.destPath = source["destPath"];
 	        this.duplicateStatus = source["duplicateStatus"];
 	        this.duplicateGroupId = source["duplicateGroupId"];
@@ -159,6 +161,20 @@ export namespace appapi {
 	        this.path = source["path"];
 	        this.error = source["error"];
 	        this.warnings = source["warnings"];
+	    }
+	}
+	export class DestinationView {
+	    category: string;
+	    subcategory: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DestinationView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.category = source["category"];
+	        this.subcategory = source["subcategory"];
 	    }
 	}
 	

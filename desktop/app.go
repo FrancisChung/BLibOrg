@@ -51,6 +51,10 @@ func (a *App) ListCategoryWarnings() ([]appapi.CategoryWarningView, error) {
 	return a.api.ListCategoryWarnings()
 }
 
+func (a *App) Categories() ([]appapi.DestinationView, error) {
+	return a.api.Categories()
+}
+
 func (a *App) UndoBatch(batchID string) error {
 	return a.api.UndoBatch(batchID)
 }

@@ -6,6 +6,10 @@ export function Apply(arg1) {
   return window['go']['main']['App']['Apply'](arg1);
 }
 
+export function Categories() {
+  return window['go']['main']['App']['Categories']();
+}
+
 export function ConfigStatus() {
   return window['go']['main']['App']['ConfigStatus']();
 }

@@ -4,6 +4,8 @@ import {appapi} from '../models';
 
 export function Apply(arg1:Array<appapi.BookView>):Promise<appapi.ApplyResult>;
 
+export function Categories():Promise<Array<appapi.DestinationView>>;
+
 export function ConfigStatus():Promise<appapi.ConfigStatusView>;
 
 export function ConfirmApply(arg1:number,arg2:string):Promise<boolean>;
