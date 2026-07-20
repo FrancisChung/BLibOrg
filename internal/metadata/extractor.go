@@ -11,10 +11,14 @@ import (
 // Extract dispatches to the appropriate format-specific extractor based on
 // path's extension, then cleans the Title/Author it returns -- embedded
 // metadata not infrequently carries a stray trailing "." or ";" (leftover
-// sentence punctuation, or a dangling author-list separator), and multiple
+// sentence punctuation, or a dangling author-list separator), multiple
 // authors are sometimes ";"-separated rather than the app's ","-separated
-// convention. It is the only function other packages should call.
-func Extract(path string) (Result, error) {
+// convention, and titles sometimes use "_"/"-" as word separators or
+// inconsistent casing. hyphenExceptions lists hyphenated words FormatTitle
+// should keep hyphenated rather than splitting on "-"
+// (cfg.TitleFormatting.HyphenExceptions). It is the only function other
+// packages should call.
+func Extract(path string, hyphenExceptions []string) (Result, error) {
 	ext := strings.ToLower(filepath.Ext(path))
 	var result Result
 	var err error
@@ -32,6 +36,7 @@ func Extract(path string) (Result, error) {
 		return Result{}, err
 	}
 	result.Title = textutil.CleanField(result.Title)
+	result.Title = textutil.FormatTitle(result.Title, hyphenExceptions)
 	result.Author = textutil.CleanField(result.Author)
 	result.Author = textutil.NormalizeAuthorSeparators(result.Author)
 	return result, nil

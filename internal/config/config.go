@@ -9,10 +9,11 @@ import (
 )
 
 type Config struct {
-	General    General             `yaml:"general"`
-	Heuristics Heuristics          `yaml:"heuristics"`
-	Categories map[string]Category `yaml:"categories"`
-	Rules      []Rule              `yaml:"rules"`
+	General         General             `yaml:"general"`
+	Heuristics      Heuristics          `yaml:"heuristics"`
+	TitleFormatting TitleFormatting     `yaml:"title_formatting"`
+	Categories      map[string]Category `yaml:"categories"`
+	Rules           []Rule              `yaml:"rules"`
 }
 
 type General struct {
@@ -24,6 +25,14 @@ type General struct {
 
 type Heuristics struct {
 	KnownJunkTags []string `yaml:"known_junk_tags"`
+}
+
+// TitleFormatting configures textutil.FormatTitle's hyphen-to-space
+// conversion: HyphenExceptions lists hyphenated words to keep hyphenated
+// (matched case-insensitively, substituted with the list's exact casing)
+// instead of splitting on "-" into separate words.
+type TitleFormatting struct {
+	HyphenExceptions []string `yaml:"hyphen_exceptions"`
 }
 
 type Category struct {

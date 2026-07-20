@@ -126,3 +126,78 @@ func TestRecompute_ManualCategoryPickSurvivesRecompute(t *testing.T) {
 		t.Errorf("DestPath = %q, want suffix %q", got.DestPath, wantDestFragment)
 	}
 }
+
+func writeTestConfigWithTitleFormatting(t *testing.T, working, library, logDir string, hyphenExceptions []string) string {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	cfg := config.Config{
+		General: config.General{
+			WorkingFolder:  working,
+			LibraryFolder:  library,
+			LogFolder:      logDir,
+			FilenameFormat: "{title} ({year}) - {author}",
+		},
+		TitleFormatting: config.TitleFormatting{HyphenExceptions: hyphenExceptions},
+		Categories:      map[string]config.Category{"Uncategorized": {}},
+	}
+	if err := config.Save(path, cfg); err != nil {
+		t.Fatalf("Save config: %v", err)
+	}
+	return path
+}
+
+func TestRecompute_FormatsManuallyEditedTitle(t *testing.T) {
+	working := t.TempDir()
+	library := filepath.Join(t.TempDir(), "library")
+	logDir := filepath.Join(t.TempDir(), "logs")
+	configPath := writeTestConfigWithTitleFormatting(t, working, library, logDir, []string{"High-Performance"})
+
+	app := NewApp()
+	app.configPath = func() (string, error) { return configPath, nil }
+
+	edited := BookView{
+		SourcePath: filepath.Join(working, "some.epub"),
+		Title:      Field{Value: "high-performance_systems", Source: "Edited"},
+		Author:     Field{Value: "A Author", Source: "Edited"},
+		Year:       Field{Value: "2024", Source: "Edited"},
+	}
+
+	got, err := app.Recompute(edited)
+	if err != nil {
+		t.Fatalf("Recompute returned error: %v", err)
+	}
+	want := "High-Performance Systems"
+	if got.Title.Value != want {
+		t.Errorf("Title.Value = %q, want %q", got.Title.Value, want)
+	}
+	if !strings.Contains(got.DestPath, want) {
+		t.Errorf("DestPath = %q, want it to contain %q", got.DestPath, want)
+	}
+}
+
+func TestRecompute_DoesNotReformatNonManualTitle(t *testing.T) {
+	working := t.TempDir()
+	library := filepath.Join(t.TempDir(), "library")
+	logDir := filepath.Join(t.TempDir(), "logs")
+	configPath := writeTestConfigWithTitleFormatting(t, working, library, logDir, nil)
+
+	app := NewApp()
+	app.configPath = func() (string, error) { return configPath, nil }
+
+	edited := BookView{
+		SourcePath: filepath.Join(working, "some.epub"),
+		Title:      Field{Value: "high-performance_systems", Source: "Metadata"},
+		Author:     Field{Value: "A Author", Source: "Metadata"},
+		Year:       Field{Value: "2024", Source: "Metadata"},
+	}
+
+	got, err := app.Recompute(edited)
+	if err != nil {
+		t.Fatalf("Recompute returned error: %v", err)
+	}
+	want := "high-performance_systems"
+	if got.Title.Value != want {
+		t.Errorf("Title.Value = %q, want unchanged %q (only Edited titles get reformatted by Recompute)", got.Title.Value, want)
+	}
+}

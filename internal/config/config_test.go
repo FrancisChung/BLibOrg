@@ -17,6 +17,9 @@ general:
 heuristics:
   known_junk_tags: ["OceanofPDF.com", "libgen.li"]
 
+title_formatting:
+  hyphen_exceptions: ["High-Performance", "Domain-Driven"]
+
 categories:
   Fiction:
     subcategories: [Sci-Fi, Fantasy]
@@ -53,6 +56,9 @@ func TestLoad(t *testing.T) {
 	}
 	if len(cfg.Heuristics.KnownJunkTags) != 2 || cfg.Heuristics.KnownJunkTags[0] != "OceanofPDF.com" {
 		t.Errorf("KnownJunkTags = %v", cfg.Heuristics.KnownJunkTags)
+	}
+	if len(cfg.TitleFormatting.HyphenExceptions) != 2 || cfg.TitleFormatting.HyphenExceptions[0] != "High-Performance" {
+		t.Errorf("TitleFormatting.HyphenExceptions = %v", cfg.TitleFormatting.HyphenExceptions)
 	}
 	fiction, ok := cfg.Categories["Fiction"]
 	if !ok || len(fiction.Subcategories) != 2 || fiction.Subcategories[0] != "Sci-Fi" {
