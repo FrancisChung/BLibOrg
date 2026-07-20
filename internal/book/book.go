@@ -55,6 +55,7 @@ type Book struct {
 	Subject         string
 	Category        string
 	Subcategory     string
+	CategoryManual  bool
 	CategoryWarning string
 	DestPath        string
 
@@ -77,6 +78,9 @@ func (b Book) Status() Source {
 	}
 	if b.Author.Source == SourceUnresolved || b.Year.Source == SourceUnresolved {
 		return SourcePartial
+	}
+	if b.CategoryManual {
+		return SourceManual
 	}
 
 	fields := []Field{b.Title, b.Author, b.Year}
