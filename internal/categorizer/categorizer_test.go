@@ -105,3 +105,21 @@ func TestCategorize_FallsBackToUncategorized(t *testing.T) {
 		t.Errorf("Subcategory = %s, want empty", b.Subcategory)
 	}
 }
+
+func TestCategorize_SkipsRecategorizationWhenCategoryManual(t *testing.T) {
+	cfg := testConfig()
+	b := &book.Book{
+		SourcePath:     "/inbox/foundation.epub",
+		Author:         book.Field{Value: "Isaac Asimov"}, // would normally match Fiction/Sci-Fi
+		Category:       "NonFiction",
+		Subcategory:    "Technology",
+		CategoryManual: true,
+	}
+	Categorize(b, cfg)
+	if b.Category != "NonFiction" || b.Subcategory != "Technology" {
+		t.Errorf("Category/Subcategory = %s/%s, want NonFiction/Technology (manual pick preserved, not overwritten by the author rule)", b.Category, b.Subcategory)
+	}
+	if b.CategoryWarning != "" {
+		t.Errorf("CategoryWarning = %q, want empty (Categorize should not run at all when CategoryManual)", b.CategoryWarning)
+	}
+}
