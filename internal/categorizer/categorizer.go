@@ -13,10 +13,10 @@ import (
 const UncategorizedName = "Uncategorized"
 
 // Categorize sets b.Category and b.Subcategory in place: config.Rules are
-// evaluated top-to-bottom (first match wins) against author/title/
-// metadata_subject (case-insensitive exact match) or filename (regex);
-// if nothing matches, it falls back to the embedded genre/subject metadata
-// against configured subcategory names; if that also fails, Uncategorized.
+// evaluated top-to-bottom (first match wins) against author/metadata_subject
+// (case-insensitive exact match) or title/filename (regex); if nothing
+// matches, it falls back to the embedded genre/subject metadata against
+// configured subcategory names; if that also fails, Uncategorized.
 func Categorize(b *book.Book, cfg config.Config) {
 	if b.CategoryManual {
 		return
@@ -30,7 +30,9 @@ func Categorize(b *book.Book, cfg config.Config) {
 		case "author":
 			matched = strings.EqualFold(strings.TrimSpace(b.Author.Value), strings.TrimSpace(rule.MatchValue))
 		case "title":
-			matched = strings.EqualFold(strings.TrimSpace(b.Title.Value), strings.TrimSpace(rule.MatchValue))
+			if re, err := regexp.Compile(rule.MatchValue); err == nil {
+				matched = re.MatchString(b.Title.Value)
+			}
 		case "metadata_subject":
 			matched = strings.EqualFold(strings.TrimSpace(b.Subject), strings.TrimSpace(rule.MatchValue))
 		case "filename":

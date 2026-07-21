@@ -95,6 +95,22 @@ func TestCategorize_NoWarningWhenRuleMatchesDeclaredCategory(t *testing.T) {
 	}
 }
 
+func TestCategorize_RuleMatchOnTitleRegex(t *testing.T) {
+	cfg := testConfig()
+	cfg.Rules = append([]config.Rule{
+		{MatchField: "title", MatchValue: `(?i)\bai\b`, Category: "NonFiction", Subcategory: "Technology"},
+	}, cfg.Rules...)
+	b := &book.Book{
+		SourcePath: "/inbox/whatever.epub",
+		Title:      book.Field{Value: "Generative AI for Financial Services"},
+		Author:     book.Field{Value: "Someone Else"},
+	}
+	Categorize(b, cfg)
+	if b.Category != "NonFiction" || b.Subcategory != "Technology" {
+		t.Errorf("Category/Subcategory = %s/%s, want NonFiction/Technology", b.Category, b.Subcategory)
+	}
+}
+
 func TestCategorize_FallsBackToUncategorized(t *testing.T) {
 	b := &book.Book{SourcePath: "/inbox/whatever.epub", Author: book.Field{Value: "Nobody Known"}}
 	Categorize(b, testConfig())
