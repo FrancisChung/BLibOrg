@@ -11,6 +11,7 @@
   let scanError = '';
   let applyError = '';
   let scanning = false;
+  let hasScanned = false;
   let applying = false;
   let resultBySourcePath: Record<string, { ok: boolean; error: string; skipped: boolean }> = {};
   let recomputeWarning: Record<string, boolean> = {};
@@ -35,6 +36,7 @@
     try {
       books = await Scan();
       checked = Object.fromEntries(books.map((b) => [b.sourcePath, true]));
+      hasScanned = true;
     } catch (e) {
       scanError = String(e);
       books = [];
@@ -114,6 +116,9 @@
 {#if applyError}
   <div class="banner error">{applyError}</div>
 {/if}
+{#if hasScanned && books.length === 0 && !scanError}
+  <p class="empty">No books found in the unsorted folder.</p>
+{/if}
 {#if books.length > 0}
   <FilterBar
     {query}
@@ -189,6 +194,10 @@
     padding: 10px 14px;
     border-radius: 8px;
     font-size: 13px;
+  }
+  .empty {
+    color: var(--bf-text-muted);
+    font-size: 13.5px;
   }
   .select-all {
     display: flex;

@@ -211,6 +211,19 @@ describe('ScanReviewView', () => {
     expect(screen.getByText('b.epub')).toBeInTheDocument();
   });
 
+  it('shows an empty-state message when Scan finds no books', async () => {
+    vi.mocked(Scan).mockResolvedValue([]);
+    render(ScanReviewView);
+
+    expect(screen.queryByText('No books found in the unsorted folder.')).not.toBeInTheDocument();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Scan' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('No books found in the unsorted folder.')).toBeInTheDocument();
+    });
+  });
+
   it('fetches destinations on mount and shows them in every book\'s picker', async () => {
     vi.mocked(Categories).mockResolvedValue([{ category: 'Fiction', subcategory: 'Sci-Fi' }]);
     vi.mocked(Scan).mockResolvedValue([makeBook({ category: 'Uncategorized' })]);
