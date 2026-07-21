@@ -211,6 +211,50 @@ describe('ScanReviewView', () => {
     expect(screen.getByText('b.epub')).toBeInTheDocument();
   });
 
+  it('tints a book card once it has been successfully moved by Apply', async () => {
+    const book = makeBook();
+    vi.mocked(Scan).mockResolvedValue([book]);
+    vi.mocked(Apply).mockResolvedValue({
+      batchId: 'b1',
+      results: [{ sourcePath: book.sourcePath, ok: true, error: '', skipped: false }],
+    });
+    render(ScanReviewView);
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Scan' }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Apply' })).not.toBeDisabled();
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Moved ✓')).toBeInTheDocument();
+    });
+    expect(screen.getByText('book.epub').closest('.card')?.className).toContain('moved');
+  });
+
+  it('does not tint a book card that Apply skipped', async () => {
+    const book = makeBook();
+    vi.mocked(Scan).mockResolvedValue([book]);
+    vi.mocked(Apply).mockResolvedValue({
+      batchId: 'b1',
+      results: [{ sourcePath: book.sourcePath, ok: true, error: '', skipped: true }],
+    });
+    render(ScanReviewView);
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Scan' }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Apply' })).not.toBeDisabled();
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Skipped')).toBeInTheDocument();
+    });
+    expect(screen.getByText('book.epub').closest('.card')?.className).not.toContain('moved');
+  });
+
   it('shows an empty-state message when Scan finds no books', async () => {
     vi.mocked(Scan).mockResolvedValue([]);
     render(ScanReviewView);

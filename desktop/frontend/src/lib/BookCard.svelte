@@ -5,6 +5,7 @@
 
   export let book: BookView;
   export let checked: boolean = true;
+  export let moved: boolean = false;
 
   const dispatch = createEventDispatcher<{ edited: BookView; toggled: boolean }>();
 
@@ -88,7 +89,7 @@
   $: destParts = splitDestPath(book);
 </script>
 
-<div class="card">
+<div class="card" class:moved>
   <div class="card-header">
     <input
       type="checkbox"
@@ -166,6 +167,9 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+  }
+  .card.moved {
+    background: var(--bf-green-soft);
   }
   .card-header {
     display: flex;

@@ -204,6 +204,16 @@ describe('BookCard', () => {
     expect(detail.categoryManual).toBe(true);
   });
 
+  it('tints the card background when moved is true', () => {
+    const { container } = render(BookCard, { book: makeBook(), moved: true });
+    expect(container.querySelector('.card')?.className).toContain('moved');
+  });
+
+  it('does not tint the card background by default', () => {
+    const { container } = render(BookCard, { book: makeBook() });
+    expect(container.querySelector('.card')?.className).not.toContain('moved');
+  });
+
   it('keeps the destination dropdown visible and shows the picked value once categoryManual is true', () => {
     render(BookCard, {
       book: makeBook({ category: 'Fiction', subcategory: 'Sci-Fi', categoryManual: true }),

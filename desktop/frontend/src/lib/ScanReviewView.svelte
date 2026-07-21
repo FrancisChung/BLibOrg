@@ -139,6 +139,7 @@
           {book}
           {destinations}
           checked={checked[book.sourcePath]}
+          moved={resultBySourcePath[book.sourcePath]?.ok && !resultBySourcePath[book.sourcePath]?.skipped}
           on:edited={onEdited}
           on:toggled={(e) => onToggled(book.sourcePath, e.detail)}
         />
