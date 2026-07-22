@@ -6,6 +6,7 @@
 package metadata
 
 import (
+	"bytes"
 	"regexp"
 	"strconv"
 )
@@ -40,4 +41,54 @@ func buildPDFObjIndex(data []byte) *pdfObjIndex {
 func (idx *pdfObjIndex) lookup(objNum int) ([]byte, bool) {
 	body, ok := idx.literal[objNum]
 	return body, ok
+}
+
+var pdfStreamMarkerRe = regexp.MustCompile(`(?s)^(.*?)stream\r?\n(.*)$`)
+
+// splitPDFObjectBody splits a literal object body (as returned by
+// pdfObjIndex.lookup) into its dictionary portion and, if present, its
+// stream bytes. hasStream is false for a body with no "stream" keyword (a
+// plain dictionary object, e.g. a Page or Pages node), in which case dict
+// is the whole body and stream is nil.
+func splitPDFObjectBody(body []byte) (dict []byte, stream []byte, hasStream bool) {
+	m := pdfStreamMarkerRe.FindSubmatch(body)
+	if m == nil {
+		return body, nil, false
+	}
+	streamBytes := bytes.TrimSuffix(m[2], []byte("endstream"))
+	streamBytes = bytes.TrimRight(streamBytes, "\r\n")
+	return m[1], streamBytes, true
+}
+
+// pdfSubDictValue extracts the value of /key within dict when that value
+// is itself written as an inline "<<...>>" dictionary (e.g.
+// "/DecodeParms<<...>>"), correctly balancing nested "<<"/">>" pairs --
+// unlike a plain regex, which stops at the first ">>" regardless of
+// nesting depth. ok is false if /key isn't present or its value isn't a
+// "<<...>>" dictionary.
+func pdfSubDictValue(dict []byte, key string) (value []byte, ok bool) {
+	re := regexp.MustCompile(`/` + regexp.QuoteMeta(key) + `\s*<<`)
+	loc := re.FindIndex(dict)
+	if loc == nil {
+		return nil, false
+	}
+	depth := 1
+	start := loc[1]
+	i := start
+	for i < len(dict)-1 {
+		switch {
+		case dict[i] == '<' && dict[i+1] == '<':
+			depth++
+			i += 2
+		case dict[i] == '>' && dict[i+1] == '>':
+			depth--
+			i += 2
+			if depth == 0 {
+				return dict[start : i-2], true
+			}
+		default:
+			i++
+		}
+	}
+	return nil, false
 }

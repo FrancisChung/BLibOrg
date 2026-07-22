@@ -37,3 +37,51 @@ func TestBuildPDFObjIndex_LastIncrementalUpdateWins(t *testing.T) {
 		t.Errorf("lookup(1) = %q, want it to contain the later revision's (New)", body)
 	}
 }
+
+func TestSplitPDFObjectBody_WithStream(t *testing.T) {
+	body := []byte(" << /Type /XObject /Length 5 >>\nstream\nhello\nendstream")
+	dict, stream, hasStream := splitPDFObjectBody(body)
+	if !hasStream {
+		t.Fatal("hasStream = false, want true")
+	}
+	if !bytes.Contains(dict, []byte("/Type /XObject")) {
+		t.Errorf("dict = %q, want it to contain /Type /XObject", dict)
+	}
+	if string(stream) != "hello" {
+		t.Errorf("stream = %q, want %q", stream, "hello")
+	}
+}
+
+func TestSplitPDFObjectBody_NoStream(t *testing.T) {
+	body := []byte(" << /Type /Page /Parent 2 0 R >>")
+	dict, _, hasStream := splitPDFObjectBody(body)
+	if hasStream {
+		t.Fatal("hasStream = true, want false")
+	}
+	if string(dict) != string(body) {
+		t.Errorf("dict = %q, want whole body %q", dict, body)
+	}
+}
+
+func TestPDFSubDictValue_NestedDict(t *testing.T) {
+	// Reproduces a real library file that broke the old
+	// `<<([^>]*?)>>` regex: /DecodeParms is a dictionary nested inside
+	// the outer image dict, and the old regex stopped at the FIRST ">>"
+	// (the inner one), never matching the outer dict at all.
+	dict := []byte(`<</Type/XObject/Subtype/Image/Width 1410/Height 2000/ColorSpace/DeviceGray/BitsPerComponent 8/DecodeParms<</BitsPerComponent 8/Colors 1/Columns 1410/Predictor 2>>/Filter/FlateDecode/Length 5306>>`)
+	value, ok := pdfSubDictValue(dict, "DecodeParms")
+	if !ok {
+		t.Fatal("pdfSubDictValue not found")
+	}
+	want := "/BitsPerComponent 8/Colors 1/Columns 1410/Predictor 2"
+	if string(value) != want {
+		t.Errorf("value = %q, want %q", value, want)
+	}
+}
+
+func TestPDFSubDictValue_KeyAbsent(t *testing.T) {
+	dict := []byte(`<</Type/XObject/Subtype/Image/Filter/DCTDecode>>`)
+	if _, ok := pdfSubDictValue(dict, "DecodeParms"); ok {
+		t.Error("pdfSubDictValue found a value, want not found")
+	}
+}
