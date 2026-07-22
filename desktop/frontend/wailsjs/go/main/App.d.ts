@@ -14,6 +14,8 @@ export function ConfirmUndo(arg1:number):Promise<boolean>;
 
 export function ListCategoryWarnings():Promise<Array<appapi.CategoryWarningView>>;
 
+export function ListLibrary():Promise<appapi.LibraryView>;
+
 export function ListOperationBatches():Promise<Array<appapi.OperationBatchView>>;
 
 export function OpenFile(arg1:string):Promise<void>;

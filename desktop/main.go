@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 
+	"github.com/FrancisChung/book-organiser/internal/appapi"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -25,7 +26,8 @@ func main() {
 		Width:  1024,
 		Height: 768,
 		AssetServer: &assetserver.Options{
-			Assets: assets,
+			Assets:  assets,
+			Handler: coverHandler(appapi.DefaultConfigPath),
 		},
 		BackgroundColour: &options.RGBA{R: 246, G: 248, B: 251, A: 1},
 		OnStartup:        app.startup,

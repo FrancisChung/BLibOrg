@@ -26,6 +26,10 @@ export function ListCategoryWarnings() {
   return window['go']['main']['App']['ListCategoryWarnings']();
 }
 
+export function ListLibrary() {
+  return window['go']['main']['App']['ListLibrary']();
+}
+
 export function ListOperationBatches() {
   return window['go']['main']['App']['ListOperationBatches']();
 }

@@ -59,6 +59,10 @@ func (a *App) UndoBatch(batchID string) error {
 	return a.api.UndoBatch(batchID)
 }
 
+func (a *App) ListLibrary() (appapi.LibraryView, error) {
+	return a.api.ListLibrary()
+}
+
 // OpenFile opens the file at path in the OS default application for its
 // type. This shells out to the platform's native opener rather than using
 // runtime.BrowserOpenURL: Wails v2.13.0 added security hardening that
