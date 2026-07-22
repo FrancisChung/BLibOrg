@@ -1,0 +1,88 @@
+<script lang="ts">
+  import type { LibraryBookView } from './types';
+  import { OpenFile } from '../../wailsjs/go/main/App';
+
+  export let book: LibraryBookView;
+
+  let openError = '';
+
+  function filenameNoExt(sourcePath: string): string {
+    const base = sourcePath.split(/[\\/]+/).pop() ?? '';
+    const dot = base.lastIndexOf('.');
+    return dot > 0 ? base.slice(0, dot) : base;
+  }
+
+  async function open() {
+    openError = '';
+    try {
+      await OpenFile(book.sourcePath);
+    } catch (e) {
+      openError = String(e);
+    }
+  }
+</script>
+
+<div class="tile">
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <!-- svelte-ignore a11y_click_events_have_key_events -- click-to-open is a
+       supplementary affordance (like a file manager icon), matching
+       BookCard.svelte's openOriginal pattern -->
+  <div class="cover" on:click={open} title={filenameNoExt(book.sourcePath)}>
+    {#if book.coverPath}
+      <img src={book.coverPath} alt={book.title || filenameNoExt(book.sourcePath)} />
+    {:else}
+      <div class="placeholder">{book.title || filenameNoExt(book.sourcePath)}</div>
+    {/if}
+  </div>
+  {#if openError}
+    <div class="banner error">{openError}</div>
+  {/if}
+</div>
+
+<style>
+  .tile {
+    width: 90px;
+    flex-shrink: 0;
+  }
+  .cover {
+    width: 90px;
+    height: 130px;
+    border-radius: 4px;
+    overflow: hidden;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    background: var(--bf-surface);
+    border: 1px solid var(--bf-border);
+  }
+  .cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: flex-end;
+    padding: 6px;
+    font-size: 11px;
+    line-height: 1.2;
+    color: var(--bf-text-muted);
+    background: repeating-linear-gradient(
+      45deg,
+      var(--bf-surface),
+      var(--bf-surface) 8px,
+      var(--bf-border) 8px,
+      var(--bf-border) 16px
+    );
+  }
+  .banner.error {
+    background: var(--bf-amber-soft);
+    color: var(--bf-amber);
+    padding: 4px 6px;
+    border-radius: 6px;
+    font-size: 10px;
+    margin-top: 4px;
+  }
+</style>
