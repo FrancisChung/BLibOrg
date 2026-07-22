@@ -102,11 +102,6 @@ export interface LibraryBookView {
   coverPath: string;
 }
 
-export interface LibraryViewData {
-  books: LibraryBookView[];
-  categories: string[];
-}
-
 export type LibrarySortMode = 'title' | 'author' | 'year';
 
 export interface LibraryShelf {

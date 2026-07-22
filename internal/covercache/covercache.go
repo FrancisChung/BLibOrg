@@ -1,5 +1,6 @@
 // Package covercache writes extracted book-cover images to a stable,
-// content-addressed location on disk so the frontend can load them via a
+// path-addressed location on disk (keyed by the book's source path, not the
+// image bytes) so the frontend can load them via a
 // plain same-origin URL. Wails 2.13 blocks file:// URLs in its webview (see
 // desktop/app.go's OpenFile doc comment), so covers can't be passed to the
 // frontend as raw filesystem paths; caching them under the app's existing
