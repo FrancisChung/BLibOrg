@@ -146,3 +146,117 @@ func TestExtractMobi_TooShort(t *testing.T) {
 		t.Error("expected error for too-short file, got nil")
 	}
 }
+
+// writeMobiFixtureWithCover builds a minimal valid PalmDB+MOBI file with two
+// PDB records: record 0 (a standard MOBI header, no EXTH block) and record 1
+// containing coverData's raw bytes -- exercising the image-signature scan
+// across multiple PDB records.
+func writeMobiFixtureWithCover(t *testing.T, fullName string, coverData []byte) string {
+	t.Helper()
+	buf := new(bytes.Buffer)
+
+	name := make([]byte, 32)
+	copy(name, "testbook")
+	buf.Write(name)
+	binary.Write(buf, binary.BigEndian, uint16(0)) // attributes
+	binary.Write(buf, binary.BigEndian, uint16(0)) // version
+	binary.Write(buf, binary.BigEndian, uint32(0)) // creation date
+	binary.Write(buf, binary.BigEndian, uint32(0)) // mod date
+	binary.Write(buf, binary.BigEndian, uint32(0)) // last backup
+	binary.Write(buf, binary.BigEndian, uint32(0)) // mod number
+	binary.Write(buf, binary.BigEndian, uint32(0)) // appInfoID
+	binary.Write(buf, binary.BigEndian, uint32(0)) // sortInfoID
+	buf.WriteString("BOOK")
+	buf.WriteString("MOBI")
+	binary.Write(buf, binary.BigEndian, uint32(0)) // uniqueIDseed
+	binary.Write(buf, binary.BigEndian, uint32(0)) // nextRecordListID
+	binary.Write(buf, binary.BigEndian, uint16(2)) // numRecords = 2
+
+	record0Offset := uint32(78 + 2*8) // header (78) + 2 record-info entries (8 bytes each)
+
+	rec0 := new(bytes.Buffer)
+	binary.Write(rec0, binary.BigEndian, uint16(1)) // compression
+	binary.Write(rec0, binary.BigEndian, uint16(0)) // unused
+	binary.Write(rec0, binary.BigEndian, uint32(0)) // text length
+	binary.Write(rec0, binary.BigEndian, uint16(0)) // record count
+	binary.Write(rec0, binary.BigEndian, uint16(0)) // record size
+	binary.Write(rec0, binary.BigEndian, uint16(0)) // encryption type
+	binary.Write(rec0, binary.BigEndian, uint16(0)) // unused2
+
+	mobiHeaderStart := rec0.Len()
+	const mobiHeaderLen = 232
+	rec0.WriteString("MOBI")
+	binary.Write(rec0, binary.BigEndian, uint32(mobiHeaderLen))
+	binary.Write(rec0, binary.BigEndian, uint32(2))     // mobi type
+	binary.Write(rec0, binary.BigEndian, uint32(65001)) // text encoding UTF-8
+	binary.Write(rec0, binary.BigEndian, uint32(0))     // unique ID
+	binary.Write(rec0, binary.BigEndian, uint32(6))     // file version
+
+	for rec0.Len()-mobiHeaderStart < 84 {
+		rec0.WriteByte(0)
+	}
+	binary.Write(rec0, binary.BigEndian, uint32(0)) // EXTH flags: bit6 clear, no EXTH block
+
+	for rec0.Len()-mobiHeaderStart < 96 {
+		rec0.WriteByte(0)
+	}
+	fullNameOffsetPos := rec0.Len()
+	binary.Write(rec0, binary.BigEndian, uint32(0)) // placeholder full name offset
+	binary.Write(rec0, binary.BigEndian, uint32(0)) // placeholder full name length
+
+	for rec0.Len()-mobiHeaderStart < mobiHeaderLen {
+		rec0.WriteByte(0)
+	}
+
+	fullNameOffset := uint32(rec0.Len())
+	rec0.WriteString(fullName)
+
+	out := rec0.Bytes()
+	binary.BigEndian.PutUint32(out[fullNameOffsetPos:], fullNameOffset)
+	binary.BigEndian.PutUint32(out[fullNameOffsetPos+4:], uint32(len(fullName)))
+
+	record1Offset := record0Offset + uint32(len(out))
+
+	binary.Write(buf, binary.BigEndian, record0Offset)
+	binary.Write(buf, binary.BigEndian, uint32(0)) // attributes+uniqueID packed
+	binary.Write(buf, binary.BigEndian, record1Offset)
+	binary.Write(buf, binary.BigEndian, uint32(0)) // attributes+uniqueID packed
+
+	buf.Write(out)
+	buf.Write(coverData)
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "book.mobi")
+	if err := os.WriteFile(path, buf.Bytes(), 0644); err != nil {
+		t.Fatalf("write mobi fixture: %v", err)
+	}
+	return path
+}
+
+func TestExtractMobi_FindsCoverImage(t *testing.T) {
+	coverData := append([]byte{0xFF, 0xD8, 0xFF, 0xE0}, []byte("fakejpegdata")...)
+	path := writeMobiFixtureWithCover(t, "Foundation", coverData)
+
+	result, err := extractMobi(path)
+	if err != nil {
+		t.Fatalf("extractMobi returned error: %v", err)
+	}
+	if string(result.CoverBytes) != string(coverData) {
+		t.Errorf("CoverBytes = %v, want %v", result.CoverBytes, coverData)
+	}
+	if result.CoverContentType != "image/jpeg" {
+		t.Errorf("CoverContentType = %q, want image/jpeg", result.CoverContentType)
+	}
+}
+
+func TestExtractMobi_NoCoverLeavesFieldEmpty(t *testing.T) {
+	path := writeMobiFixture(t, "Foundation", "Isaac Asimov", "Sci-Fi", "1951-01-01")
+
+	result, err := extractMobi(path)
+	if err != nil {
+		t.Fatalf("extractMobi returned error: %v", err)
+	}
+	if result.CoverBytes != nil {
+		t.Errorf("CoverBytes = %v, want nil", result.CoverBytes)
+	}
+}

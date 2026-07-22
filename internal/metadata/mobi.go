@@ -1,12 +1,64 @@
 package metadata
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"os"
 
 	"github.com/FrancisChung/book-organiser/internal/textutil"
 )
+
+var (
+	jpegMagic  = []byte{0xFF, 0xD8, 0xFF}
+	pngMagic   = []byte{0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A}
+	gif87Magic = []byte("GIF87a")
+	gif89Magic = []byte("GIF89a")
+)
+
+func sniffImageContentType(data []byte) (string, bool) {
+	switch {
+	case bytes.HasPrefix(data, jpegMagic):
+		return "image/jpeg", true
+	case bytes.HasPrefix(data, pngMagic):
+		return "image/png", true
+	case bytes.HasPrefix(data, gif87Magic), bytes.HasPrefix(data, gif89Magic):
+		return "image/gif", true
+	default:
+		return "", false
+	}
+}
+
+// findMobiCover scans the PDB records after record 0 (the MOBI/EXTH header
+// and text record) for the first one whose leading bytes match a recognized
+// image signature (JPEG/PNG/GIF), and returns it as the cover. See this
+// task's plan entry for why this replaces computing the exact record via
+// EXTH 201 "Cover Offset" plus the MOBI header's "first image record"
+// field.
+func findMobiCover(data []byte, numRecords uint16) ([]byte, string, bool) {
+	offsets := make([]uint32, numRecords)
+	for i := uint16(0); i < numRecords; i++ {
+		pos := 78 + int(i)*8
+		if pos+4 > len(data) {
+			return nil, "", false
+		}
+		offsets[i] = binary.BigEndian.Uint32(data[pos : pos+4])
+	}
+	for i := 1; i < int(numRecords); i++ {
+		start := int(offsets[i])
+		end := len(data)
+		if i+1 < int(numRecords) {
+			end = int(offsets[i+1])
+		}
+		if start < 0 || start >= end || end > len(data) {
+			continue
+		}
+		if ct, ok := sniffImageContentType(data[start:end]); ok {
+			return data[start:end], ct, true
+		}
+	}
+	return nil, "", false
+}
 
 // extractMobi parses the PalmDB + MOBI header + EXTH structure shared by
 // .mobi and .azw3 files. It is best-effort: on any structural surprise past
@@ -46,6 +98,11 @@ func extractMobi(path string) (Result, error) {
 	var result Result
 	if uint64(fullNameOffset)+uint64(fullNameLen) <= uint64(len(rec0)) {
 		result.Title = string(rec0[fullNameOffset : fullNameOffset+fullNameLen])
+	}
+
+	if coverData, coverContentType, ok := findMobiCover(data, numRecords); ok {
+		result.CoverBytes = coverData
+		result.CoverContentType = coverContentType
 	}
 
 	if exthFlags&0x40 == 0 {
