@@ -1,6 +1,7 @@
 package metadata
 
 import (
+	"bytes"
 	"os"
 	"regexp"
 	"strings"
@@ -13,6 +14,9 @@ var pdfLiteralStringRe = regexp.MustCompile(`/(Title|Author|Subject|CreationDate
 var pdfDateYearRe = regexp.MustCompile(`D:(\d{4})`)
 var pdfTrailerRe = regexp.MustCompile(`(?s)trailer\s*<<(.*?)>>`)
 var pdfInfoRefRe = regexp.MustCompile(`/Info\s+(\d+)\s+\d+\s+R`)
+var pdfImageStreamRe = regexp.MustCompile(`(?s)<<([^>]*?)>>\s*stream\r?\n(.*?)endstream`)
+var pdfSubtypeImageRe = regexp.MustCompile(`/Subtype\s*/Image`)
+var pdfDCTDecodeRe = regexp.MustCompile(`/Filter\s*/DCTDecode|/Filter\s*\[[^\]]*/DCTDecode`)
 
 // placeholderTitles are literal /Title values some PDF-generation tools
 // leave behind as a default when the real author never set a document
@@ -120,6 +124,30 @@ func findInfoDictBody(data []byte) ([]byte, bool) {
 	return objMatches[len(objMatches)-1][1], true
 }
 
+// findPDFCover scans data for the first image XObject stream (a "<<...>>
+// stream ... endstream" block whose dictionary declares both /Subtype
+// /Image and a /Filter of /DCTDecode) and returns its raw stream bytes --
+// already a complete, valid JPEG, since that's what DCTDecode means per the
+// PDF spec. See this task's plan entry for why FlateDecode-filtered images
+// are out of scope. This is a textual scan, not a real PDF parser: it does
+// not handle a dictionary containing its own nested "<<...>>" (e.g. a
+// /DecodeParms sub-dictionary), matching the rest of this file's
+// deliberately best-effort approach.
+func findPDFCover(data []byte) ([]byte, string, bool) {
+	for _, m := range pdfImageStreamRe.FindAllSubmatch(data, -1) {
+		dict := m[1]
+		if !pdfSubtypeImageRe.Match(dict) || !pdfDCTDecodeRe.Match(dict) {
+			continue
+		}
+		stream := bytes.TrimRight(m[2], "\r\n")
+		if len(stream) == 0 {
+			continue
+		}
+		return stream, "image/jpeg", true
+	}
+	return nil, "", false
+}
+
 // extractPDF is a best-effort, dependency-free scanner: it looks for
 // literal (not hex-encoded, not compressed-object-stream) /Title, /Author,
 // /Subject, and /CreationDate entries in the raw PDF bytes, scoped to the
@@ -176,6 +204,10 @@ func extractPDF(path string) (Result, error) {
 		result.Year = m[1]
 	} else if year, ok := textutil.ExtractYear(fields["CreationDate"]); ok {
 		result.Year = year
+	}
+	if coverData, coverContentType, ok := findPDFCover(data); ok {
+		result.CoverBytes = coverData
+		result.CoverContentType = coverContentType
 	}
 	return result, nil
 }

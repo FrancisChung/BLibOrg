@@ -302,3 +302,34 @@ func TestExtractPDF_PlaceholderTitleTreatedAsUnresolved(t *testing.T) {
 		t.Errorf("Year = %q, want 2013", result.Year)
 	}
 }
+
+func TestExtractPDF_FindsCoverImage(t *testing.T) {
+	jpegData := []byte("\xFF\xD8\xFFfakejpegbytes")
+	pdf := "%PDF-1.4\n" +
+		"1 0 obj\n<< /Type /XObject /Subtype /Image /Filter /DCTDecode /Width 100 /Height 150 /Length 16 >>\nstream\n" +
+		string(jpegData) + "\nendstream\nendobj\n"
+	path := writePDFFixture(t, pdf)
+
+	result, err := extractPDF(path)
+	if err != nil {
+		t.Fatalf("extractPDF returned error: %v", err)
+	}
+	if string(result.CoverBytes) != string(jpegData) {
+		t.Errorf("CoverBytes = %q, want %q", result.CoverBytes, jpegData)
+	}
+	if result.CoverContentType != "image/jpeg" {
+		t.Errorf("CoverContentType = %q, want image/jpeg", result.CoverContentType)
+	}
+}
+
+func TestExtractPDF_NoCoverLeavesFieldEmpty(t *testing.T) {
+	path := writePDFFixture(t, "%PDF-1.4\n1 0 obj\n<< /Title (Foo) >>\nendobj\n")
+
+	result, err := extractPDF(path)
+	if err != nil {
+		t.Fatalf("extractPDF returned error: %v", err)
+	}
+	if result.CoverBytes != nil {
+		t.Errorf("CoverBytes = %v, want nil", result.CoverBytes)
+	}
+}
