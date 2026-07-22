@@ -1,0 +1,69 @@
+package appapi
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/FrancisChung/book-organiser/internal/config"
+)
+
+func writeTestConfigForLibrary(t *testing.T, libraryFolder, logFolder string) string {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	cfg := config.Config{
+		General:    config.General{LibraryFolder: libraryFolder, LogFolder: logFolder},
+		Categories: map[string]config.Category{"Uncategorized": {}},
+	}
+	if err := config.Save(path, cfg); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
+	return path
+}
+
+func TestListLibrary_ReturnsBooksGroupedByCategory(t *testing.T) {
+	libDir := t.TempDir()
+	fictionSciFi := filepath.Join(libDir, "Fiction", "Sci-Fi", "Foundation.epub")
+	if err := os.MkdirAll(filepath.Dir(fictionSciFi), 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(fictionSciFi, []byte("not a real epub"), 0644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	configPath := writeTestConfigForLibrary(t, libDir, t.TempDir())
+	app := NewApp()
+	app.configPath = func() (string, error) { return configPath, nil }
+
+	view, err := app.ListLibrary()
+	if err != nil {
+		t.Fatalf("ListLibrary returned error: %v", err)
+	}
+	if len(view.Books) != 1 {
+		t.Fatalf("len(Books) = %d, want 1", len(view.Books))
+	}
+	if view.Books[0].Category != "Fiction" || view.Books[0].Subcategory != "Sci-Fi" {
+		t.Errorf("Category/Subcategory = %q/%q, want Fiction/Sci-Fi", view.Books[0].Category, view.Books[0].Subcategory)
+	}
+	if len(view.Categories) != 1 || view.Categories[0] != "Fiction" {
+		t.Errorf("Categories = %v, want [Fiction]", view.Categories)
+	}
+}
+
+func TestListLibrary_EmptyLibraryReturnsEmptyView(t *testing.T) {
+	configPath := writeTestConfigForLibrary(t, t.TempDir(), t.TempDir())
+	app := NewApp()
+	app.configPath = func() (string, error) { return configPath, nil }
+
+	view, err := app.ListLibrary()
+	if err != nil {
+		t.Fatalf("ListLibrary returned error: %v", err)
+	}
+	if len(view.Books) != 0 {
+		t.Errorf("len(Books) = %d, want 0", len(view.Books))
+	}
+	if len(view.Categories) != 0 {
+		t.Errorf("len(Categories) = %d, want 0", len(view.Categories))
+	}
+}
