@@ -91,4 +91,62 @@ export interface CategoryWarningView {
   warning: string;
 }
 
-export type SidebarView = 'scan' | 'operations' | 'warnings';
+export interface LibraryBookView {
+  sourcePath: string;
+  format: string;
+  title: string;
+  author: string;
+  year: string;
+  category: string;
+  subcategory: string;
+  coverPath: string;
+}
+
+export interface LibraryViewData {
+  books: LibraryBookView[];
+  categories: string[];
+}
+
+export type LibrarySortMode = 'title' | 'author' | 'year';
+
+export interface LibraryShelf {
+  subcategory: string;
+  books: LibraryBookView[];
+}
+
+// groupIntoShelves filters books to category (or keeps all when category is
+// ""), groups the result into one shelf per subcategory (subcategories
+// sorted alphabetically; an empty subcategory groups under
+// "(No subcategory)"), and sorts each shelf's books by sortMode -- the
+// single global sort control applies to every shelf at once, per the design
+// spec.
+export function groupIntoShelves(
+  books: LibraryBookView[],
+  category: string,
+  sortMode: LibrarySortMode,
+): LibraryShelf[] {
+  const filtered = category ? books.filter((b) => b.category === category) : books;
+
+  const bySubcategory = new Map<string, LibraryBookView[]>();
+  for (const b of filtered) {
+    const key = b.subcategory || '(No subcategory)';
+    const list = bySubcategory.get(key) ?? [];
+    list.push(b);
+    bySubcategory.set(key, list);
+  }
+
+  const compare = (a: LibraryBookView, b: LibraryBookView): number => {
+    if (sortMode === 'year') return a.year.localeCompare(b.year);
+    if (sortMode === 'author') return a.author.localeCompare(b.author);
+    return a.title.localeCompare(b.title);
+  };
+
+  return Array.from(bySubcategory.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([subcategory, shelfBooks]) => ({
+      subcategory,
+      books: [...shelfBooks].sort(compare),
+    }));
+}
+
+export type SidebarView = 'scan' | 'library' | 'operations' | 'warnings';
