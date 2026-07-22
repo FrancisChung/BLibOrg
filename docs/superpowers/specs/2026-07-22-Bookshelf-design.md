@@ -42,7 +42,7 @@ New backend package `internal/librarian`, mirroring `internal/pipeline`'s role b
 **Main view — new `LibraryView.svelte`:**
 - On mount and on category-filter change, calls `ListLibrary()`, groups the returned books by `Subcategory` into one bookshelf section per group (filtered to the active category, or all).
 - One **global** sort control — Title / Author / Year — at the top of the view, applied client-side across every shelf at once; re-sorting is a re-render, not a re-fetch.
-- Each bookshelf renders as a horizontal row of book tiles, ordered left-to-right per the active sort.
+- Each bookshelf renders as a horizontal row of book tiles, ordered left-to-right per the active sort. Overflow within a shelf is native horizontal scroll (`overflow-x: auto` — trackpad/shift-scroll/scrollbar), matching the mockup. No `<`/`>` pagination controls in v1; revisit after the shelf gets real usage if native scroll proves hard to discover.
 
 **Book tile — new `LibraryBookCard.svelte`** (a new component, not a reuse of the existing `BookCard.svelte`, which is built around the Scan & Review row/status-pill model — this one is cover-forward):
 - Shows the cover image (`<img src={book.coverPath}>`), falling back to a placeholder graphic when `coverPath` is empty.
@@ -66,6 +66,7 @@ New backend package `internal/librarian`, mirroring `internal/pipeline`'s role b
 
 ## Non-goals (out of scope for this pass)
 
+- Prev/Next arrow buttons or pagination for shelf overflow — start with native scroll, revisit based on real usage.
 - Pagination/virtualization for very large libraries.
 - Persisting sort/filter choice across app restarts.
 - Any cover art beyond best-effort EPUB/MOBI/PDF extraction — no manual cover upload, no fetching cover art from an external API.
