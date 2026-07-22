@@ -9,10 +9,11 @@ vi.mock('../wailsjs/go/main/App', () => ({
   ConfirmApply: vi.fn(),
   ListOperationBatches: vi.fn(),
   ListCategoryWarnings: vi.fn(),
+  ListLibrary: vi.fn(),
 }));
 
 import App from './App.svelte';
-import { ConfigStatus, ListOperationBatches, ListCategoryWarnings } from '../wailsjs/go/main/App';
+import { ConfigStatus, ListOperationBatches, ListCategoryWarnings, ListLibrary } from '../wailsjs/go/main/App';
 
 describe('App', () => {
   beforeEach(() => {
@@ -76,6 +77,20 @@ describe('App', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/rule 9/)).toBeInTheDocument();
+    });
+  });
+
+  it('switches to the Library view when its sidebar item is clicked', async () => {
+    vi.mocked(ListLibrary).mockResolvedValue({ books: [], categories: [] });
+    render(App);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Scan & Review' })).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Library' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('No books found in the library folder yet.')).toBeInTheDocument();
     });
   });
 });

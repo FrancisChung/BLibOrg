@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import Sidebar from './lib/Sidebar.svelte';
   import ScanReviewView from './lib/ScanReviewView.svelte';
+  import LibraryView from './lib/LibraryView.svelte';
   import OperationsLogView from './lib/OperationsLogView.svelte';
   import WarningsLogView from './lib/WarningsLogView.svelte';
   import type { SidebarView } from './lib/types';
@@ -10,6 +11,8 @@
   let activeView: SidebarView = 'scan';
   let configError = '';
   let configWarnings: string[] = [];
+  let libraryCategories: string[] = [];
+  let activeLibraryCategory = '';
 
   onMount(async () => {
     const status = await ConfigStatus();
@@ -22,10 +25,24 @@
   function onNavigate(e: CustomEvent<SidebarView>) {
     activeView = e.detail;
   }
+
+  function onSelectCategory(e: CustomEvent<string>) {
+    activeLibraryCategory = e.detail;
+  }
+
+  function onCategoriesLoaded(e: CustomEvent<string[]>) {
+    libraryCategories = e.detail;
+  }
 </script>
 
 <div class="shell">
-  <Sidebar active={activeView} on:navigate={onNavigate} />
+  <Sidebar
+    active={activeView}
+    {libraryCategories}
+    {activeLibraryCategory}
+    on:navigate={onNavigate}
+    on:selectCategory={onSelectCategory}
+  />
   <main>
     {#if configError}
       <div class="banner error">{configError}</div>
@@ -35,6 +52,8 @@
     {/each}
     {#if activeView === 'scan'}
       <ScanReviewView />
+    {:else if activeView === 'library'}
+      <LibraryView category={activeLibraryCategory} on:categoriesLoaded={onCategoriesLoaded} />
     {:else if activeView === 'operations'}
       <OperationsLogView />
     {:else if activeView === 'warnings'}

@@ -3,12 +3,15 @@
   import type { SidebarView } from './types';
 
   export let active: SidebarView;
+  export let libraryCategories: string[] = [];
+  export let activeLibraryCategory: string = '';
 
-  const dispatch = createEventDispatcher<{ navigate: SidebarView }>();
+  const dispatch = createEventDispatcher<{ navigate: SidebarView; selectCategory: string }>();
 
-  // Array-driven (not hardcoded markup) so a future top-level item (a
-  // planned "Catalogue" view) is a one-line addition here, not a rework.
+  // Array-driven (not hardcoded markup) so a future top-level item is a
+  // one-line addition here, not a rework.
   const topLevelItems: { view: SidebarView; label: string }[] = [
+    { view: 'library', label: 'Library' },
     { view: 'scan', label: 'Scan & Review' },
   ];
 
@@ -19,6 +22,11 @@
 
   function go(view: SidebarView) {
     dispatch('navigate', view);
+  }
+
+  function selectCategory(category: string) {
+    dispatch('navigate', 'library');
+    dispatch('selectCategory', category);
   }
 </script>
 
@@ -32,6 +40,26 @@
     >
       {item.label}
     </button>
+    {#if item.view === 'library' && libraryCategories.length > 0}
+      <button
+        type="button"
+        class="nav-sub"
+        class:active={active === 'library' && activeLibraryCategory === ''}
+        on:click={() => selectCategory('')}
+      >
+        All
+      </button>
+      {#each libraryCategories as category (category)}
+        <button
+          type="button"
+          class="nav-sub"
+          class:active={active === 'library' && activeLibraryCategory === category}
+          on:click={() => selectCategory(category)}
+        >
+          {category}
+        </button>
+      {/each}
+    {/if}
   {/each}
 
   <div class="nav-section">Logs</div>
