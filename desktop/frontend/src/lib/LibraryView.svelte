@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, createEventDispatcher } from 'svelte';
-  import LibraryBookCard from './LibraryBookCard.svelte';
+  import ShelfRow from './ShelfRow.svelte';
   import { groupIntoShelves, type LibraryBookView, type LibrarySortMode } from './types';
   import { ListLibrary } from '../../wailsjs/go/main/App';
 
@@ -55,14 +55,7 @@
     <p class="empty">No books found in the library folder yet.</p>
   {:else}
     {#each shelves as shelf (shelf.subcategory)}
-      <div class="shelf-section">
-        <div class="shelf-heading">{shelf.subcategory}</div>
-        <div class="shelf-row">
-          {#each shelf.books as book (book.sourcePath)}
-            <LibraryBookCard {book} />
-          {/each}
-        </div>
-      </div>
+      <ShelfRow subcategory={shelf.subcategory} books={shelf.books} />
     {/each}
   {/if}
 </div>
@@ -115,20 +108,6 @@
   .sort-toggle button.active {
     background: var(--bf-blue);
     color: white;
-  }
-  .shelf-heading {
-    font-size: 13px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--bf-text-muted);
-    margin-bottom: 8px;
-  }
-  .shelf-row {
-    display: flex;
-    gap: 12px;
-    padding-bottom: 14px;
-    border-bottom: 8px solid var(--bf-border);
-    overflow-x: auto;
   }
   .banner.error {
     background: var(--bf-amber-soft);
