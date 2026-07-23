@@ -47,6 +47,60 @@ func TestParsePDFImageGeometry_MissingWidthOrHeightNotOK(t *testing.T) {
 	}
 }
 
+func TestParsePDFImageGeometry_HugeDimensionsNotOK(t *testing.T) {
+	dict := []byte(`<</Type/XObject/Subtype/Image/Width 2000000000/Height 2000000000/Filter/FlateDecode>>`)
+	if _, ok := parsePDFImageGeometry(dict); ok {
+		t.Error("ok = true, want false (dimensions exceeding the sane-image cap must be rejected: " +
+			"rowBytes*height for these values would overflow int64 in buildRGBAFromSamples)")
+	}
+}
+
+func TestParsePDFImageGeometry_DimensionsAtCapOK(t *testing.T) {
+	dict := []byte(`<</Type/XObject/Subtype/Image/Width 65536/Height 65536/Filter/FlateDecode>>`)
+	if _, ok := parsePDFImageGeometry(dict); !ok {
+		t.Error("ok = false, want true (65536 is exactly at the cap, still allowed)")
+	}
+	dict2 := []byte(`<</Type/XObject/Subtype/Image/Width 65537/Height 100/Filter/FlateDecode>>`)
+	if _, ok := parsePDFImageGeometry(dict2); ok {
+		t.Error("ok = true, want false (65537 exceeds the cap)")
+	}
+}
+
+// TestDecodeFlatePDFImage_HugeDimensionsRejectedWithoutPanic is the
+// reviewer's exact repro for the integer-overflow panic this cap closes:
+// /Width and /Height of 2000000000 each, with a DeviceRGB colorspace (3
+// components), make rowBytes*geo.height (6e9 * 2e9 = 1.2e19) overflow
+// int64 and wrap negative inside buildRGBAFromSamples. That wrapped
+// negative number made "len(samples) < rowBytes*geo.height" pass even for
+// a tiny 3-byte samples buffer, so control used to reach
+// image.NewRGBA(image.Rect(0, 0, 2000000000, 2000000000)), which panics
+// with "NewRGBA Rectangle has huge or negative dimensions." Before the
+// dimension cap in parsePDFImageGeometry, running this test panicked;
+// with the cap, decodeFlatePDFImage now returns ok=false cleanly, well
+// before reaching buildRGBAFromSamples at all.
+func TestDecodeFlatePDFImage_HugeDimensionsRejectedWithoutPanic(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("decodeFlatePDFImage panicked on huge /Width and /Height: %v", r)
+		}
+	}()
+
+	var compressed bytes.Buffer
+	w := zlib.NewWriter(&compressed)
+	if _, err := w.Write([]byte{0x10, 0x20, 0x30}); err != nil { // tiny, valid zlib stream: 1 RGB pixel's worth
+		t.Fatalf("zlib write: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("zlib close: %v", err)
+	}
+
+	dict := []byte(`<</Type/XObject/Subtype/Image/Width 2000000000/Height 2000000000` +
+		`/ColorSpace/DeviceRGB/Filter/FlateDecode>>`)
+	if _, _, ok := decodeFlatePDFImage(buildPDFObjIndex(nil), nil, dict, compressed.Bytes()); ok {
+		t.Error("ok = true, want false (huge dimensions must be rejected, not reach image.NewRGBA)")
+	}
+}
+
 func TestColorsOrDefault_UsesExplicitColorsOverColorSpaceComponents(t *testing.T) {
 	geo := pdfImageGeometry{colors: 3}
 	if got := geo.colorsOrDefault(1); got != 3 {
