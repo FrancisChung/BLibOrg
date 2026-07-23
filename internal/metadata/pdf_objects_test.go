@@ -253,3 +253,63 @@ func TestPDFObjIndex_Find(t *testing.T) {
 		t.Errorf("dict = %q, want it to contain /Pages 2 0 R", dict)
 	}
 }
+
+func TestPDFObjIndex_FindDeterministic(t *testing.T) {
+	// Tests that when multiple objects match the same regex pattern,
+	// find consistently returns the one that appears FIRST in file order,
+	// not a random match from map iteration. Uses two /Type /Pages objects
+	// at different positions in the file.
+	data := []byte(
+		"1 0 obj\n<< /Type /Pages /Kids [2 0 R] /Count 1 >>\nendobj\n" +
+			"2 0 obj\n<< /Type /Pages /Kids [] /Count 0 >>\nendobj\n")
+	idx := buildPDFObjIndex(data)
+
+	// Both objects 1 and 2 match /Type /Pages, but object 1 appears first.
+	dict, ok := idx.find(regexp.MustCompile(`/Type\s*/Pages\b`))
+	if !ok {
+		t.Fatal("find(Pages) not found")
+	}
+	// The first matching object (1) should contain /Count 1, not /Count 0.
+	if !bytes.Contains(dict, []byte("/Count 1")) {
+		t.Errorf("dict = %q, want it to contain /Count 1 (from first file position)", dict)
+	}
+	if bytes.Contains(dict, []byte("/Count 0")) {
+		t.Errorf("dict = %q, should not contain /Count 0 (from second file position)", dict)
+	}
+}
+
+func TestPDFObjIndex_FindInObjStm(t *testing.T) {
+	// Tests that find can locate a matching object that exists ONLY inside
+	// a compressed ObjStm, not as a literal in the file. The matching
+	// dictionary is only present in the compressed objects.
+	obj5 := "<</Type/Page/Parent 1 0 R>>"
+	obj6 := "<</Foo/Bar>>"
+	header := fmt.Sprintf("5 0 6 %d", len(obj5))
+	content := header + obj5 + obj6
+	first := len(header)
+
+	var compressed bytes.Buffer
+	w := zlib.NewWriter(&compressed)
+	if _, err := w.Write([]byte(content)); err != nil {
+		t.Fatalf("zlib write: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("zlib close: %v", err)
+	}
+
+	var data bytes.Buffer
+	fmt.Fprintf(&data, "9 0 obj\n<< /Type /ObjStm /N 2 /First %d /Filter /FlateDecode /Length %d >>\nstream\n", first, compressed.Len())
+	data.Write(compressed.Bytes())
+	data.WriteString("\nendstream\nendobj\n")
+
+	idx := buildPDFObjIndex(data.Bytes())
+
+	// Find should locate the /Type /Page object inside the ObjStm.
+	dict, ok := idx.find(regexp.MustCompile(`/Type\s*/Page\b`))
+	if !ok {
+		t.Fatal("find(Page) not found in ObjStm")
+	}
+	if !bytes.Contains(dict, []byte("/Parent 1 0 R")) {
+		t.Errorf("dict = %q, want it to contain /Parent 1 0 R", dict)
+	}
+}

@@ -236,16 +236,35 @@ func resolveDictValue(idx *pdfObjIndex, dict []byte, key string) (value []byte, 
 // find scans every indexed object (literal first, then ObjStm-compressed
 // ones) for one whose dict matches typeRe, returning its dict bytes. Used
 // to locate singleton objects like /Type /Catalog that aren't referenced
-// by a fixed, predictable object number.
+// by a fixed, predictable object number. Scanning is deterministic: literal
+// objects are scanned in file order (by literalOrder), and ObjStm objects
+// are scanned in numeric order.
 func (idx *pdfObjIndex) find(typeRe *regexp.Regexp) (dict []byte, ok bool) {
-	for _, body := range idx.literal {
+	// Scan literals in file order.
+	objNums := make([]int, 0, len(idx.literal))
+	for n := range idx.literal {
+		objNums = append(objNums, n)
+	}
+	sort.Slice(objNums, func(i, j int) bool {
+		return idx.literalOrder[objNums[i]] < idx.literalOrder[objNums[j]]
+	})
+	for _, n := range objNums {
+		body := idx.literal[n]
 		d, _, _ := splitPDFObjectBody(body)
 		if typeRe.Match(d) {
 			return d, true
 		}
 	}
+
+	// Scan ObjStm in numeric order.
 	idx.resolveObjStms()
-	for _, body := range idx.objStm {
+	objStmNums := make([]int, 0, len(idx.objStm))
+	for n := range idx.objStm {
+		objStmNums = append(objStmNums, n)
+	}
+	sort.Ints(objStmNums)
+	for _, n := range objStmNums {
+		body := idx.objStm[n]
 		if typeRe.Match(body) {
 			return body, true
 		}
