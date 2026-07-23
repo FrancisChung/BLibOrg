@@ -79,6 +79,24 @@ func TestPDFSubDictValue_NestedDict(t *testing.T) {
 	}
 }
 
+func TestPDFSubDictValue_DoubleNested(t *testing.T) {
+	// Tests that the depth-aware bracket-balancing logic correctly handles
+	// a value that itself contains a nested dictionary. The value for
+	// /DecodeParms is /A<</X 1>>/B 2, which contains a << >> pair.
+	// A naive implementation that stops at the FIRST >> after /DecodeParms<<
+	// would incorrectly return /A<< (missing the closing >> of the inner dict
+	// and everything after). This test ensures depth correctly goes 1→2→1→0.
+	dict := []byte(`<</Type/XObject/DecodeParms<</A<</X 1>>/B 2>>/Filter/FlateDecode>>`)
+	value, ok := pdfSubDictValue(dict, "DecodeParms")
+	if !ok {
+		t.Fatal("pdfSubDictValue not found")
+	}
+	want := "/A<</X 1>>/B 2"
+	if string(value) != want {
+		t.Errorf("value = %q, want %q", value, want)
+	}
+}
+
 func TestPDFSubDictValue_KeyAbsent(t *testing.T) {
 	dict := []byte(`<</Type/XObject/Subtype/Image/Filter/DCTDecode>>`)
 	if _, ok := pdfSubDictValue(dict, "DecodeParms"); ok {
