@@ -10,6 +10,7 @@ import (
 	"compress/zlib"
 	"io"
 	"regexp"
+	"sort"
 	"strconv"
 )
 
@@ -17,6 +18,7 @@ import (
 // (everything between the "obj" and "endobj" keywords).
 type pdfObjIndex struct {
 	literal        map[int][]byte
+	literalOrder   map[int]int
 	objStm         map[int][]byte
 	objStmResolved bool
 }
@@ -29,13 +31,18 @@ var pdfIndirectObjRe = regexp.MustCompile(`(?s)(\d+)\s+\d+\s+obj(.*?)endobj`)
 // file), the LAST occurrence wins -- consistent with findInfoDictBody's
 // existing "most recent update wins" convention elsewhere in this package.
 func buildPDFObjIndex(data []byte) *pdfObjIndex {
-	idx := &pdfObjIndex{literal: map[int][]byte{}}
-	for _, m := range pdfIndirectObjRe.FindAllSubmatch(data, -1) {
+	idx := &pdfObjIndex{
+		literal:      map[int][]byte{},
+		literalOrder: map[int]int{},
+	}
+	matches := pdfIndirectObjRe.FindAllSubmatch(data, -1)
+	for i, m := range matches {
 		n, err := strconv.Atoi(string(m[1]))
 		if err != nil {
 			continue
 		}
 		idx.literal[n] = m[2]
+		idx.literalOrder[n] = i
 	}
 	return idx
 }
@@ -113,7 +120,9 @@ var pdfObjStmFirstRe = regexp.MustCompile(`/First\s+(\d+)`)
 // increasingly compress non-stream objects like Page/Pages nodes into
 // ObjStm for space savings (confirmed present in ~30% of a real 192-PDF
 // library sample during this feature's design). Runs at most once per
-// index.
+// index. Processing happens in file order (by literalOrder) to ensure
+// later ObjStm containers deterministically override earlier ones for
+// any colliding compressed object numbers.
 func (idx *pdfObjIndex) resolveObjStms() {
 	if idx.objStmResolved {
 		return
@@ -121,7 +130,18 @@ func (idx *pdfObjIndex) resolveObjStms() {
 	idx.objStmResolved = true
 	idx.objStm = map[int][]byte{}
 
-	for _, body := range idx.literal {
+	// Collect all object numbers and sort by their file order.
+	objNums := make([]int, 0, len(idx.literal))
+	for n := range idx.literal {
+		objNums = append(objNums, n)
+	}
+	sort.Slice(objNums, func(i, j int) bool {
+		return idx.literalOrder[objNums[i]] < idx.literalOrder[objNums[j]]
+	})
+
+	// Process ObjStm containers in file order.
+	for _, objNum := range objNums {
+		body := idx.literal[objNum]
 		dict, stream, hasStream := splitPDFObjectBody(body)
 		if !hasStream || !pdfObjStmTypeRe.Match(dict) {
 			continue

@@ -151,3 +151,63 @@ func TestPDFObjIndex_ResolvesObjectInsideObjStm(t *testing.T) {
 		t.Errorf("lookup(6) = %q, want %q", body6, obj6)
 	}
 }
+
+func TestPDFObjIndex_LaterObjStmOverridesEarlier(t *testing.T) {
+	// Tests that when two separate ObjStm containers at different object
+	// numbers both contain a compressed object with the same target number
+	// but different content, the LATER ObjStm (by file position) wins.
+	// This verifies deterministic file-order processing, not random map
+	// iteration order.
+
+	// First ObjStm (object 9) compresses object 5 as V1.
+	obj5_v1 := "<</V 1>>"
+	header1 := fmt.Sprintf("5 0")
+	content1 := header1 + obj5_v1
+	first1 := len(header1)
+
+	var compressed1 bytes.Buffer
+	w1 := zlib.NewWriter(&compressed1)
+	if _, err := w1.Write([]byte(content1)); err != nil {
+		t.Fatalf("zlib write (ObjStm 9): %v", err)
+	}
+	if err := w1.Close(); err != nil {
+		t.Fatalf("zlib close (ObjStm 9): %v", err)
+	}
+
+	// Second ObjStm (object 20) compresses object 5 as V2 -- should override.
+	obj5_v2 := "<</V 2>>"
+	header2 := fmt.Sprintf("5 0")
+	content2 := header2 + obj5_v2
+	first2 := len(header2)
+
+	var compressed2 bytes.Buffer
+	w2 := zlib.NewWriter(&compressed2)
+	if _, err := w2.Write([]byte(content2)); err != nil {
+		t.Fatalf("zlib write (ObjStm 20): %v", err)
+	}
+	if err := w2.Close(); err != nil {
+		t.Fatalf("zlib close (ObjStm 20): %v", err)
+	}
+
+	var data bytes.Buffer
+	fmt.Fprintf(&data, "9 0 obj\n<< /Type /ObjStm /N 1 /First %d /Filter /FlateDecode /Length %d >>\nstream\n", first1, compressed1.Len())
+	data.Write(compressed1.Bytes())
+	data.WriteString("\nendstream\nendobj\n")
+
+	fmt.Fprintf(&data, "20 0 obj\n<< /Type /ObjStm /N 1 /First %d /Filter /FlateDecode /Length %d >>\nstream\n", first2, compressed2.Len())
+	data.Write(compressed2.Bytes())
+	data.WriteString("\nendstream\nendobj\n")
+
+	idx := buildPDFObjIndex(data.Bytes())
+
+	body5, ok := idx.lookup(5)
+	if !ok {
+		t.Fatal("lookup(5) not found")
+	}
+	if !bytes.Contains(body5, []byte("/V 2")) {
+		t.Errorf("lookup(5) = %q, want it to contain /V 2 (from later ObjStm 20)", body5)
+	}
+	if bytes.Contains(body5, []byte("/V 1")) {
+		t.Errorf("lookup(5) = %q, want it to NOT contain /V 1 (from earlier ObjStm 9)", body5)
+	}
+}
