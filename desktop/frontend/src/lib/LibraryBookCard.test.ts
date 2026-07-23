@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/svelte';
 import LibraryBookCard from './LibraryBookCard.svelte';
-import type { LibraryBookView } from './types';
+import type { LibraryBookView, CoverCandidateView } from './types';
 
 vi.mock('../../wailsjs/go/main/App', () => ({
   OpenFile: vi.fn(),
@@ -19,6 +19,7 @@ function makeBook(overrides: Partial<LibraryBookView> = {}): LibraryBookView {
     category: 'Fiction',
     subcategory: 'Sci-Fi',
     coverPath: '',
+    coverOverridden: false,
     ...overrides,
   };
 }
@@ -59,5 +60,27 @@ describe('LibraryBookCard', () => {
 
     await fireEvent.click(cover);
     await screen.findByText('Error: file moved');
+  });
+});
+
+describe('CoverCandidateView / LibraryBookView.coverOverridden', () => {
+  it('LibraryBookView accepts coverOverridden', () => {
+    const book: LibraryBookView = {
+      sourcePath: '/library/book.pdf',
+      format: 'pdf',
+      title: 'Title',
+      author: 'Author',
+      year: '2020',
+      category: 'Fiction',
+      subcategory: '',
+      coverPath: '/covers/abc.jpg',
+      coverOverridden: true,
+    };
+    expect(book.coverOverridden).toBe(true);
+  });
+
+  it('CoverCandidateView shape', () => {
+    const candidate: CoverCandidateView = { page: 1, thumbnailUrl: '/covers/candidate-abc-p1.jpg' };
+    expect(candidate.page).toBe(1);
   });
 });
