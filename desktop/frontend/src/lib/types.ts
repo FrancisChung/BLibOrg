@@ -100,6 +100,12 @@ export interface LibraryBookView {
   category: string;
   subcategory: string;
   coverPath: string;
+  coverOverridden: boolean;
+}
+
+export interface CoverCandidateView {
+  page: number;
+  thumbnailUrl: string;
 }
 
 export type LibrarySortMode = 'title' | 'author' | 'year';

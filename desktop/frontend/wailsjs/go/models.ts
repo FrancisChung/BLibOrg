@@ -163,6 +163,20 @@ export namespace appapi {
 	        this.warnings = source["warnings"];
 	    }
 	}
+	export class CoverCandidateView {
+	    page: number;
+	    thumbnailUrl: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CoverCandidateView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.page = source["page"];
+	        this.thumbnailUrl = source["thumbnailUrl"];
+	    }
+	}
 	export class DestinationView {
 	    category: string;
 	    subcategory: string;
@@ -178,6 +192,66 @@ export namespace appapi {
 	    }
 	}
 	
+	export class LibraryBookView {
+	    sourcePath: string;
+	    format: string;
+	    title: string;
+	    author: string;
+	    year: string;
+	    category: string;
+	    subcategory: string;
+	    coverPath: string;
+	    coverOverridden: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new LibraryBookView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.sourcePath = source["sourcePath"];
+	        this.format = source["format"];
+	        this.title = source["title"];
+	        this.author = source["author"];
+	        this.year = source["year"];
+	        this.category = source["category"];
+	        this.subcategory = source["subcategory"];
+	        this.coverPath = source["coverPath"];
+	        this.coverOverridden = source["coverOverridden"];
+	    }
+	}
+	export class LibraryView {
+	    books: LibraryBookView[];
+	    categories: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new LibraryView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.books = this.convertValues(source["books"], LibraryBookView);
+	        this.categories = source["categories"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class OperationEntryView {
 	    oldPath: string;
 	    newPath: string;
@@ -216,64 +290,6 @@ export namespace appapi {
 	        this.entries = this.convertValues(source["entries"], OperationEntryView);
 	    }
 	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
-	export class LibraryBookView {
-	    sourcePath: string;
-	    format: string;
-	    title: string;
-	    author: string;
-	    year: string;
-	    category: string;
-	    subcategory: string;
-	    coverPath: string;
-
-	    static createFrom(source: any = {}) {
-	        return new LibraryBookView(source);
-	    }
-
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.sourcePath = source["sourcePath"];
-	        this.format = source["format"];
-	        this.title = source["title"];
-	        this.author = source["author"];
-	        this.year = source["year"];
-	        this.category = source["category"];
-	        this.subcategory = source["subcategory"];
-	        this.coverPath = source["coverPath"];
-	    }
-	}
-	export class LibraryView {
-	    books: LibraryBookView[];
-	    categories: string[];
-
-	    static createFrom(source: any = {}) {
-	        return new LibraryView(source);
-	    }
-
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.books = this.convertValues(source["books"], LibraryBookView);
-	        this.categories = source["categories"];
-	    }
-
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;

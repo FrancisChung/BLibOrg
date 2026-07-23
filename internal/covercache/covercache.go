@@ -14,6 +14,7 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 )
 
@@ -30,15 +31,30 @@ func Dir(logFolder string) string {
 
 // fileName returns the cache filename for sourcePath: a hash of the path
 // itself (not its bytes -- one book, one stable name across calls, so the
-// served URL doesn't change on every relist) plus an extension inferred
-// from contentType.
-func fileName(sourcePath, contentType string) string {
+// served URL doesn't change on every relist), an optional suffix (used by
+// WriteCandidateImage to distinguish one page from another for the same
+// book), plus an extension inferred from contentType.
+func fileName(sourcePath, suffix, contentType string) string {
 	sum := sha256.Sum256([]byte(sourcePath))
 	ext := extByContentType[contentType]
 	if ext == "" {
 		ext = ".img"
 	}
-	return hex.EncodeToString(sum[:]) + ext
+	return hex.EncodeToString(sum[:]) + suffix + ext
+}
+
+// writeCoverFile (re)writes bytes to name under logFolder's cover cache
+// directory, creating the directory if needed, and returns the URL path
+// the frontend should use as an <img src>.
+func writeCoverFile(logFolder, name string, bytes []byte) (string, error) {
+	dir := Dir(logFolder)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(filepath.Join(dir, name), bytes, 0644); err != nil {
+		return "", err
+	}
+	return "/covers/" + name, nil
 }
 
 // Ensure writes coverBytes to the cache under logFolder if no fresher cache
@@ -53,19 +69,46 @@ func Ensure(logFolder, sourcePath string, sourceModTime time.Time, coverBytes []
 	if len(coverBytes) == 0 {
 		return "", nil
 	}
-	dir := Dir(logFolder)
-	name := fileName(sourcePath, contentType)
-	cachePath := filepath.Join(dir, name)
+	name := fileName(sourcePath, "", contentType)
+	cachePath := filepath.Join(Dir(logFolder), name)
 
 	if info, err := os.Stat(cachePath); err == nil && !info.ModTime().Before(sourceModTime) {
 		return "/covers/" + name, nil
 	}
 
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return "", err
+	return writeCoverFile(logFolder, name, coverBytes)
+}
+
+// Force writes coverBytes to the cache unconditionally, unlike Ensure
+// (which reuses an existing cache file at least as new as
+// sourceModTime). Used by manual cover-override set/clear: the source
+// file's own mtime hasn't changed, but the served URL must reflect the
+// new choice immediately rather than waiting for the next time the
+// source file itself changes.
+func Force(logFolder, sourcePath string, coverBytes []byte, contentType string) (string, error) {
+	if len(coverBytes) == 0 {
+		return "", nil
 	}
-	if err := os.WriteFile(cachePath, coverBytes, 0644); err != nil {
-		return "", err
-	}
-	return "/covers/" + name, nil
+	return writeCoverFile(logFolder, fileName(sourcePath, "", contentType), coverBytes)
+}
+
+// WriteCustomOverrideImage stores a user-uploaded cover image under the
+// same covercache.Dir as auto-detected covers (rather than the design
+// doc's separate covers/overrides/ subdirectory -- see this plan's Global
+// Constraints for why), with an "override-" filename prefix so it can't
+// collide with sourcePath's own auto-cache entry. Always (re)writes:
+// there's no "is this already cached" question for a fresh upload.
+func WriteCustomOverrideImage(logFolder, sourcePath string, imageBytes []byte, contentType string) (string, error) {
+	return writeCoverFile(logFolder, "override-"+fileName(sourcePath, "", contentType), imageBytes)
+}
+
+// WriteCandidateImage stores one page's candidate cover image (from
+// metadata.ListPDFCoverCandidates) for the cover-picker's thumbnail grid,
+// under covercache.Dir with a "candidate-" prefix (see
+// WriteCustomOverrideImage's doc comment for why this dir, not a
+// candidates/ subdirectory), and a "-p<page>" suffix (via fileName) so the
+// grid gets one stable, distinct URL per (book, page) pair across calls.
+func WriteCandidateImage(logFolder, sourcePath string, page int, imageBytes []byte, contentType string) (string, error) {
+	name := "candidate-" + fileName(sourcePath, "-p"+strconv.Itoa(page), contentType)
+	return writeCoverFile(logFolder, name, imageBytes)
 }

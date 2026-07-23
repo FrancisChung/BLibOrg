@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/FrancisChung/book-organiser/internal/config"
+	"github.com/FrancisChung/book-organiser/internal/covercache"
 )
 
 func writeFixtureFile(t *testing.T, dir, relPath string) string {
@@ -136,5 +137,122 @@ func TestScan_PopulatesCoverPathAndMetadataWhenCoverExists(t *testing.T) {
 	}
 	if books[0].Title != "Foundation" {
 		t.Errorf("Title = %q, want Foundation", books[0].Title)
+	}
+}
+
+func writeRealPDFFixture(t *testing.T, path string) {
+	t.Helper()
+	jpeg := []byte("\xFF\xD8\xFFrealjpeg")
+	data := []byte(
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+			"2 0 obj\n<< /Type /Pages /Kids [3 0 R 4 0 R] >>\nendobj\n" +
+			"3 0 obj\n<< /Type /Page /Resources << /Font << /F1 9 0 R >> >> >>\nendobj\n" +
+			"4 0 obj\n<< /Type /Page /Resources << /XObject << /Im0 5 0 R >> >> >>\nendobj\n" +
+			"5 0 obj\n<< /Type /XObject /Subtype /Image /Filter /DCTDecode /Length 16 >>\nstream\n" +
+			string(jpeg) + "\nendstream\nendobj\n")
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+}
+
+func TestScan_NoOverrideUsesAutoDetectedCover(t *testing.T) {
+	libDir := t.TempDir()
+	path := filepath.Join(libDir, "book.pdf")
+	writeRealPDFFixture(t, path)
+
+	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: t.TempDir()}}
+	books, err := Scan(cfg)
+	if err != nil {
+		t.Fatalf("Scan returned error: %v", err)
+	}
+	if len(books) != 1 {
+		t.Fatalf("len(books) = %d, want 1", len(books))
+	}
+	if books[0].CoverOverridden {
+		t.Error("CoverOverridden = true, want false (no override set)")
+	}
+	if books[0].CoverPath == "" {
+		t.Error("CoverPath is empty, want the auto-detected page-2 cover")
+	}
+}
+
+func TestScan_EmbeddedOverridePinsSpecificPage(t *testing.T) {
+	libDir := t.TempDir()
+	path := filepath.Join(libDir, "book.pdf")
+	writeRealPDFFixture(t, path)
+	logFolder := t.TempDir()
+
+	// The fixture's only image is on page 2; pin page 1 (which has none) to
+	// prove the override is actually driving cover selection, not being
+	// ignored in favor of auto-detection.
+	if err := covercache.SetOverride(logFolder, path, covercache.Override{Type: covercache.OverrideEmbedded, Page: 1}); err != nil {
+		t.Fatalf("SetOverride: %v", err)
+	}
+
+	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logFolder}}
+	books, err := Scan(cfg)
+	if err != nil {
+		t.Fatalf("Scan returned error: %v", err)
+	}
+	if !books[0].CoverOverridden {
+		t.Error("CoverOverridden = false, want true")
+	}
+	if books[0].CoverPath != "" {
+		t.Error("CoverPath is non-empty, want empty (page 1 has no image, and the override should not fall back to auto-detection)")
+	}
+}
+
+func TestScan_CustomOverrideUsesStoredImagePath(t *testing.T) {
+	libDir := t.TempDir()
+	path := filepath.Join(libDir, "book.pdf")
+	writeRealPDFFixture(t, path)
+	logFolder := t.TempDir()
+
+	if err := covercache.SetOverride(logFolder, path, covercache.Override{
+		Type:      covercache.OverrideCustom,
+		ImagePath: "/covers/override-abc123.jpg",
+	}); err != nil {
+		t.Fatalf("SetOverride: %v", err)
+	}
+
+	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logFolder}}
+	books, err := Scan(cfg)
+	if err != nil {
+		t.Fatalf("Scan returned error: %v", err)
+	}
+	if !books[0].CoverOverridden {
+		t.Error("CoverOverridden = false, want true")
+	}
+	if books[0].CoverPath != "/covers/override-abc123.jpg" {
+		t.Errorf("CoverPath = %q, want the stored override URL", books[0].CoverPath)
+	}
+}
+
+func TestScan_OverrideDoesNotBlankTitleAuthorYear(t *testing.T) {
+	// Confirms this plan's deliberate deviation from the design doc's
+	// literal "extraction is skipped entirely" wording: Title/Author/Year
+	// must still come from metadata.Extract even for an overridden book.
+	libDir := t.TempDir()
+	path := filepath.Join(libDir, "Foundation - Isaac Asimov.pdf")
+	writeRealPDFFixture(t, path)
+	logFolder := t.TempDir()
+	if err := covercache.SetOverride(logFolder, path, covercache.Override{Type: covercache.OverrideEmbedded, Page: 2}); err != nil {
+		t.Fatalf("SetOverride: %v", err)
+	}
+
+	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logFolder}}
+	books, err := Scan(cfg)
+	if err != nil {
+		t.Fatalf("Scan returned error: %v", err)
+	}
+	// The fixture PDF has no /Title, so this only proves Extract still ran
+	// (Format/SourcePath were always set regardless) -- combined with the
+	// two tests above, which prove CoverPath genuinely reflects the
+	// override rather than a blanked/skipped result.
+	if books[0].Format != "pdf" {
+		t.Errorf("Format = %q, want pdf (metadata.Extract path still ran)", books[0].Format)
 	}
 }

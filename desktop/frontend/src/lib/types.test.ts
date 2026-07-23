@@ -11,6 +11,7 @@ function makeBook(overrides: Partial<LibraryBookView> = {}): LibraryBookView {
     category: 'Fiction',
     subcategory: 'Sci-Fi',
     coverPath: '',
+    coverOverridden: false,
     ...overrides,
   };
 }

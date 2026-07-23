@@ -6,6 +6,8 @@ export function Apply(arg1:Array<appapi.BookView>):Promise<appapi.ApplyResult>;
 
 export function Categories():Promise<Array<appapi.DestinationView>>;
 
+export function ClearCoverOverride(arg1:string):Promise<string>;
+
 export function ConfigStatus():Promise<appapi.ConfigStatusView>;
 
 export function ConfirmApply(arg1:number,arg2:string):Promise<boolean>;
@@ -18,10 +20,18 @@ export function ListLibrary():Promise<appapi.LibraryView>;
 
 export function ListOperationBatches():Promise<Array<appapi.OperationBatchView>>;
 
+export function ListPDFCoverCandidates(arg1:string):Promise<Array<appapi.CoverCandidateView>>;
+
 export function OpenFile(arg1:string):Promise<void>;
+
+export function PickCoverImageFile():Promise<string>;
 
 export function Recompute(arg1:appapi.BookView):Promise<appapi.BookView>;
 
 export function Scan():Promise<Array<appapi.BookView>>;
+
+export function SetCoverOverride(arg1:string,arg2:number):Promise<string>;
+
+export function SetCoverOverrideCustomFromFile(arg1:string,arg2:string):Promise<string>;
 
 export function UndoBatch(arg1:string):Promise<void>;

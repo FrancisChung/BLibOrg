@@ -1,0 +1,157 @@
+package appapi
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/FrancisChung/book-organiser/internal/config"
+	"github.com/FrancisChung/book-organiser/internal/covercache"
+)
+
+func twoPagePDFFixture() []byte {
+	jpeg1 := []byte("\xFF\xD8\xFFpage1jpeg")
+	jpeg2 := []byte("\xFF\xD8\xFFpage2jpeg")
+	return []byte(
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+			"2 0 obj\n<< /Type /Pages /Kids [3 0 R 4 0 R] >>\nendobj\n" +
+			"3 0 obj\n<< /Type /Page /Resources << /XObject << /Im0 5 0 R >> >> >>\nendobj\n" +
+			"4 0 obj\n<< /Type /Page /Resources << /XObject << /Im0 6 0 R >> >> >>\nendobj\n" +
+			"5 0 obj\n<< /Type /XObject /Subtype /Image /Filter /DCTDecode /Length 16 >>\nstream\n" +
+			string(jpeg1) + "\nendstream\nendobj\n" +
+			"6 0 obj\n<< /Type /XObject /Subtype /Image /Filter /DCTDecode /Length 16 >>\nstream\n" +
+			string(jpeg2) + "\nendstream\nendobj\n")
+}
+
+func newTestAppWithConfig(t *testing.T) (*App, config.Config, string) {
+	t.Helper()
+	logFolder := t.TempDir()
+	cfg := config.Config{General: config.General{LogFolder: logFolder}}
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	if err := config.Save(configPath, cfg); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
+	app := NewApp()
+	app.configPath = func() (string, error) { return configPath, nil }
+	return app, cfg, logFolder
+}
+
+func TestListPDFCoverCandidates_ReturnsThumbnailPerPage(t *testing.T) {
+	app, _, _ := newTestAppWithConfig(t)
+	bookPath := filepath.Join(t.TempDir(), "book.pdf")
+	if err := os.WriteFile(bookPath, twoPagePDFFixture(), 0644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	candidates, err := app.ListPDFCoverCandidates(bookPath)
+	if err != nil {
+		t.Fatalf("ListPDFCoverCandidates returned error: %v", err)
+	}
+	if len(candidates) != 2 {
+		t.Fatalf("len(candidates) = %d, want 2", len(candidates))
+	}
+	if candidates[0].Page != 1 || candidates[0].ThumbnailURL == "" {
+		t.Errorf("candidates[0] = %+v, want Page=1 and a non-empty ThumbnailURL", candidates[0])
+	}
+}
+
+func TestSetCoverOverride_PersistsAndReturnsCoverURL(t *testing.T) {
+	app, _, logFolder := newTestAppWithConfig(t)
+	bookPath := filepath.Join(t.TempDir(), "book.pdf")
+	if err := os.WriteFile(bookPath, twoPagePDFFixture(), 0644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	url, err := app.SetCoverOverride(bookPath, 2)
+	if err != nil {
+		t.Fatalf("SetCoverOverride returned error: %v", err)
+	}
+	if url == "" {
+		t.Error("url is empty, want a /covers/... URL")
+	}
+
+	ov, found, err := covercache.GetOverride(logFolder, bookPath)
+	if err != nil || !found {
+		t.Fatalf("GetOverride = %+v, %v, %v, want found=true", ov, found, err)
+	}
+	if ov.Type != covercache.OverrideEmbedded || ov.Page != 2 {
+		t.Errorf("override = %+v, want Type=embedded, Page=2", ov)
+	}
+}
+
+func TestSetCoverOverride_NoImageOnPageReturnsError(t *testing.T) {
+	app, _, _ := newTestAppWithConfig(t)
+	bookPath := filepath.Join(t.TempDir(), "book.pdf")
+	if err := os.WriteFile(bookPath, twoPagePDFFixture(), 0644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	if _, err := app.SetCoverOverride(bookPath, 99); err == nil {
+		t.Error("expected an error for a page with no image, got nil")
+	}
+}
+
+func TestSetCoverOverrideCustom_PersistsAndReturnsCoverURL(t *testing.T) {
+	app, _, logFolder := newTestAppWithConfig(t)
+	bookPath := filepath.Join(t.TempDir(), "book.epub")
+
+	url, err := app.SetCoverOverrideCustom(bookPath, []byte("uploaded-bytes"), "image/png")
+	if err != nil {
+		t.Fatalf("SetCoverOverrideCustom returned error: %v", err)
+	}
+	if filepath.Ext(url) != ".png" {
+		t.Errorf("url = %q, want a .png extension", url)
+	}
+
+	ov, found, err := covercache.GetOverride(logFolder, bookPath)
+	if err != nil || !found {
+		t.Fatalf("GetOverride = %+v, %v, %v, want found=true", ov, found, err)
+	}
+	if ov.Type != covercache.OverrideCustom || ov.ImagePath != url {
+		t.Errorf("override = %+v, want Type=custom, ImagePath=%q", ov, url)
+	}
+}
+
+func TestSetCoverOverrideCustomFromFile_ReadsFileAndInfersContentType(t *testing.T) {
+	app, _, _ := newTestAppWithConfig(t)
+	bookPath := filepath.Join(t.TempDir(), "book.epub")
+	imagePath := filepath.Join(t.TempDir(), "cover.png")
+	if err := os.WriteFile(imagePath, []byte("png-bytes"), 0644); err != nil {
+		t.Fatalf("write image fixture: %v", err)
+	}
+
+	url, err := app.SetCoverOverrideCustomFromFile(bookPath, imagePath)
+	if err != nil {
+		t.Fatalf("SetCoverOverrideCustomFromFile returned error: %v", err)
+	}
+	if filepath.Ext(url) != ".png" {
+		t.Errorf("url = %q, want a .png extension", url)
+	}
+}
+
+func TestClearCoverOverride_RemovesOverrideAndReturnsAutoDetectedURL(t *testing.T) {
+	app, _, logFolder := newTestAppWithConfig(t)
+	bookPath := filepath.Join(t.TempDir(), "book.pdf")
+	if err := os.WriteFile(bookPath, twoPagePDFFixture(), 0644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	if _, err := app.SetCoverOverride(bookPath, 2); err != nil {
+		t.Fatalf("SetCoverOverride: %v", err)
+	}
+
+	url, err := app.ClearCoverOverride(bookPath)
+	if err != nil {
+		t.Fatalf("ClearCoverOverride returned error: %v", err)
+	}
+	if url == "" {
+		t.Error("url is empty, want the auto-detected cover's URL")
+	}
+
+	_, found, err := covercache.GetOverride(logFolder, bookPath)
+	if err != nil {
+		t.Fatalf("GetOverride returned error: %v", err)
+	}
+	if found {
+		t.Error("found = true, want false (override was cleared)")
+	}
+}

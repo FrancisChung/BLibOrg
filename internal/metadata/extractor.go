@@ -17,7 +17,10 @@ import (
 // inconsistent casing. hyphenExceptions lists hyphenated words FormatTitle
 // should keep hyphenated rather than splitting on "-"
 // (cfg.TitleFormatting.HyphenExceptions). It is the only function other
-// packages should call.
+// packages should call for whole-book extraction. ListPDFCoverCandidates
+// and ExtractPDFPageCover (pdf_override.go) are the two exceptions: both
+// exist specifically for the manual cover-override picker, which needs
+// page-level granularity this combined Result can't expose.
 func Extract(path string, hyphenExceptions []string, pdfCoverPageLimit int) (Result, error) {
 	ext := strings.ToLower(filepath.Ext(path))
 	var result Result
