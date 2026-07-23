@@ -3,6 +3,8 @@ package metadata
 
 import (
 	"bytes"
+	"compress/zlib"
+	"fmt"
 	"testing"
 )
 
@@ -101,5 +103,51 @@ func TestPDFSubDictValue_KeyAbsent(t *testing.T) {
 	dict := []byte(`<</Type/XObject/Subtype/Image/Filter/DCTDecode>>`)
 	if _, ok := pdfSubDictValue(dict, "DecodeParms"); ok {
 		t.Error("pdfSubDictValue found a value, want not found")
+	}
+}
+
+func TestPDFObjIndex_ResolvesObjectInsideObjStm(t *testing.T) {
+	// Builds an ObjStm containing two compressed objects, per the PDF
+	// spec's layout: header is N whitespace-separated "objNum offset"
+	// pairs, then object bodies concatenated starting at byte offset
+	// /First. Offsets are computed from the actual fixture strings rather
+	// than hardcoded, so the test can't silently rot if either object's
+	// text changes length.
+	obj5 := "<</Type/Page/Parent 1 0 R>>"
+	obj6 := "<</Foo/Bar>>"
+	header := fmt.Sprintf("5 0 6 %d", len(obj5))
+	content := header + obj5 + obj6
+	first := len(header)
+
+	var compressed bytes.Buffer
+	w := zlib.NewWriter(&compressed)
+	if _, err := w.Write([]byte(content)); err != nil {
+		t.Fatalf("zlib write: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("zlib close: %v", err)
+	}
+
+	var data bytes.Buffer
+	fmt.Fprintf(&data, "9 0 obj\n<< /Type /ObjStm /N 2 /First %d /Filter /FlateDecode /Length %d >>\nstream\n", first, compressed.Len())
+	data.Write(compressed.Bytes())
+	data.WriteString("\nendstream\nendobj\n")
+
+	idx := buildPDFObjIndex(data.Bytes())
+
+	body5, ok := idx.lookup(5)
+	if !ok {
+		t.Fatal("lookup(5) not found")
+	}
+	if !bytes.Contains(body5, []byte("/Type/Page")) {
+		t.Errorf("lookup(5) = %q, want it to contain /Type/Page", body5)
+	}
+
+	body6, ok := idx.lookup(6)
+	if !ok {
+		t.Fatal("lookup(6) not found")
+	}
+	if string(body6) != obj6 {
+		t.Errorf("lookup(6) = %q, want %q", body6, obj6)
 	}
 }
