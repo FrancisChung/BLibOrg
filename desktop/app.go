@@ -63,6 +63,37 @@ func (a *App) ListLibrary() (appapi.LibraryView, error) {
 	return a.api.ListLibrary()
 }
 
+func (a *App) ListPDFCoverCandidates(bookPath string) ([]appapi.CoverCandidateView, error) {
+	return a.api.ListPDFCoverCandidates(bookPath)
+}
+
+func (a *App) SetCoverOverride(bookPath string, page int) (string, error) {
+	return a.api.SetCoverOverride(bookPath, page)
+}
+
+func (a *App) SetCoverOverrideCustomFromFile(bookPath, imagePath string) (string, error) {
+	return a.api.SetCoverOverrideCustomFromFile(bookPath, imagePath)
+}
+
+func (a *App) ClearCoverOverride(bookPath string) (string, error) {
+	return a.api.ClearCoverOverride(bookPath)
+}
+
+// PickCoverImageFile shows a native "choose an image" file dialog and
+// returns the chosen path, or "" (not an error) if the user cancels --
+// matching runtime.OpenFileDialog's own cancel behavior. The frontend
+// passes the returned path straight to SetCoverOverrideCustomFromFile
+// rather than reading the file itself, so image bytes never cross the
+// Wails JS<->Go bridge as a base64 blob.
+func (a *App) PickCoverImageFile() (string, error) {
+	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Choose cover image",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "Images (*.jpg, *.jpeg, *.png)", Pattern: "*.jpg;*.jpeg;*.png"},
+		},
+	})
+}
+
 // OpenFile opens the file at path in the OS default application for its
 // type. This shells out to the platform's native opener rather than using
 // runtime.BrowserOpenURL: Wails v2.13.0 added security hardening that

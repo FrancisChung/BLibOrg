@@ -10,6 +10,10 @@ export function Categories() {
   return window['go']['main']['App']['Categories']();
 }
 
+export function ClearCoverOverride(arg1) {
+  return window['go']['main']['App']['ClearCoverOverride'](arg1);
+}
+
 export function ConfigStatus() {
   return window['go']['main']['App']['ConfigStatus']();
 }
@@ -34,8 +38,16 @@ export function ListOperationBatches() {
   return window['go']['main']['App']['ListOperationBatches']();
 }
 
+export function ListPDFCoverCandidates(arg1) {
+  return window['go']['main']['App']['ListPDFCoverCandidates'](arg1);
+}
+
 export function OpenFile(arg1) {
   return window['go']['main']['App']['OpenFile'](arg1);
+}
+
+export function PickCoverImageFile() {
+  return window['go']['main']['App']['PickCoverImageFile']();
 }
 
 export function Recompute(arg1) {
@@ -44,6 +56,14 @@ export function Recompute(arg1) {
 
 export function Scan() {
   return window['go']['main']['App']['Scan']();
+}
+
+export function SetCoverOverride(arg1, arg2) {
+  return window['go']['main']['App']['SetCoverOverride'](arg1, arg2);
+}
+
+export function SetCoverOverrideCustomFromFile(arg1, arg2) {
+  return window['go']['main']['App']['SetCoverOverrideCustomFromFile'](arg1, arg2);
 }
 
 export function UndoBatch(arg1) {
