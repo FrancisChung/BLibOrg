@@ -141,3 +141,82 @@ func TestUndoPDFPredictor_NonByteAlignedBitsPerComponentNotOK(t *testing.T) {
 		t.Error("ok = true, want false (4-bit depth out of scope)")
 	}
 }
+
+func TestUndoPDFPredictor_ZeroRowBytesNotOKNoHang(t *testing.T) {
+	// A malformed /DecodeParms<</Columns 0>> (or a colorsOrDefault that
+	// resolves to 0) makes rowBytes == columns*colors == 0. Before the fix,
+	// dispatching this to undoTIFFPredictor's `for row := 0; row+rowBytes <=
+	// len(out); row += rowBytes` loop never advances row, hanging forever.
+	// undoPDFPredictor must reject rowBytes <= 0 before dispatching to
+	// either predictor function.
+	geo := pdfImageGeometry{width: 2, height: 1, bitsPerComponent: 8, predictor: 2, columns: 0}
+	if _, ok := undoPDFPredictor([]byte{1, 2, 3, 4}, geo, 1); ok {
+		t.Error("ok = true, want false (rowBytes == 0)")
+	}
+}
+
+func TestUndoTIFFPredictor_TruncatedStreamNotOK(t *testing.T) {
+	// rowBytes=3 (one RGB pixel/row), but data length 4 is not a multiple of
+	// 3: a truncated/malformed stream. Should be reported as a decode
+	// failure, mirroring undoPNGPredictor's len(data)%stride != 0 check,
+	// rather than silently processing only the leading whole row(s) and
+	// dropping the trailing partial bytes.
+	data := []byte{10, 20, 30, 40}
+	if _, ok := undoTIFFPredictor(data, 3, 3); ok {
+		t.Error("ok = true, want false (len(data) not a multiple of rowBytes)")
+	}
+}
+
+func TestUndoPDFPredictor_PNGAverageFilterUsesLeftAndUpAverage(t *testing.T) {
+	// Two-pixel single-component rows (rowBytes=2), PNG filter type 3
+	// (Average): dst[i] = src[i] + floor((a+b)/2), where a is the left
+	// neighbor (0 if none) and b is the same-column byte in the previous
+	// row (0 if none).
+	//
+	// Row1 (filter None): pixel0=10, pixel1=20 -> dst = [10, 20]
+	// Row2 (filter Average):
+	//   i=0: a=0 (no left), b=10 (row1 col0) -> avg=(0+10)/2=5; src=7 -> dst=12
+	//   i=1: a=12 (row2 col0, just computed), b=20 (row1 col1) -> avg=(12+20)/2=16; src=9 -> dst=25
+	geo := pdfImageGeometry{width: 2, height: 2, bitsPerComponent: 8, predictor: 10, columns: 2}
+	data := []byte{
+		0 /* None */, 10, 20,
+		3 /* Average */, 7, 9,
+	}
+	out, ok := undoPDFPredictor(data, geo, 1)
+	if !ok {
+		t.Fatal("undoPDFPredictor not ok")
+	}
+	want := []byte{10, 20, 12, 25}
+	if string(out) != string(want) {
+		t.Errorf("out = %v, want %v", out, want)
+	}
+}
+
+func TestUndoPDFPredictor_PNGPaethFilterNonDegenerate(t *testing.T) {
+	// Two-pixel single-component rows (rowBytes=2), PNG filter type 4
+	// (Paeth), chosen so a, b, c are non-zero and distinct and the
+	// "closest predictor" choice is non-trivial.
+	//
+	// Row1 (filter None): pixel0=10, pixel1=40 -> dst = [10, 40]
+	// Row2 (filter Paeth):
+	//   i=0: a=0 (no left), b=10 (row1 col0), c=0 (no upper-left)
+	//        p = a+b-c = 10; pa=|10-0|=10, pb=|10-10|=0, pc=|10-0|=10
+	//        pb smallest -> predictor = b = 10; src=2 -> dst=12
+	//   i=1: a=12 (row2 col0, just computed), b=40 (row1 col1), c=10 (row1 col0)
+	//        p = a+b-c = 12+40-10 = 42
+	//        pa=|42-12|=30, pb=|42-40|=2, pc=|42-10|=32
+	//        pb smallest -> predictor = b = 40; src=3 -> dst=43
+	geo := pdfImageGeometry{width: 2, height: 2, bitsPerComponent: 8, predictor: 10, columns: 2}
+	data := []byte{
+		0 /* None */, 10, 40,
+		4 /* Paeth */, 2, 3,
+	}
+	out, ok := undoPDFPredictor(data, geo, 1)
+	if !ok {
+		t.Fatal("undoPDFPredictor not ok")
+	}
+	want := []byte{10, 40, 12, 43}
+	if string(out) != string(want) {
+		t.Errorf("out = %v, want %v", out, want)
+	}
+}

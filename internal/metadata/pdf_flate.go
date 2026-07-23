@@ -99,11 +99,21 @@ func undoPDFPredictor(data []byte, geo pdfImageGeometry, csComponents int) ([]by
 	colors := geo.colorsOrDefault(csComponents)
 	rowBytes := geo.columns * colors
 
+	if geo.predictor > 1 && rowBytes <= 0 {
+		// A malformed /DecodeParms (e.g. /Columns 0) or an unresolved
+		// colorsOrDefault can make rowBytes <= 0. Reject here, before
+		// dispatching to either predictor function: undoTIFFPredictor's
+		// row-advancing loop would never terminate with rowBytes == 0,
+		// and a zero/negative stride is meaningless for PNG row framing
+		// too.
+		return nil, false
+	}
+
 	switch {
 	case geo.predictor <= 1:
 		return data, true
 	case geo.predictor == 2:
-		return undoTIFFPredictor(data, rowBytes, colors), true
+		return undoTIFFPredictor(data, rowBytes, colors)
 	case geo.predictor >= 10:
 		return undoPNGPredictor(data, rowBytes, colors)
 	default:
@@ -114,8 +124,15 @@ func undoPDFPredictor(data []byte, geo pdfImageGeometry, csComponents int) ([]by
 // undoTIFFPredictor reverses predictor 2: each component was stored as
 // the difference from the same component in the pixel immediately to its
 // left (restarting at each row's first pixel), so undoing it is a
-// per-component running sum across each row.
-func undoTIFFPredictor(data []byte, rowBytes, colors int) []byte {
+// per-component running sum across each row. ok is false if rowBytes is
+// non-positive (which would make the row-advancing loop never terminate)
+// or if len(data) isn't a whole multiple of rowBytes (a truncated or
+// otherwise malformed stream), mirroring undoPNGPredictor's own length
+// validation.
+func undoTIFFPredictor(data []byte, rowBytes, colors int) ([]byte, bool) {
+	if rowBytes <= 0 || len(data)%rowBytes != 0 {
+		return nil, false
+	}
 	out := make([]byte, len(data))
 	copy(out, data)
 	for row := 0; row+rowBytes <= len(out); row += rowBytes {
@@ -124,7 +141,7 @@ func undoTIFFPredictor(data []byte, rowBytes, colors int) []byte {
 			r[i] += r[i-colors]
 		}
 	}
-	return out
+	return out, true
 }
 
 // undoPNGPredictor reverses PNG-style per-row filtering (predictor >=
