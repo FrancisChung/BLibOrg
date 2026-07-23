@@ -3,9 +3,12 @@ package metadata
 
 import (
 	"bytes"
+	"image/color"
 	"image/png"
 	"testing"
 )
+
+func colorRGBABlack() color.RGBA { return color.RGBA{A: 0xFF} }
 
 func decodePNGPixel(t *testing.T, pngBytes []byte, x, y int) (r, g, b, a uint32) {
 	t.Helper()
@@ -173,5 +176,51 @@ func TestParsePDFColorSpace_ICCBasedUnresolvableRefNotOK(t *testing.T) {
 	idx := buildPDFObjIndex(nil)
 	if _, ok := parsePDFColorSpace(idx, []byte("[/ICCBased 99 0 R]")); ok {
 		t.Error("ok = true, want false (object 99 doesn't exist)")
+	}
+}
+
+func TestParsePDFColorSpace_IndexedWithLiteralStringPalette(t *testing.T) {
+	// 2-entry palette, base DeviceRGB: index 0 -> (255,0,0), index 1 -> (0,255,0).
+	raw := []byte("[/Indexed/DeviceRGB 1(\xFF\x00\x00\x00\xFF\x00)]")
+	idx := buildPDFObjIndex(nil)
+
+	cs, ok := parsePDFColorSpace(idx, raw)
+	if !ok {
+		t.Fatal("parsePDFColorSpace not ok")
+	}
+	if cs.components != 1 {
+		t.Errorf("components = %d, want 1 (Indexed images sample one palette index per pixel)", cs.components)
+	}
+	rgba := cs.toRGBA([]byte{1})
+	if rgba.R != 0 || rgba.G != 0xFF || rgba.B != 0 {
+		t.Errorf("toRGBA([1]) = %+v, want green (index 1)", rgba)
+	}
+}
+
+func TestParsePDFColorSpace_IndexedWithStreamPalette(t *testing.T) {
+	data := []byte("7 0 obj\n<< /Length 3 >>\nstream\n\x00\x00\xFF\nendstream\nendobj\n")
+	idx := buildPDFObjIndex(data)
+	raw := []byte("[/Indexed/DeviceRGB 0 7 0 R]")
+
+	cs, ok := parsePDFColorSpace(idx, raw)
+	if !ok {
+		t.Fatal("parsePDFColorSpace not ok")
+	}
+	rgba := cs.toRGBA([]byte{0})
+	if rgba.R != 0 || rgba.G != 0 || rgba.B != 0xFF {
+		t.Errorf("toRGBA([0]) = %+v, want blue", rgba)
+	}
+}
+
+func TestParsePDFColorSpace_IndexedOutOfRangeIndexIsBlack(t *testing.T) {
+	raw := []byte("[/Indexed/DeviceRGB 0(\xFF\x00\x00)]")
+	idx := buildPDFObjIndex(nil)
+	cs, ok := parsePDFColorSpace(idx, raw)
+	if !ok {
+		t.Fatal("parsePDFColorSpace not ok")
+	}
+	rgba := cs.toRGBA([]byte{5}) // hival is 0, so only index 0 is valid
+	if rgba != (colorRGBABlack()) {
+		t.Errorf("toRGBA([5]) = %+v, want black (out-of-range palette index)", rgba)
 	}
 }

@@ -188,5 +188,81 @@ func parsePDFColorSpace(idx *pdfObjIndex, raw []byte) (pdfColorSpace, bool) {
 			return pdfColorSpace{}, false
 		}
 	}
+	if bytes.Contains(trimmed, []byte("/Indexed")) {
+		return parsePDFIndexedColorSpace(idx, trimmed)
+	}
 	return pdfColorSpace{}, false
+}
+
+var pdfIndexedBaseRe = regexp.MustCompile(`(?s)^\s*(/\w+|\[[^\]]*\])`)
+var pdfIndexedHivalRe = regexp.MustCompile(`(?s)^(\d+)\s*(.*)$`)
+var pdfIndexedStreamRefRe = regexp.MustCompile(`^(\d+)\s+\d+\s+R`)
+
+// parsePDFIndexedColorSpace parses "[/Indexed base hival lookup]": base is
+// another colorspace value (recursively parsed via parsePDFColorSpace),
+// hival is the highest valid palette index, and lookup is either a
+// literal PDF string "(...)" of raw palette bytes or a reference to a
+// stream object containing them (both forms are real-world-common; a
+// hex string "<...>" lookup table is not handled -- out of scope). The
+// returned pdfColorSpace's toRGBA looks up base.components bytes at
+// sample[0]*base.components within the palette, returning black for an
+// out-of-range index rather than erroring, matching this package's
+// best-effort convention.
+func parsePDFIndexedColorSpace(idx *pdfObjIndex, arr []byte) (pdfColorSpace, bool) {
+	inner := bytes.TrimSuffix(bytes.TrimPrefix(bytes.TrimSpace(arr), []byte("[")), []byte("]"))
+	inner = bytes.TrimSpace(bytes.TrimPrefix(bytes.TrimSpace(inner), []byte("/Indexed")))
+
+	baseMatch := pdfIndexedBaseRe.FindSubmatch(inner)
+	if baseMatch == nil {
+		return pdfColorSpace{}, false
+	}
+	base, ok := parsePDFColorSpace(idx, baseMatch[1])
+	if !ok {
+		return pdfColorSpace{}, false
+	}
+	rest := bytes.TrimSpace(inner[len(baseMatch[0]):])
+
+	hivalMatch := pdfIndexedHivalRe.FindSubmatch(rest)
+	if hivalMatch == nil {
+		return pdfColorSpace{}, false
+	}
+	rest = bytes.TrimSpace(hivalMatch[2])
+
+	var palette []byte
+	switch {
+	case len(rest) > 0 && rest[0] == '(':
+		end := bytes.LastIndexByte(rest, ')')
+		if end < 0 {
+			return pdfColorSpace{}, false
+		}
+		palette = unescapePDFBytes(string(rest[1:end]))
+	case pdfIndexedStreamRefRe.Match(rest):
+		refMatch := pdfIndexedStreamRefRe.FindSubmatch(rest)
+		objNum, err := strconv.Atoi(string(refMatch[1]))
+		if err != nil {
+			return pdfColorSpace{}, false
+		}
+		body, ok := idx.lookup(objNum)
+		if !ok {
+			return pdfColorSpace{}, false
+		}
+		_, stream, hasStream := splitPDFObjectBody(body)
+		if !hasStream {
+			return pdfColorSpace{}, false
+		}
+		palette = stream
+	default:
+		return pdfColorSpace{}, false
+	}
+
+	return pdfColorSpace{
+		components: 1,
+		toRGBA: func(s []byte) color.RGBA {
+			off := int(s[0]) * base.components
+			if off+base.components > len(palette) {
+				return color.RGBA{A: 0xFF}
+			}
+			return base.toRGBA(palette[off : off+base.components])
+		},
+	}, true
 }
