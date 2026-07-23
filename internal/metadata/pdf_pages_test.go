@@ -73,3 +73,40 @@ func TestWalkPDFPageTree_NoCatalogReturnsNotOK(t *testing.T) {
 		t.Error("walkPDFPageTree ok = true, want false (no /Type /Catalog present)")
 	}
 }
+
+func TestWalkPDFPageTree_CycleProtection(t *testing.T) {
+	// Fixture: self-referential Pages node (object 2 includes itself in Kids).
+	// This tests cycle-protection: the visited map should prevent infinite recursion.
+	data := []byte(
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+			"2 0 obj\n<< /Type /Pages /Kids [2 0 R] >>\nendobj\n")
+	idx := buildPDFObjIndex(data)
+	pages, ok := walkPDFPageTree(idx, 10)
+	// Pure cycle with no real /Type /Page leaves should return no pages and ok=false.
+	if ok {
+		t.Error("walkPDFPageTree ok = true, want false (cycle with no Page leaves)")
+	}
+	if len(pages) != 0 {
+		t.Fatalf("len(pages) = %d, want 0 (pure cycle contains no Page leaves)", len(pages))
+	}
+	// Test completing without hanging is proof cycle-protection worked.
+}
+
+func TestWalkPDFPageTree_CycleWithRealPage(t *testing.T) {
+	// Variant: cycle alongside a reachable real Page leaf.
+	// Verifies the walk finds real pages despite the cycle elsewhere in the tree.
+	data := []byte(
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+			"2 0 obj\n<< /Type /Pages /Kids [3 0 R 4 0 R] >>\nendobj\n" +
+			"3 0 obj\n<< /Type /Page /Parent 2 0 R >>\nendobj\n" +
+			"4 0 obj\n<< /Type /Pages /Parent 2 0 R /Kids [4 0 R] >>\nendobj\n")
+	idx := buildPDFObjIndex(data)
+	pages, ok := walkPDFPageTree(idx, 10)
+	// Should find the one real Page leaf (object 3) and handle the self-referential cycle in 4.
+	if !ok {
+		t.Fatal("walkPDFPageTree not ok")
+	}
+	if len(pages) != 1 {
+		t.Fatalf("len(pages) = %d, want 1", len(pages))
+	}
+}
