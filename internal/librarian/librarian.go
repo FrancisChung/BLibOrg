@@ -2,19 +2,27 @@
 // (cfg.General.LibraryFolder) and reports what's in it, grouped by the
 // Category/Subcategory folder structure rename.BuildPath already produces.
 // Unlike internal/pipeline, it never computes a destination or moves
-// anything -- it only reads back what's already there. Title/Author/Year
-// and cover art are re-derived on every call via metadata.Extract, the same
-// "never persisted" convention pipeline.Run uses for the working folder.
+// anything -- it only reads back what's already there.
+//
+// Title/Author/Year/CoverPath/CoverOverridden come from a persisted scan
+// cache (internal/librarycache) keyed by each file's ModTime and Size when
+// possible; the expensive metadata.Extract/covercache.GetOverride/
+// covercache.Ensure trio only runs for a file that's new, edited, or when
+// forceRefresh is true. Because the cached fields are the *final,
+// override-resolved* result, a cache hit never re-checks the override
+// store -- internal/appapi's SetCoverOverride/SetCoverOverrideCustom/
+// ClearCoverOverride are responsible for calling librarycache.Invalidate
+// so the next Scan treats a changed book as a miss and re-resolves it.
 package librarian
 
 import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/FrancisChung/book-organiser/internal/config"
 	"github.com/FrancisChung/book-organiser/internal/covercache"
+	"github.com/FrancisChung/book-organiser/internal/librarycache"
 	"github.com/FrancisChung/book-organiser/internal/metadata"
 	"github.com/FrancisChung/book-organiser/internal/scanner"
 )
@@ -33,25 +41,42 @@ type Book struct {
 	CoverOverridden bool   // true if a manual cover override (see internal/covercache) is in effect
 }
 
+// extractFunc is a seam so tests can verify metadata.Extract is skipped for
+// a cache hit; production code always uses metadata.Extract.
+var extractFunc = metadata.Extract
+
 // Scan walks cfg.General.LibraryFolder for every supported ebook file,
 // deriving each book's Category/Subcategory from its position in the
 // <library>/<Category>/<Subcategory>/<file> layout rename.BuildPath
-// produces, and Title/Author/Year/cover art via metadata.Extract. A file
-// sitting directly in <library>/ (no Category folder) or in
-// <library>/<Category>/ with no Subcategory folder gets an empty
+// produces. A file sitting directly in <library>/ (no Category folder) or
+// in <library>/<Category>/ with no Subcategory folder gets an empty
 // Subcategory (and, for the former, an empty Category too) rather than
 // being skipped -- Scan reports what it finds, it doesn't enforce layout.
-// A file metadata.Extract fails on (e.g. corrupt) still gets a Book entry
-// with empty Title/Author/Year/CoverPath rather than being dropped, so it's
-// still visible on its shelf.
-func Scan(cfg config.Config) ([]Book, error) {
+//
+// Per-file Title/Author/Year/CoverPath/CoverOverridden are served from the
+// persisted scan cache whenever the file's current ModTime and Size match
+// what's cached, skipping metadata.Extract and cover resolution entirely.
+// A cache miss (new file, edited file) or forceRefresh=true runs today's
+// extract-then-override-check logic and updates the cache with the
+// resolved result. Files no longer present on disk are dropped from the
+// saved cache. A file metadata.Extract fails on (e.g. corrupt) still gets
+// a Book entry with empty Title/Author/Year/CoverPath rather than being
+// dropped, so it's still visible on its shelf; such a file is never
+// cached, so it's retried on every subsequent Scan until it succeeds or is
+// removed.
+func Scan(cfg config.Config, forceRefresh bool) ([]Book, error) {
 	paths, err := scanner.Scan(cfg.General.LibraryFolder)
 	if err != nil {
 		return nil, err
 	}
 
+	cache := librarycache.Load(cfg.General.LogFolder)
+	seen := make(map[string]bool, len(paths))
+
 	books := make([]Book, 0, len(paths))
 	for _, path := range paths {
+		seen[path] = true
+
 		rel, err := filepath.Rel(cfg.General.LibraryFolder, path)
 		if err != nil {
 			continue
@@ -69,7 +94,25 @@ func Scan(cfg config.Config) ([]Book, error) {
 			b.Subcategory = parts[1]
 		}
 
-		if res, err := metadata.Extract(path, cfg.TitleFormatting.HyphenExceptions, cfg.General.PDFCoverPageLimit); err == nil {
+		info, statErr := os.Stat(path)
+		if statErr != nil {
+			books = append(books, b)
+			continue
+		}
+
+		if !forceRefresh {
+			if entry, ok := cache.Fresh(path, info.ModTime(), info.Size()); ok {
+				b.Title = entry.Title
+				b.Author = entry.Author
+				b.Year = entry.Year
+				b.CoverPath = entry.CoverPath
+				b.CoverOverridden = entry.CoverOverridden
+				books = append(books, b)
+				continue
+			}
+		}
+
+		if res, err := extractFunc(path, cfg.TitleFormatting.HyphenExceptions, cfg.General.PDFCoverPageLimit); err == nil {
 			b.Title = res.Title
 			b.Author = res.Author
 			b.Year = res.Year
@@ -98,21 +141,29 @@ func Scan(cfg config.Config) ([]Book, error) {
 			}
 
 			if len(coverBytes) > 0 {
-				if coverURL, err := covercache.Ensure(cfg.General.LogFolder, path, statModTime(path), coverBytes, coverContentType); err == nil {
+				if coverURL, err := covercache.Ensure(cfg.General.LogFolder, path, info.ModTime(), coverBytes, coverContentType); err == nil {
 					b.CoverPath = coverURL
 				}
 			}
+
+			cache.Put(path, librarycache.Entry{
+				ModTime:         info.ModTime(),
+				Size:            info.Size(),
+				Title:           b.Title,
+				Author:          b.Author,
+				Year:            b.Year,
+				Category:        b.Category,
+				Subcategory:     b.Subcategory,
+				CoverPath:       b.CoverPath,
+				CoverOverridden: b.CoverOverridden,
+			})
 		}
 
 		books = append(books, b)
 	}
-	return books, nil
-}
 
-func statModTime(path string) time.Time {
-	info, err := os.Stat(path)
-	if err != nil {
-		return time.Time{}
-	}
-	return info.ModTime()
+	cache.Keep(seen)
+	_ = cache.Save(cfg.General.LogFolder) // best-effort: a save failure shouldn't fail this Scan's results
+
+	return books, nil
 }
