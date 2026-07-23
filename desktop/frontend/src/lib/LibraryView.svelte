@@ -15,11 +15,11 @@
 
   onMount(load);
 
-  async function load() {
+  async function load(force: boolean = false) {
     loading = true;
     loadError = '';
     try {
-      const view = await ListLibrary();
+      const view = await ListLibrary(force);
       books = view.books ?? [];
       dispatch('categoriesLoaded', view.categories ?? []);
     } catch (e) {
@@ -36,10 +36,13 @@
 <div class="library">
   <div class="topbar">
     <h2>{category ? `Library — ${category}` : 'Library — All categories'}</h2>
-    <div class="sort-toggle" role="group" aria-label="Sort by">
-      <button type="button" class:active={sortMode === 'title'} on:click={() => (sortMode = 'title')}>Title</button>
-      <button type="button" class:active={sortMode === 'author'} on:click={() => (sortMode = 'author')}>Author</button>
-      <button type="button" class:active={sortMode === 'year'} on:click={() => (sortMode = 'year')}>Year</button>
+    <div class="topbar-controls">
+      <button type="button" class="refresh" on:click={() => load(true)} disabled={loading}>Refresh</button>
+      <div class="sort-toggle" role="group" aria-label="Sort by">
+        <button type="button" class:active={sortMode === 'title'} on:click={() => (sortMode = 'title')}>Title</button>
+        <button type="button" class:active={sortMode === 'author'} on:click={() => (sortMode = 'author')}>Author</button>
+        <button type="button" class:active={sortMode === 'year'} on:click={() => (sortMode = 'year')}>Year</button>
+      </div>
     </div>
   </div>
 
@@ -74,6 +77,25 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+  }
+  .topbar-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .refresh {
+    border: 1px solid var(--bf-border);
+    background: var(--bf-surface);
+    color: var(--bf-text);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 12.5px;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .refresh:disabled {
+    opacity: 0.5;
+    cursor: default;
   }
   .sort-toggle {
     display: inline-flex;

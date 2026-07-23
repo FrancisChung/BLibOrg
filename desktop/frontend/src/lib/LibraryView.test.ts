@@ -97,4 +97,22 @@ describe('LibraryView', () => {
     render(LibraryView, { category: '' });
     await screen.findByText('No books found in the library folder yet.');
   });
+
+  it('calls ListLibrary(false) on initial mount', async () => {
+    vi.mocked(ListLibrary).mockResolvedValue({ books: [], categories: [] });
+    render(LibraryView, { category: '' });
+    await screen.findByText('No books found in the library folder yet.');
+
+    expect(ListLibrary).toHaveBeenCalledWith(false);
+  });
+
+  it('calls ListLibrary(true) when the Refresh button is clicked', async () => {
+    vi.mocked(ListLibrary).mockResolvedValue({ books: [], categories: [] });
+    render(LibraryView, { category: '' });
+    await screen.findByText('No books found in the library folder yet.');
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+
+    expect(ListLibrary).toHaveBeenLastCalledWith(true);
+  });
 });
