@@ -9,14 +9,15 @@ import (
 // LibraryBookView is the JSON view of a librarian.Book -- one
 // already-organized book shown in the frontend's Library/Bookshelf view.
 type LibraryBookView struct {
-	SourcePath  string `json:"sourcePath"`
-	Format      string `json:"format"`
-	Title       string `json:"title"`
-	Author      string `json:"author"`
-	Year        string `json:"year"`
-	Category    string `json:"category"`
-	Subcategory string `json:"subcategory"`
-	CoverPath   string `json:"coverPath"`
+	SourcePath      string `json:"sourcePath"`
+	Format          string `json:"format"`
+	Title           string `json:"title"`
+	Author          string `json:"author"`
+	Year            string `json:"year"`
+	Category        string `json:"category"`
+	Subcategory     string `json:"subcategory"`
+	CoverPath       string `json:"coverPath"`
+	CoverOverridden bool   `json:"coverOverridden"`
 }
 
 // LibraryView is the full result of ListLibrary: every already-organized
@@ -30,14 +31,15 @@ type LibraryView struct {
 
 func libraryBookToView(b librarian.Book) LibraryBookView {
 	return LibraryBookView{
-		SourcePath:  b.SourcePath,
-		Format:      b.Format,
-		Title:       b.Title,
-		Author:      b.Author,
-		Year:        b.Year,
-		Category:    b.Category,
-		Subcategory: b.Subcategory,
-		CoverPath:   b.CoverPath,
+		SourcePath:      b.SourcePath,
+		Format:          b.Format,
+		Title:           b.Title,
+		Author:          b.Author,
+		Year:            b.Year,
+		Category:        b.Category,
+		Subcategory:     b.Subcategory,
+		CoverPath:       b.CoverPath,
+		CoverOverridden: b.CoverOverridden,
 	}
 }
 

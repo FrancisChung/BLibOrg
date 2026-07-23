@@ -46,6 +46,9 @@ func TestListLibrary_ReturnsBooksGroupedByCategory(t *testing.T) {
 	if view.Books[0].Category != "Fiction" || view.Books[0].Subcategory != "Sci-Fi" {
 		t.Errorf("Category/Subcategory = %q/%q, want Fiction/Sci-Fi", view.Books[0].Category, view.Books[0].Subcategory)
 	}
+	if view.Books[0].CoverOverridden {
+		t.Error("CoverOverridden = true, want false (no override set for this fixture)")
+	}
 	if len(view.Categories) != 1 || view.Categories[0] != "Fiction" {
 		t.Errorf("Categories = %v, want [Fiction]", view.Categories)
 	}
