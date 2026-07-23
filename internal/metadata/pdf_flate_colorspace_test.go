@@ -136,3 +136,42 @@ func TestParsePDFColorSpace_BareDeviceName(t *testing.T) {
 		t.Errorf("parsePDFColorSpace(/DeviceGray) = %+v, %v, want components=1, ok=true", cs, ok)
 	}
 }
+
+func TestParsePDFColorSpace_ICCBasedApproximatesByComponentCount(t *testing.T) {
+	tests := []struct {
+		n              string
+		wantComponents int
+	}{
+		{"1", 1}, // Gray
+		{"3", 3}, // RGB
+		{"4", 4}, // CMYK
+	}
+	for _, tt := range tests {
+		data := []byte("6 0 obj\n<< /N " + tt.n + " /Length 0 >>\nstream\n\nendstream\nendobj\n")
+		idx := buildPDFObjIndex(data)
+		raw := []byte("[/ICCBased 6 0 R]")
+
+		cs, ok := parsePDFColorSpace(idx, raw)
+		if !ok {
+			t.Fatalf("N=%s: parsePDFColorSpace not ok", tt.n)
+		}
+		if cs.components != tt.wantComponents {
+			t.Errorf("N=%s: components = %d, want %d", tt.n, cs.components, tt.wantComponents)
+		}
+	}
+}
+
+func TestParsePDFColorSpace_ICCBasedUnsupportedComponentCountNotOK(t *testing.T) {
+	data := []byte("6 0 obj\n<< /N 2 /Length 0 >>\nstream\n\nendstream\nendobj\n")
+	idx := buildPDFObjIndex(data)
+	if _, ok := parsePDFColorSpace(idx, []byte("[/ICCBased 6 0 R]")); ok {
+		t.Error("ok = true, want false (N=2 doesn't map to Gray/RGB/CMYK)")
+	}
+}
+
+func TestParsePDFColorSpace_ICCBasedUnresolvableRefNotOK(t *testing.T) {
+	idx := buildPDFObjIndex(nil)
+	if _, ok := parsePDFColorSpace(idx, []byte("[/ICCBased 99 0 R]")); ok {
+		t.Error("ok = true, want false (object 99 doesn't exist)")
+	}
+}

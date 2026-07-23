@@ -83,6 +83,8 @@ func buildRGBAFromSamples(samples []byte, geo pdfImageGeometry, cs pdfColorSpace
 
 var pdfColorSpaceValueRe = regexp.MustCompile(`/ColorSpace\s*(/\w+|\[[^\]]*\]|\d+\s+\d+\s+R)`)
 var pdfIndirectRefRe = regexp.MustCompile(`^(\d+)\s+\d+\s+R$`)
+var pdfICCBasedRe = regexp.MustCompile(`(?s)\[\s*/ICCBased\s+(\d+)\s+\d+\s+R`)
+var pdfStreamNRe = regexp.MustCompile(`/N\s+(\d+)`)
 
 // resolvePDFColorSpaceValue returns the raw bytes describing an image's
 // colorspace: a bare device name or an inline array is returned as-is; a
@@ -143,9 +145,11 @@ func resolvePDFColorSpaceValue(idx *pdfObjIndex, resources, dict []byte) (value 
 }
 
 // parsePDFColorSpace interprets colorspace bytes already resolved by
-// resolvePDFColorSpaceValue: a bare device name maps directly via
-// pdfDeviceColorSpaceByName. ICCBased and Indexed array forms are added
-// in Tasks 5 and 6.
+// resolvePDFColorSpaceValue: a bare device name maps directly; an
+// ICCBased array is approximated by its stream dict's /N (component
+// count) -- 1/3/4 -> Gray/RGB/CMYK, a pragmatic approximation rather than
+// real ICC profile support (matching this package's convention, see the
+// design doc). Indexed array support is added in Task 6.
 func parsePDFColorSpace(idx *pdfObjIndex, raw []byte) (pdfColorSpace, bool) {
 	trimmed := bytes.TrimSpace(raw)
 	if len(trimmed) == 0 {
@@ -154,6 +158,35 @@ func parsePDFColorSpace(idx *pdfObjIndex, raw []byte) (pdfColorSpace, bool) {
 	if trimmed[0] == '/' {
 		cs, ok := pdfDeviceColorSpaceByName[string(trimmed[1:])]
 		return cs, ok
+	}
+	if m := pdfICCBasedRe.FindSubmatch(trimmed); m != nil {
+		objNum, err := strconv.Atoi(string(m[1]))
+		if err != nil {
+			return pdfColorSpace{}, false
+		}
+		body, ok := idx.lookup(objNum)
+		if !ok {
+			return pdfColorSpace{}, false
+		}
+		streamDict, _, _ := splitPDFObjectBody(body)
+		nMatch := pdfStreamNRe.FindSubmatch(streamDict)
+		if nMatch == nil {
+			return pdfColorSpace{}, false
+		}
+		n, err := strconv.Atoi(string(nMatch[1]))
+		if err != nil {
+			return pdfColorSpace{}, false
+		}
+		switch n {
+		case 1:
+			return pdfDeviceGrayCS, true
+		case 3:
+			return pdfDeviceRGBCS, true
+		case 4:
+			return pdfDeviceCMYKCS, true
+		default:
+			return pdfColorSpace{}, false
+		}
 	}
 	return pdfColorSpace{}, false
 }
