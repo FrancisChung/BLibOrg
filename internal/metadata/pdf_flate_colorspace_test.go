@@ -197,18 +197,35 @@ func TestParsePDFColorSpace_IndexedWithLiteralStringPalette(t *testing.T) {
 	}
 }
 
+// TestParsePDFColorSpace_IndexedWithStreamPalette exercises a two-entry
+// palette (hival 1) so that reading past the last valid entry lands where
+// splitPDFObjectBody's trailing "endstream" bytes would be if the caller
+// failed to trim them off (the newline-before-"endstream" convention this
+// fixture uses is the near-universal real-world one). A regression that
+// drops that trim would make index 2 -- which is out of range -- read
+// bogus color data out of "\nendstream" instead of the documented
+// out-of-range black.
 func TestParsePDFColorSpace_IndexedWithStreamPalette(t *testing.T) {
-	data := []byte("7 0 obj\n<< /Length 3 >>\nstream\n\x00\x00\xFF\nendstream\nendobj\n")
+	data := []byte("7 0 obj\n<< /Length 6 >>\nstream\n\xFF\x00\x00\x00\x00\xFF\nendstream\nendobj\n")
 	idx := buildPDFObjIndex(data)
-	raw := []byte("[/Indexed/DeviceRGB 0 7 0 R]")
+	raw := []byte("[/Indexed/DeviceRGB 1 7 0 R]")
 
 	cs, ok := parsePDFColorSpace(idx, raw)
 	if !ok {
 		t.Fatal("parsePDFColorSpace not ok")
 	}
-	rgba := cs.toRGBA([]byte{0})
-	if rgba.R != 0 || rgba.G != 0 || rgba.B != 0xFF {
-		t.Errorf("toRGBA([0]) = %+v, want blue", rgba)
+
+	red := cs.toRGBA([]byte{0})
+	if red.R != 0xFF || red.G != 0 || red.B != 0 {
+		t.Errorf("toRGBA([0]) = %+v, want red", red)
+	}
+	blue := cs.toRGBA([]byte{1})
+	if blue.R != 0 || blue.G != 0 || blue.B != 0xFF {
+		t.Errorf("toRGBA([1]) = %+v, want blue", blue)
+	}
+	outOfRange := cs.toRGBA([]byte{2}) // hival is 1, so index 2 is invalid
+	if outOfRange != (colorRGBABlack()) {
+		t.Errorf("toRGBA([2]) = %+v, want black (out-of-range palette index, not \"\\nendstream\" bytes)", outOfRange)
 	}
 }
 

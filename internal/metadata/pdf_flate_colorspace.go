@@ -250,7 +250,13 @@ func parsePDFIndexedColorSpace(idx *pdfObjIndex, arr []byte) (pdfColorSpace, boo
 		if !hasStream {
 			return pdfColorSpace{}, false
 		}
-		palette = stream
+		// splitPDFObjectBody may leave "endstream" in the stream if there's a
+		// trailing newline before it, so we trim it here and then any remaining
+		// whitespace (see decodePDFImageStream in pdf_images.go for the same
+		// workaround).
+		trimmed := bytes.TrimSuffix(stream, []byte("endstream"))
+		trimmed = bytes.TrimRight(trimmed, "\r\n")
+		palette = trimmed
 	default:
 		return pdfColorSpace{}, false
 	}
