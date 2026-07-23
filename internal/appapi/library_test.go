@@ -36,7 +36,7 @@ func TestListLibrary_ReturnsBooksGroupedByCategory(t *testing.T) {
 	app := NewApp()
 	app.configPath = func() (string, error) { return configPath, nil }
 
-	view, err := app.ListLibrary()
+	view, err := app.ListLibrary(false)
 	if err != nil {
 		t.Fatalf("ListLibrary returned error: %v", err)
 	}
@@ -59,7 +59,7 @@ func TestListLibrary_EmptyLibraryReturnsEmptyView(t *testing.T) {
 	app := NewApp()
 	app.configPath = func() (string, error) { return configPath, nil }
 
-	view, err := app.ListLibrary()
+	view, err := app.ListLibrary(false)
 	if err != nil {
 		t.Fatalf("ListLibrary returned error: %v", err)
 	}

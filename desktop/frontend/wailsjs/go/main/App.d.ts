@@ -16,7 +16,7 @@ export function ConfirmUndo(arg1:number):Promise<boolean>;
 
 export function ListCategoryWarnings():Promise<Array<appapi.CategoryWarningView>>;
 
-export function ListLibrary():Promise<appapi.LibraryView>;
+export function ListLibrary(arg1:boolean):Promise<appapi.LibraryView>;
 
 export function ListOperationBatches():Promise<Array<appapi.OperationBatchView>>;
 

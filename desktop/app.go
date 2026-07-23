@@ -59,8 +59,8 @@ func (a *App) UndoBatch(batchID string) error {
 	return a.api.UndoBatch(batchID)
 }
 
-func (a *App) ListLibrary() (appapi.LibraryView, error) {
-	return a.api.ListLibrary()
+func (a *App) ListLibrary(forceRefresh bool) (appapi.LibraryView, error) {
+	return a.api.ListLibrary(forceRefresh)
 }
 
 func (a *App) ListPDFCoverCandidates(bookPath string) ([]appapi.CoverCandidateView, error) {

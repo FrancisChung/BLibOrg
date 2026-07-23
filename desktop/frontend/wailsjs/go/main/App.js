@@ -30,8 +30,8 @@ export function ListCategoryWarnings() {
   return window['go']['main']['App']['ListCategoryWarnings']();
 }
 
-export function ListLibrary() {
-  return window['go']['main']['App']['ListLibrary']();
+export function ListLibrary(arg1) {
+  return window['go']['main']['App']['ListLibrary'](arg1);
 }
 
 export function ListOperationBatches() {

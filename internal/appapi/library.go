@@ -48,13 +48,16 @@ func libraryBookToView(b librarian.Book) LibraryBookView {
 // view. It never touches the filesystem beyond reading -- no moves, no
 // categorization, no destination-path computation (those are Scan/Apply's
 // job for the *working* folder; this reads back what's already organized).
-func (a *App) ListLibrary() (LibraryView, error) {
+// forceRefresh bypasses librarian's scan cache for this call, re-extracting
+// every book and repopulating the cache with fresh values -- the frontend's
+// manual "Refresh" action.
+func (a *App) ListLibrary(forceRefresh bool) (LibraryView, error) {
 	cfg, err := a.loadConfig()
 	if err != nil {
 		return LibraryView{}, err
 	}
 
-	books, err := librarian.Scan(cfg)
+	books, err := librarian.Scan(cfg, forceRefresh)
 	if err != nil {
 		return LibraryView{}, err
 	}
