@@ -7,6 +7,7 @@ import (
 
 	"github.com/FrancisChung/book-organiser/internal/config"
 	"github.com/FrancisChung/book-organiser/internal/covercache"
+	"github.com/FrancisChung/book-organiser/internal/librarycache"
 )
 
 func twoPagePDFFixture() []byte {
@@ -153,5 +154,88 @@ func TestClearCoverOverride_RemovesOverrideAndReturnsAutoDetectedURL(t *testing.
 	}
 	if found {
 		t.Error("found = true, want false (override was cleared)")
+	}
+}
+
+func TestSetCoverOverride_InvalidatesExistingLibraryCacheEntry(t *testing.T) {
+	app, _, logFolder := newTestAppWithConfig(t)
+	bookPath := filepath.Join(t.TempDir(), "book.pdf")
+	if err := os.WriteFile(bookPath, twoPagePDFFixture(), 0644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	info, err := os.Stat(bookPath)
+	if err != nil {
+		t.Fatalf("stat fixture: %v", err)
+	}
+
+	cache := librarycache.Load(logFolder)
+	cache.Put(bookPath, librarycache.Entry{ModTime: info.ModTime(), Size: info.Size(), Title: "Stale Cached Title"})
+	if err := cache.Save(logFolder); err != nil {
+		t.Fatalf("save cache fixture: %v", err)
+	}
+
+	if _, err := app.SetCoverOverride(bookPath, 2); err != nil {
+		t.Fatalf("SetCoverOverride returned error: %v", err)
+	}
+
+	reloaded := librarycache.Load(logFolder)
+	if _, ok := reloaded.Fresh(bookPath, info.ModTime(), info.Size()); ok {
+		t.Error("library cache entry still fresh after SetCoverOverride, want it invalidated")
+	}
+}
+
+func TestClearCoverOverride_InvalidatesExistingLibraryCacheEntry(t *testing.T) {
+	app, _, logFolder := newTestAppWithConfig(t)
+	bookPath := filepath.Join(t.TempDir(), "book.pdf")
+	if err := os.WriteFile(bookPath, twoPagePDFFixture(), 0644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	if _, err := app.SetCoverOverride(bookPath, 2); err != nil {
+		t.Fatalf("SetCoverOverride: %v", err)
+	}
+
+	info, err := os.Stat(bookPath)
+	if err != nil {
+		t.Fatalf("stat fixture: %v", err)
+	}
+	cache := librarycache.Load(logFolder)
+	cache.Put(bookPath, librarycache.Entry{ModTime: info.ModTime(), Size: info.Size(), Title: "Cached With Override", CoverOverridden: true})
+	if err := cache.Save(logFolder); err != nil {
+		t.Fatalf("save cache fixture: %v", err)
+	}
+
+	if _, err := app.ClearCoverOverride(bookPath); err != nil {
+		t.Fatalf("ClearCoverOverride returned error: %v", err)
+	}
+
+	reloaded := librarycache.Load(logFolder)
+	if _, ok := reloaded.Fresh(bookPath, info.ModTime(), info.Size()); ok {
+		t.Error("library cache entry still fresh after ClearCoverOverride, want it invalidated")
+	}
+}
+
+func TestSetCoverOverride_PropagatesInvalidationFailure(t *testing.T) {
+	logFolder := t.TempDir()
+	// Block only the library cache's own file path with a directory, so
+	// covercache.SetOverride (a different file, cover-overrides.json)
+	// still succeeds and this test isolates the invalidation failure.
+	if err := os.MkdirAll(filepath.Join(logFolder, "library-cache.json"), 0755); err != nil {
+		t.Fatalf("mkdir fixture: %v", err)
+	}
+	cfg := config.Config{General: config.General{LogFolder: logFolder}}
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	if err := config.Save(configPath, cfg); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
+	app := NewApp()
+	app.configPath = func() (string, error) { return configPath, nil }
+
+	bookPath := filepath.Join(t.TempDir(), "book.pdf")
+	if err := os.WriteFile(bookPath, twoPagePDFFixture(), 0644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	if _, err := app.SetCoverOverride(bookPath, 2); err == nil {
+		t.Error("SetCoverOverride returned nil error, want the blocked invalidation write to surface")
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/FrancisChung/book-organiser/internal/covercache"
+	"github.com/FrancisChung/book-organiser/internal/librarycache"
 	"github.com/FrancisChung/book-organiser/internal/metadata"
 )
 
@@ -71,6 +72,9 @@ func (a *App) SetCoverOverride(bookPath string, page int) (string, error) {
 	}); err != nil {
 		return "", err
 	}
+	if err := librarycache.Invalidate(cfg.General.LogFolder, bookPath); err != nil {
+		return "", err
+	}
 	return covercache.Force(cfg.General.LogFolder, bookPath, data, contentType)
 }
 
@@ -91,6 +95,9 @@ func (a *App) SetCoverOverrideCustom(bookPath string, imageBytes []byte, content
 		Type:      covercache.OverrideCustom,
 		ImagePath: url,
 	}); err != nil {
+		return "", err
+	}
+	if err := librarycache.Invalidate(cfg.General.LogFolder, bookPath); err != nil {
 		return "", err
 	}
 	return url, nil
@@ -126,6 +133,9 @@ func (a *App) ClearCoverOverride(bookPath string) (string, error) {
 		return "", err
 	}
 	if err := covercache.ClearOverride(cfg.General.LogFolder, bookPath); err != nil {
+		return "", err
+	}
+	if err := librarycache.Invalidate(cfg.General.LogFolder, bookPath); err != nil {
 		return "", err
 	}
 	res, err := metadata.Extract(bookPath, cfg.TitleFormatting.HyphenExceptions, cfg.General.PDFCoverPageLimit)
