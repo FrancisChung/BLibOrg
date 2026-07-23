@@ -36,51 +36,49 @@
     }
   }
 
-  async function choosePage(page: number) {
+  // Shared shape behind choosePage/uploadCustom/resetToAuto: guard against
+  // re-entrancy while busy, run action, dispatch its result unless it opts
+  // out (uploadCustom does, when the native file dialog was cancelled),
+  // and report any failure into the error banner.
+  async function runOverrideAction(
+    action: () => Promise<{ coverPath: string; coverOverridden: boolean } | null>
+  ) {
     if (busy) return;
     busy = true;
     error = '';
     try {
+      const result = await action();
+      if (!result) return;
+      dispatch('updated', result);
+      dispatch('close');
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+    } finally {
+      busy = false;
+    }
+  }
+
+  function choosePage(page: number) {
+    return runOverrideAction(async () => {
       const coverPath = await SetCoverOverride(sourcePath, page);
-      dispatch('updated', { coverPath, coverOverridden: true });
-      dispatch('close');
-    } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
-    } finally {
-      busy = false;
-    }
+      return { coverPath, coverOverridden: true };
+    });
   }
 
-  async function uploadCustom() {
-    if (busy) return;
-    busy = true;
-    error = '';
-    try {
+  function uploadCustom() {
+    return runOverrideAction(async () => {
       const picked = await PickCoverImageFile();
-      if (!picked) return;
+      if (!picked) return null;
       const coverPath = await SetCoverOverrideCustomFromFile(sourcePath, picked);
-      dispatch('updated', { coverPath, coverOverridden: true });
-      dispatch('close');
-    } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
-    } finally {
-      busy = false;
-    }
+      return { coverPath, coverOverridden: true };
+    });
   }
 
-  async function resetToAuto() {
-    if (busy) return;
-    busy = true;
-    error = '';
-    try {
+  function resetToAuto() {
+    return runOverrideAction(async () => {
       const coverPath = await ClearCoverOverride(sourcePath);
-      dispatch('updated', { coverPath, coverOverridden: false });
-      dispatch('close');
-    } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
-    } finally {
-      busy = false;
-    }
+      return { coverPath, coverOverridden: false };
+    });
   }
 </script>
 

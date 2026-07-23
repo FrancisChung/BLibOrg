@@ -23,12 +23,10 @@ type PDFCoverCandidate struct {
 // resolved at all -- matching this package's convention of degrading
 // gracefully for atypical PDFs rather than erroring.
 func ListPDFCoverCandidates(path string, pageLimit int) ([]PDFCoverCandidate, error) {
-	data, err := os.ReadFile(path)
+	idx, pages, ok, err := loadPDFPages(path, pageLimit)
 	if err != nil {
 		return nil, err
 	}
-	idx := buildPDFObjIndex(data)
-	pages, ok := walkPDFPageTree(idx, pageLimit)
 	if !ok {
 		return nil, nil
 	}
@@ -46,12 +44,10 @@ func ListPDFCoverCandidates(path string, pageLimit int) ([]PDFCoverCandidate, er
 // error) if the page tree can't be resolved, page is out of range, or no
 // qualifying image is found on that exact page.
 func ExtractPDFPageCover(path string, page int) (data []byte, contentType string, ok bool, err error) {
-	raw, err := os.ReadFile(path)
+	idx, pages, treeOK, err := loadPDFPages(path, page)
 	if err != nil {
 		return nil, "", false, err
 	}
-	idx := buildPDFObjIndex(raw)
-	pages, treeOK := walkPDFPageTree(idx, page)
 	if !treeOK || page < 1 || page > len(pages) {
 		return nil, "", false, nil
 	}
@@ -60,4 +56,18 @@ func ExtractPDFPageCover(path string, page int) (data []byte, contentType string
 		return nil, "", false, nil
 	}
 	return images[0].bytes, images[0].contentType, true, nil
+}
+
+// loadPDFPages reads path, builds its object index, and walks its page
+// tree up to limit pages -- the shared first half of both
+// ListPDFCoverCandidates and ExtractPDFPageCover before they diverge on
+// page selection.
+func loadPDFPages(path string, limit int) (idx *pdfObjIndex, pages []pdfPage, ok bool, err error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, nil, false, err
+	}
+	idx = buildPDFObjIndex(data)
+	pages, ok = walkPDFPageTree(idx, limit)
+	return idx, pages, ok, nil
 }
