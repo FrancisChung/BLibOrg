@@ -207,7 +207,7 @@ func TestDecodeFlatePDFImage_DeviceRGBNoPredictor(t *testing.T) {
 	}
 
 	dict := []byte(`<</Type/XObject/Subtype/Image/Width 2/Height 1/ColorSpace/DeviceRGB/Filter/FlateDecode>>`)
-	data, contentType, ok := decodeFlatePDFImage(dict, compressed.Bytes())
+	data, contentType, ok := decodeFlatePDFImage(buildPDFObjIndex(nil), nil, dict, compressed.Bytes())
 	if !ok {
 		t.Fatal("decodeFlatePDFImage not ok")
 	}
@@ -222,15 +222,15 @@ func TestDecodeFlatePDFImage_DeviceRGBNoPredictor(t *testing.T) {
 
 func TestDecodeFlatePDFImage_NotFlateDecodeNotOK(t *testing.T) {
 	dict := []byte(`<</Filter/DCTDecode>>`)
-	if _, _, ok := decodeFlatePDFImage(dict, []byte("irrelevant")); ok {
+	if _, _, ok := decodeFlatePDFImage(buildPDFObjIndex(nil), nil, dict, []byte("irrelevant")); ok {
 		t.Error("ok = true, want false (not a FlateDecode dict)")
 	}
 }
 
 func TestDecodeFlatePDFImage_NoColorSpaceNotOK(t *testing.T) {
 	dict := []byte(`<</Width 1/Height 1/Filter/FlateDecode>>`)
-	if _, _, ok := decodeFlatePDFImage(dict, []byte("irrelevant")); ok {
-		t.Error("ok = true, want false (no bare colorspace name to resolve yet -- Task 4 adds indirect/named resolution)")
+	if _, _, ok := decodeFlatePDFImage(buildPDFObjIndex(nil), nil, dict, []byte("irrelevant")); ok {
+		t.Error("ok = true, want false (no /ColorSpace at all)")
 	}
 }
 

@@ -217,14 +217,14 @@ func absInt(n int) int {
 }
 
 var pdfFlateDecodeRe = regexp.MustCompile(`/Filter\s*/FlateDecode|/Filter\s*\[[^\]]*/FlateDecode`)
-var pdfColorSpaceNameRe = regexp.MustCompile(`/ColorSpace\s*/(\w+)`)
 
 // decodeFlatePDFImage reconstructs a FlateDecode image XObject into a
-// display-ready PNG. This task resolves only a bare device colorspace
-// name written directly as the image dict's /ColorSpace value (e.g.
-// "/ColorSpace /DeviceRGB"); Task 4 extends colorspace resolution to
-// indirect references and Resources/ColorSpace-scoped names.
-func decodeFlatePDFImage(dict, stream []byte) (data []byte, contentType string, ok bool) {
+// display-ready PNG: resolves its colorspace (resolvePDFColorSpaceValue +
+// parsePDFColorSpace, pdf_flate_colorspace.go, which may need idx to
+// chase an indirect reference and resources to look up a named one),
+// inflates the stream, undoes whatever predictor was applied, then maps
+// samples to RGB and PNG-encodes.
+func decodeFlatePDFImage(idx *pdfObjIndex, resources, dict, stream []byte) (data []byte, contentType string, ok bool) {
 	if !pdfFlateDecodeRe.Match(dict) {
 		return nil, "", false
 	}
@@ -232,11 +232,11 @@ func decodeFlatePDFImage(dict, stream []byte) (data []byte, contentType string, 
 	if !ok {
 		return nil, "", false
 	}
-	nameMatch := pdfColorSpaceNameRe.FindSubmatch(dict)
-	if nameMatch == nil {
+	csValue, ok := resolvePDFColorSpaceValue(idx, resources, dict)
+	if !ok {
 		return nil, "", false
 	}
-	cs, ok := pdfDeviceColorSpaceByName[string(nameMatch[1])]
+	cs, ok := parsePDFColorSpace(idx, csValue)
 	if !ok {
 		return nil, "", false
 	}

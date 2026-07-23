@@ -50,7 +50,7 @@ func findPDFPageImages(idx *pdfObjIndex, pages []pdfPage, stopAtFirst bool) []pd
 			if !hasStream || !pdfSubtypeImageRe.Match(imgDict) {
 				continue
 			}
-			data, contentType, ok := decodePDFImageStream(imgDict, imgStream)
+			data, contentType, ok := decodePDFImageStream(idx, resources, imgDict, imgStream)
 			if !ok {
 				continue
 			}
@@ -69,7 +69,7 @@ func findPDFPageImages(idx *pdfObjIndex, pages []pdfPage, stopAtFirst bool) []pd
 // reconstructed via decodeFlatePDFImage (pdf_flate.go) -- predictor undo,
 // colorspace mapping, and PNG re-encoding. Any other filter (or a
 // FlateDecode image this package can't fully resolve) returns ok=false.
-func decodePDFImageStream(dict, stream []byte) (data []byte, contentType string, ok bool) {
+func decodePDFImageStream(idx *pdfObjIndex, resources, dict, stream []byte) (data []byte, contentType string, ok bool) {
 	if pdfDCTDecodeRe.Match(dict) {
 		// splitPDFObjectBody may leave "endstream" in the stream if there's a
 		// trailing newline before it, so we trim it here and then any remaining
@@ -81,5 +81,5 @@ func decodePDFImageStream(dict, stream []byte) (data []byte, contentType string,
 		}
 		return trimmed, "image/jpeg", true
 	}
-	return decodeFlatePDFImage(dict, stream)
+	return decodeFlatePDFImage(idx, resources, dict, stream)
 }

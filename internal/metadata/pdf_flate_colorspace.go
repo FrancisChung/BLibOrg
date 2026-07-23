@@ -12,6 +12,8 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"regexp"
+	"strconv"
 )
 
 // pdfColorSpace describes how to map one pixel's raw sample bytes
@@ -77,4 +79,81 @@ func buildRGBAFromSamples(samples []byte, geo pdfImageGeometry, cs pdfColorSpace
 		return nil, false
 	}
 	return buf.Bytes(), true
+}
+
+var pdfColorSpaceValueRe = regexp.MustCompile(`/ColorSpace\s*(/\w+|\[[^\]]*\]|\d+\s+\d+\s+R)`)
+var pdfIndirectRefRe = regexp.MustCompile(`^(\d+)\s+\d+\s+R$`)
+
+// resolvePDFColorSpaceValue returns the raw bytes describing an image's
+// colorspace: a bare device name or an inline array is returned as-is; a
+// name that isn't a recognized device colorspace (e.g. "/CS0") is looked
+// up in resources' /ColorSpace subdictionary; an indirect reference ("N G
+// R"), whether written directly or found via that lookup, is resolved
+// through idx. ok is false if /ColorSpace is absent from dict or nothing
+// above resolves it.
+func resolvePDFColorSpaceValue(idx *pdfObjIndex, resources, dict []byte) (value []byte, ok bool) {
+	m := pdfColorSpaceValueRe.FindSubmatch(dict)
+	if m == nil {
+		return nil, false
+	}
+	raw := m[1]
+
+	if raw[0] == '/' {
+		name := string(raw[1:])
+		if _, isDevice := pdfDeviceColorSpaceByName[name]; isDevice {
+			return raw, true
+		}
+		if resources == nil {
+			return nil, false
+		}
+		csDict, ok := resolveDictValue(idx, resources, "ColorSpace")
+		if !ok {
+			return nil, false
+		}
+		entryRe := regexp.MustCompile(`/` + regexp.QuoteMeta(name) + `\s+(\[[^\]]*\]|\d+\s+\d+\s+R|/\w+)`)
+		entry := entryRe.FindSubmatch(csDict)
+		if entry == nil {
+			return nil, false
+		}
+		raw = entry[1]
+		if raw[0] == '/' {
+			// A named resource pointing at another bare name (rare); resolve
+			// once more against the device map only -- chasing further
+			// indirection here is out of scope.
+			if _, isDevice := pdfDeviceColorSpaceByName[string(raw[1:])]; isDevice {
+				return raw, true
+			}
+			return nil, false
+		}
+	}
+
+	if refMatch := pdfIndirectRefRe.FindSubmatch(raw); refMatch != nil {
+		objNum, err := strconv.Atoi(string(refMatch[1]))
+		if err != nil {
+			return nil, false
+		}
+		body, ok := idx.lookup(objNum)
+		if !ok {
+			return nil, false
+		}
+		bodyDict, _, _ := splitPDFObjectBody(body)
+		return bodyDict, true
+	}
+	return raw, true
+}
+
+// parsePDFColorSpace interprets colorspace bytes already resolved by
+// resolvePDFColorSpaceValue: a bare device name maps directly via
+// pdfDeviceColorSpaceByName. ICCBased and Indexed array forms are added
+// in Tasks 5 and 6.
+func parsePDFColorSpace(idx *pdfObjIndex, raw []byte) (pdfColorSpace, bool) {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 {
+		return pdfColorSpace{}, false
+	}
+	if trimmed[0] == '/' {
+		cs, ok := pdfDeviceColorSpaceByName[string(trimmed[1:])]
+		return cs, ok
+	}
+	return pdfColorSpace{}, false
 }

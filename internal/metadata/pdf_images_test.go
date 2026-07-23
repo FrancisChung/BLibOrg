@@ -89,7 +89,7 @@ func TestDecodePDFImageStream_UnresolvableFlateDecodeSkipped(t *testing.T) {
 	// degrades to ok=false for a dict it genuinely can't reconstruct,
 	// same as any other malformed/unsupported image.
 	dict := []byte(`<</Type/XObject/Subtype/Image/Filter/FlateDecode>>`)
-	if _, _, ok := decodePDFImageStream(dict, []byte("rawbytes")); ok {
+	if _, _, ok := decodePDFImageStream(buildPDFObjIndex(nil), nil, dict, []byte("rawbytes")); ok {
 		t.Error("decodePDFImageStream ok = true, want false (no geometry to reconstruct)")
 	}
 }
@@ -105,7 +105,7 @@ func TestDecodePDFImageStream_DecodesFlateDecodeDeviceRGB(t *testing.T) {
 	}
 	dict := []byte(`<</Type/XObject/Subtype/Image/Width 1/Height 1/ColorSpace/DeviceRGB/Filter/FlateDecode>>`)
 
-	data, contentType, ok := decodePDFImageStream(dict, compressed.Bytes())
+	data, contentType, ok := decodePDFImageStream(buildPDFObjIndex(nil), nil, dict, compressed.Bytes())
 	if !ok {
 		t.Fatal("decodePDFImageStream not ok")
 	}

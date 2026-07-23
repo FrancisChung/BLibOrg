@@ -82,3 +82,57 @@ func TestPDFDeviceColorSpaceByName_ResolvesStandardNames(t *testing.T) {
 		}
 	}
 }
+
+func TestResolvePDFColorSpaceValue_BareDeviceNameNeedsNoResources(t *testing.T) {
+	dict := []byte(`<</ColorSpace/DeviceRGB>>`)
+	idx := buildPDFObjIndex(nil)
+	value, ok := resolvePDFColorSpaceValue(idx, nil, dict)
+	if !ok {
+		t.Fatal("resolvePDFColorSpaceValue not ok")
+	}
+	if string(value) != "/DeviceRGB" {
+		t.Errorf("value = %q, want /DeviceRGB", value)
+	}
+}
+
+func TestResolvePDFColorSpaceValue_NamedResourceLooksUpInResourcesColorSpace(t *testing.T) {
+	data := []byte("5 0 obj\n<< /ICCBased 6 0 R >>\nendobj\n")
+	idx := buildPDFObjIndex(data)
+	resources := []byte(`<</ColorSpace<</CS0 5 0 R>>>>`)
+	dict := []byte(`<</ColorSpace/CS0>>`)
+
+	value, ok := resolvePDFColorSpaceValue(idx, resources, dict)
+	if !ok {
+		t.Fatal("resolvePDFColorSpaceValue not ok")
+	}
+	if !bytes.Contains(value, []byte("/ICCBased")) {
+		t.Errorf("value = %q, want it to resolve through to the ICCBased dict", value)
+	}
+}
+
+func TestResolvePDFColorSpaceValue_InlineArrayReturnedAsIs(t *testing.T) {
+	dict := []byte(`<</ColorSpace[/Indexed/DeviceRGB 255 6 0 R]>>`)
+	idx := buildPDFObjIndex(nil)
+	value, ok := resolvePDFColorSpaceValue(idx, nil, dict)
+	if !ok {
+		t.Fatal("resolvePDFColorSpaceValue not ok")
+	}
+	if !bytes.Contains(value, []byte("/Indexed")) {
+		t.Errorf("value = %q, want the inline array as-is", value)
+	}
+}
+
+func TestResolvePDFColorSpaceValue_MissingColorSpaceNotOK(t *testing.T) {
+	idx := buildPDFObjIndex(nil)
+	if _, ok := resolvePDFColorSpaceValue(idx, nil, []byte(`<</Width 1>>`)); ok {
+		t.Error("ok = true, want false (no /ColorSpace at all)")
+	}
+}
+
+func TestParsePDFColorSpace_BareDeviceName(t *testing.T) {
+	idx := buildPDFObjIndex(nil)
+	cs, ok := parsePDFColorSpace(idx, []byte("/DeviceGray"))
+	if !ok || cs.components != 1 {
+		t.Errorf("parsePDFColorSpace(/DeviceGray) = %+v, %v, want components=1, ok=true", cs, ok)
+	}
+}
