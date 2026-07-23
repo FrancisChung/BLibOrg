@@ -33,12 +33,28 @@ type pdfImageGeometry struct {
 	predictor, colors, columns      int
 }
 
+// pdfMaxImageDimension caps /Width and /Height at 65536 (1<<16) each --
+// far larger than any real cover image's pixel dimensions, but small
+// enough to keep buildRGBAFromSamples's rowBytes*geo.height multiplication
+// (pdf_flate_colorspace.go) safely within int64 range no matter the
+// per-pixel component count. Without this cap, a malformed/corrupt PDF
+// declaring huge dimensions (e.g. /Width 2000000000 /Height 2000000000)
+// makes that multiplication overflow and wrap negative, which defeats
+// buildRGBAFromSamples's own "samples too short" length guard and lets
+// control reach image.NewRGBA with the huge dimensions, which panics --
+// the one way this package could crash an entire library scan on a single
+// bad file, contrary to its otherwise universal ok=false convention. This
+// is a new, explicit scope decision (not something the original plan
+// called for), added specifically to close that crash.
+const pdfMaxImageDimension = 1 << 16
+
 // parsePDFImageGeometry reads /Width, /Height, /BitsPerComponent (default
 // 8), and, from an inline /DecodeParms dict if present, /Predictor
 // (default 1: no prediction), /Colors (0 here means "unset" -- see
 // colorsOrDefault), and /Columns (defaults to /Width, the only sane value
 // for an image XObject specifically -- see Global Constraints). ok is
-// false if /Width or /Height is missing or non-numeric.
+// false if /Width or /Height is missing, non-numeric, or exceeds
+// pdfMaxImageDimension (see its doc comment).
 func parsePDFImageGeometry(dict []byte) (pdfImageGeometry, bool) {
 	w := pdfWidthRe.FindSubmatch(dict)
 	h := pdfHeightRe.FindSubmatch(dict)
@@ -48,6 +64,9 @@ func parsePDFImageGeometry(dict []byte) (pdfImageGeometry, bool) {
 	width, err1 := strconv.Atoi(string(w[1]))
 	height, err2 := strconv.Atoi(string(h[1]))
 	if err1 != nil || err2 != nil || width <= 0 || height <= 0 {
+		return pdfImageGeometry{}, false
+	}
+	if width > pdfMaxImageDimension || height > pdfMaxImageDimension {
 		return pdfImageGeometry{}, false
 	}
 
