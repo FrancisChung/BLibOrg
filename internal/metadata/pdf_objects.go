@@ -203,3 +203,52 @@ func (idx *pdfObjIndex) indexObjStmContents(inflated []byte, n, first int) {
 		idx.objStm[p.num] = inflated[start:end]
 	}
 }
+
+// resolveDictValue returns the raw dict bytes for /key within dict,
+// whether its value is written inline ("/key<<...>>", via
+// pdfSubDictValue) or as an indirect reference ("/key N G R", resolved
+// through idx). Real-world PDFs commonly write /Resources (and, within
+// it, /XObject) as an indirect reference rather than an inline
+// dictionary, as a producer optimization for Resources shared across
+// pages. ok is false if /key isn't present, or its reference can't be
+// resolved via idx.
+func resolveDictValue(idx *pdfObjIndex, dict []byte, key string) (value []byte, ok bool) {
+	if sub, ok := pdfSubDictValue(dict, key); ok {
+		return sub, true
+	}
+	refRe := regexp.MustCompile(`/` + regexp.QuoteMeta(key) + `\s+(\d+)\s+\d+\s+R`)
+	m := refRe.FindSubmatch(dict)
+	if m == nil {
+		return nil, false
+	}
+	objNum, err := strconv.Atoi(string(m[1]))
+	if err != nil {
+		return nil, false
+	}
+	body, ok := idx.lookup(objNum)
+	if !ok {
+		return nil, false
+	}
+	resolvedDict, _, _ := splitPDFObjectBody(body)
+	return resolvedDict, true
+}
+
+// find scans every indexed object (literal first, then ObjStm-compressed
+// ones) for one whose dict matches typeRe, returning its dict bytes. Used
+// to locate singleton objects like /Type /Catalog that aren't referenced
+// by a fixed, predictable object number.
+func (idx *pdfObjIndex) find(typeRe *regexp.Regexp) (dict []byte, ok bool) {
+	for _, body := range idx.literal {
+		d, _, _ := splitPDFObjectBody(body)
+		if typeRe.Match(d) {
+			return d, true
+		}
+	}
+	idx.resolveObjStms()
+	for _, body := range idx.objStm {
+		if typeRe.Match(body) {
+			return body, true
+		}
+	}
+	return nil, false
+}

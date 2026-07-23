@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/zlib"
 	"fmt"
+	"regexp"
 	"testing"
 )
 
@@ -209,5 +210,46 @@ func TestPDFObjIndex_LaterObjStmOverridesEarlier(t *testing.T) {
 	}
 	if bytes.Contains(body5, []byte("/V 1")) {
 		t.Errorf("lookup(5) = %q, want it to NOT contain /V 1 (from earlier ObjStm 9)", body5)
+	}
+}
+
+func TestResolveDictValue_InlineDict(t *testing.T) {
+	dict := []byte(`<</Type/Page/Resources<</Font<</F1 3 0 R>>>>>>`)
+	value, ok := resolveDictValue(nil, dict, "Resources")
+	if !ok {
+		t.Fatal("resolveDictValue not found")
+	}
+	if string(value) != "/Font<</F1 3 0 R>>" {
+		t.Errorf("value = %q, want %q", value, "/Font<</F1 3 0 R>>")
+	}
+}
+
+func TestResolveDictValue_IndirectRef(t *testing.T) {
+	data := []byte("1 0 obj\n<< /Type /Page /Resources 2 0 R >>\nendobj\n" +
+		"2 0 obj\n<< /Font << /F1 3 0 R >> >>\nendobj\n")
+	idx := buildPDFObjIndex(data)
+	pageBody, _ := idx.lookup(1)
+	dict, _, _ := splitPDFObjectBody(pageBody)
+
+	value, ok := resolveDictValue(idx, dict, "Resources")
+	if !ok {
+		t.Fatal("resolveDictValue not found")
+	}
+	if !bytes.Contains(value, []byte("/F1 3 0 R")) {
+		t.Errorf("value = %q, want it to contain /F1 3 0 R", value)
+	}
+}
+
+func TestPDFObjIndex_Find(t *testing.T) {
+	data := []byte("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+		"2 0 obj\n<< /Type /Pages /Kids [3 0 R] >>\nendobj\n")
+	idx := buildPDFObjIndex(data)
+
+	dict, ok := idx.find(regexp.MustCompile(`/Type\s*/Catalog\b`))
+	if !ok {
+		t.Fatal("find(Catalog) not found")
+	}
+	if !bytes.Contains(dict, []byte("/Pages 2 0 R")) {
+		t.Errorf("dict = %q, want it to contain /Pages 2 0 R", dict)
 	}
 }
