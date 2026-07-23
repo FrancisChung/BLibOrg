@@ -10,6 +10,9 @@
 package metadata
 
 import (
+	"bytes"
+	"compress/zlib"
+	"io"
 	"regexp"
 	"strconv"
 )
@@ -211,4 +214,50 @@ func absInt(n int) int {
 		return -n
 	}
 	return n
+}
+
+var pdfFlateDecodeRe = regexp.MustCompile(`/Filter\s*/FlateDecode|/Filter\s*\[[^\]]*/FlateDecode`)
+var pdfColorSpaceNameRe = regexp.MustCompile(`/ColorSpace\s*/(\w+)`)
+
+// decodeFlatePDFImage reconstructs a FlateDecode image XObject into a
+// display-ready PNG. This task resolves only a bare device colorspace
+// name written directly as the image dict's /ColorSpace value (e.g.
+// "/ColorSpace /DeviceRGB"); Task 4 extends colorspace resolution to
+// indirect references and Resources/ColorSpace-scoped names.
+func decodeFlatePDFImage(dict, stream []byte) (data []byte, contentType string, ok bool) {
+	if !pdfFlateDecodeRe.Match(dict) {
+		return nil, "", false
+	}
+	geo, ok := parsePDFImageGeometry(dict)
+	if !ok {
+		return nil, "", false
+	}
+	nameMatch := pdfColorSpaceNameRe.FindSubmatch(dict)
+	if nameMatch == nil {
+		return nil, "", false
+	}
+	cs, ok := pdfDeviceColorSpaceByName[string(nameMatch[1])]
+	if !ok {
+		return nil, "", false
+	}
+
+	r, err := zlib.NewReader(bytes.NewReader(stream))
+	if err != nil {
+		return nil, "", false
+	}
+	inflated, err := io.ReadAll(r)
+	r.Close()
+	if err != nil {
+		return nil, "", false
+	}
+
+	samples, ok := undoPDFPredictor(inflated, geo, cs.components)
+	if !ok {
+		return nil, "", false
+	}
+	pngBytes, ok := buildRGBAFromSamples(samples, geo, cs)
+	if !ok {
+		return nil, "", false
+	}
+	return pngBytes, "image/png", true
 }

@@ -65,21 +65,21 @@ func findPDFPageImages(idx *pdfObjIndex, pages []pdfPage, stopAtFirst bool) []pd
 
 // decodePDFImageStream turns an image XObject's raw stream bytes into
 // display-ready image bytes. DCTDecode streams are already a complete
-// JPEG file and pass through unchanged (matching the pre-existing
-// findPDFCover behavior in pdf.go). FlateDecode raster reconstruction is
-// added in a later plan; for now those images -- and JPXDecode, and any
-// other filter -- are skipped.
+// JPEG file and pass through unchanged. FlateDecode streams are
+// reconstructed via decodeFlatePDFImage (pdf_flate.go) -- predictor undo,
+// colorspace mapping, and PNG re-encoding. Any other filter (or a
+// FlateDecode image this package can't fully resolve) returns ok=false.
 func decodePDFImageStream(dict, stream []byte) (data []byte, contentType string, ok bool) {
-	if !pdfDCTDecodeRe.Match(dict) {
-		return nil, "", false
+	if pdfDCTDecodeRe.Match(dict) {
+		// splitPDFObjectBody may leave "endstream" in the stream if there's a
+		// trailing newline before it, so we trim it here and then any remaining
+		// whitespace.
+		trimmed := bytes.TrimSuffix(stream, []byte("endstream"))
+		trimmed = bytes.TrimRight(trimmed, "\r\n")
+		if len(trimmed) == 0 {
+			return nil, "", false
+		}
+		return trimmed, "image/jpeg", true
 	}
-	// splitPDFObjectBody may leave "endstream" in the stream if there's a
-	// trailing newline before it, so we trim it here and then any remaining
-	// whitespace.
-	trimmed := bytes.TrimSuffix(stream, []byte("endstream"))
-	trimmed = bytes.TrimRight(trimmed, "\r\n")
-	if len(trimmed) == 0 {
-		return nil, "", false
-	}
-	return trimmed, "image/jpeg", true
+	return decodeFlatePDFImage(dict, stream)
 }

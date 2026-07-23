@@ -1,7 +1,11 @@
 // internal/metadata/pdf_images_test.go
 package metadata
 
-import "testing"
+import (
+	"bytes"
+	"compress/zlib"
+	"testing"
+)
 
 func TestFindPDFPageImages_FindsDCTDecodeOnFirstPage(t *testing.T) {
 	jpegData := []byte("\xFF\xD8\xFFfakejpegbytes")
@@ -79,9 +83,36 @@ func TestFindPDFPageImages_StopAtFirstFalseCollectsAll(t *testing.T) {
 	}
 }
 
-func TestDecodePDFImageStream_SkipsNonDCTDecode(t *testing.T) {
+func TestDecodePDFImageStream_UnresolvableFlateDecodeSkipped(t *testing.T) {
+	// No /Width or /Height at all, so geometry parsing fails regardless of
+	// filter -- confirms decodePDFImageStream's FlateDecode fallback still
+	// degrades to ok=false for a dict it genuinely can't reconstruct,
+	// same as any other malformed/unsupported image.
 	dict := []byte(`<</Type/XObject/Subtype/Image/Filter/FlateDecode>>`)
 	if _, _, ok := decodePDFImageStream(dict, []byte("rawbytes")); ok {
-		t.Error("decodePDFImageStream ok = true, want false (FlateDecode not supported by this plan)")
+		t.Error("decodePDFImageStream ok = true, want false (no geometry to reconstruct)")
+	}
+}
+
+func TestDecodePDFImageStream_DecodesFlateDecodeDeviceRGB(t *testing.T) {
+	var compressed bytes.Buffer
+	w := zlib.NewWriter(&compressed)
+	if _, err := w.Write([]byte{0x01, 0x02, 0x03}); err != nil { // 1x1 RGB
+		t.Fatalf("zlib write: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("zlib close: %v", err)
+	}
+	dict := []byte(`<</Type/XObject/Subtype/Image/Width 1/Height 1/ColorSpace/DeviceRGB/Filter/FlateDecode>>`)
+
+	data, contentType, ok := decodePDFImageStream(dict, compressed.Bytes())
+	if !ok {
+		t.Fatal("decodePDFImageStream not ok")
+	}
+	if contentType != "image/png" {
+		t.Errorf("contentType = %q, want image/png", contentType)
+	}
+	if len(data) == 0 {
+		t.Error("data is empty")
 	}
 }

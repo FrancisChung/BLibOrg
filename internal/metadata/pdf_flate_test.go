@@ -1,6 +1,10 @@
 package metadata
 
-import "testing"
+import (
+	"bytes"
+	"compress/zlib"
+	"testing"
+)
 
 func TestParsePDFImageGeometry_DefaultsWhenNoDecodeParms(t *testing.T) {
 	dict := []byte(`<</Type/XObject/Subtype/Image/Width 10/Height 20/Filter/FlateDecode>>`)
@@ -189,6 +193,44 @@ func TestUndoPDFPredictor_PNGAverageFilterUsesLeftAndUpAverage(t *testing.T) {
 	want := []byte{10, 20, 12, 25}
 	if string(out) != string(want) {
 		t.Errorf("out = %v, want %v", out, want)
+	}
+}
+
+func TestDecodeFlatePDFImage_DeviceRGBNoPredictor(t *testing.T) {
+	var compressed bytes.Buffer
+	w := zlib.NewWriter(&compressed)
+	if _, err := w.Write([]byte{0x10, 0x20, 0x30, 0x40, 0x50, 0x60}); err != nil { // 2x1 RGB
+		t.Fatalf("zlib write: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("zlib close: %v", err)
+	}
+
+	dict := []byte(`<</Type/XObject/Subtype/Image/Width 2/Height 1/ColorSpace/DeviceRGB/Filter/FlateDecode>>`)
+	data, contentType, ok := decodeFlatePDFImage(dict, compressed.Bytes())
+	if !ok {
+		t.Fatal("decodeFlatePDFImage not ok")
+	}
+	if contentType != "image/png" {
+		t.Errorf("contentType = %q, want image/png", contentType)
+	}
+	r, g, b, _ := decodePNGPixel(t, data, 0, 0)
+	if r>>8 != 0x10 || g>>8 != 0x20 || b>>8 != 0x30 {
+		t.Errorf("pixel(0,0) = (%d,%d,%d), want (16,32,48)", r>>8, g>>8, b>>8)
+	}
+}
+
+func TestDecodeFlatePDFImage_NotFlateDecodeNotOK(t *testing.T) {
+	dict := []byte(`<</Filter/DCTDecode>>`)
+	if _, _, ok := decodeFlatePDFImage(dict, []byte("irrelevant")); ok {
+		t.Error("ok = true, want false (not a FlateDecode dict)")
+	}
+}
+
+func TestDecodeFlatePDFImage_NoColorSpaceNotOK(t *testing.T) {
+	dict := []byte(`<</Width 1/Height 1/Filter/FlateDecode>>`)
+	if _, _, ok := decodeFlatePDFImage(dict, []byte("irrelevant")); ok {
+		t.Error("ok = true, want false (no bare colorspace name to resolve yet -- Task 4 adds indirect/named resolution)")
 	}
 }
 
