@@ -1,10 +1,12 @@
 <script lang="ts">
   import type { LibraryBookView } from './types';
   import { OpenFile } from '../../wailsjs/go/main/App';
+  import CoverPickerModal from './CoverPickerModal.svelte';
 
   export let book: LibraryBookView;
 
   let openError = '';
+  let pickerOpen = false;
 
   function filenameNoExt(sourcePath: string): string {
     const base = sourcePath.split(/[\\/]+/).pop() ?? '';
@@ -20,6 +22,10 @@
       openError = String(e);
     }
   }
+
+  function onCoverUpdated(e: CustomEvent<{ coverPath: string; coverOverridden: boolean }>) {
+    book = { ...book, coverPath: e.detail.coverPath, coverOverridden: e.detail.coverOverridden };
+  }
 </script>
 
 <div class="tile">
@@ -33,11 +39,27 @@
     {:else}
       <div class="placeholder">{book.title || filenameNoExt(book.sourcePath)}</div>
     {/if}
+    <button
+      type="button"
+      class="cover-action"
+      on:click|stopPropagation={() => (pickerOpen = true)}
+    >
+      {book.coverOverridden ? 'Change cover…' : 'Choose cover…'}
+    </button>
   </div>
   {#if openError}
     <div class="banner error">{openError}</div>
   {/if}
 </div>
+
+{#if pickerOpen}
+  <CoverPickerModal
+    sourcePath={book.sourcePath}
+    coverOverridden={book.coverOverridden}
+    on:close={() => (pickerOpen = false)}
+    on:updated={onCoverUpdated}
+  />
+{/if}
 
 <style>
   .tile {
@@ -45,6 +67,7 @@
     flex-shrink: 0;
   }
   .cover {
+    position: relative;
     width: 90px;
     height: 130px;
     border-radius: 4px;
@@ -76,6 +99,25 @@
       var(--bf-border) 8px,
       var(--bf-border) 16px
     );
+  }
+  .cover-action {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 4px 2px;
+    font-size: 9.5px;
+    line-height: 1.2;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.65);
+    color: white;
+    border: none;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .cover:hover .cover-action {
+    opacity: 1;
   }
   .banner.error {
     background: var(--bf-amber-soft);

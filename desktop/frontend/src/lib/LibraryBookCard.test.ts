@@ -5,9 +5,14 @@ import type { LibraryBookView, CoverCandidateView } from './types';
 
 vi.mock('../../wailsjs/go/main/App', () => ({
   OpenFile: vi.fn(),
+  ListPDFCoverCandidates: vi.fn(),
+  SetCoverOverride: vi.fn(),
+  SetCoverOverrideCustomFromFile: vi.fn(),
+  ClearCoverOverride: vi.fn(),
+  PickCoverImageFile: vi.fn(),
 }));
 
-import { OpenFile } from '../../wailsjs/go/main/App';
+import { OpenFile, ListPDFCoverCandidates } from '../../wailsjs/go/main/App';
 
 function makeBook(overrides: Partial<LibraryBookView> = {}): LibraryBookView {
   return {
@@ -82,5 +87,33 @@ describe('CoverCandidateView / LibraryBookView.coverOverridden', () => {
   it('CoverCandidateView shape', () => {
     const candidate: CoverCandidateView = { page: 1, thumbnailUrl: '/covers/candidate-abc-p1.jpg' };
     expect(candidate.page).toBe(1);
+  });
+});
+
+describe('cover override button', () => {
+  it('shows "Choose cover…" for a book with no override', () => {
+    render(LibraryBookCard, { book: makeBook({ coverOverridden: false }) });
+    expect(screen.getByText('Choose cover…')).toBeInTheDocument();
+  });
+
+  it('shows "Change cover…" for an already-overridden book', () => {
+    render(LibraryBookCard, { book: makeBook({ coverOverridden: true }) });
+    expect(screen.getByText('Change cover…')).toBeInTheDocument();
+  });
+
+  it('clicking the button opens CoverPickerModal', async () => {
+    vi.mocked(ListPDFCoverCandidates).mockResolvedValue([]);
+    render(LibraryBookCard, { book: makeBook({ coverOverridden: false }) });
+
+    await fireEvent.click(screen.getByText('Choose cover…'));
+
+    // By the time the click's tick has flushed, CoverPickerModal's onMount
+    // has already resolved ListPDFCoverCandidates (mocked to []), so it has
+    // moved past its "Loading pages…" state to the loaded grid, which -- with
+    // no candidates -- shows just the upload tile. This confirms the modal
+    // actually mounted and completed its load cycle (matching the pattern
+    // used throughout CoverPickerModal.test.ts, which likewise never asserts
+    // on the transient loading text).
+    await screen.findByText('Upload custom image…');
   });
 });
