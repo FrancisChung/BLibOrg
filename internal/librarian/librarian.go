@@ -22,14 +22,15 @@ import (
 // Book is one already-organized library file, with Category/Subcategory
 // read directly from its folder location rather than recomputed.
 type Book struct {
-	SourcePath  string
-	Format      string
-	Title       string
-	Author      string
-	Year        string
-	Category    string
-	Subcategory string
-	CoverPath   string // "" if no cover was found; otherwise a /covers/... URL path
+	SourcePath      string
+	Format          string
+	Title           string
+	Author          string
+	Year            string
+	Category        string
+	Subcategory     string
+	CoverPath       string // "" if no cover was found; otherwise a /covers/... URL path
+	CoverOverridden bool   // true if a manual cover override (see internal/covercache) is in effect
 }
 
 // Scan walks cfg.General.LibraryFolder for every supported ebook file,
@@ -73,8 +74,31 @@ func Scan(cfg config.Config) ([]Book, error) {
 			b.Author = res.Author
 			b.Year = res.Year
 
-			if len(res.CoverBytes) > 0 {
-				if coverURL, err := covercache.Ensure(cfg.General.LogFolder, path, statModTime(path), res.CoverBytes, res.CoverContentType); err == nil {
+			coverBytes, coverContentType := res.CoverBytes, res.CoverContentType
+
+			// A manual override, if one is set for this book, replaces the
+			// cover portion of Extract's result -- but Extract itself still
+			// ran above, so Title/Author/Year are never lost for an
+			// overridden book (see this plan's Global Constraints for why
+			// this deliberately narrows the design doc's "extraction is
+			// skipped entirely" wording to cover selection only).
+			if ov, found, ovErr := covercache.GetOverride(cfg.General.LogFolder, path); ovErr == nil && found {
+				b.CoverOverridden = true
+				switch ov.Type {
+				case covercache.OverrideCustom:
+					b.CoverPath = ov.ImagePath
+					coverBytes = nil // already have a stable URL; skip covercache.Ensure below
+				case covercache.OverrideEmbedded:
+					if data, ct, ok, pageErr := metadata.ExtractPDFPageCover(path, ov.Page); pageErr == nil && ok {
+						coverBytes, coverContentType = data, ct
+					} else {
+						coverBytes = nil
+					}
+				}
+			}
+
+			if len(coverBytes) > 0 {
+				if coverURL, err := covercache.Ensure(cfg.General.LogFolder, path, statModTime(path), coverBytes, coverContentType); err == nil {
 					b.CoverPath = coverURL
 				}
 			}
