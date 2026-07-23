@@ -14,6 +14,7 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 )
 
@@ -65,6 +66,74 @@ func Ensure(logFolder, sourcePath string, sourceModTime time.Time, coverBytes []
 		return "", err
 	}
 	if err := os.WriteFile(cachePath, coverBytes, 0644); err != nil {
+		return "", err
+	}
+	return "/covers/" + name, nil
+}
+
+// Force writes coverBytes to the cache unconditionally, unlike Ensure
+// (which reuses an existing cache file at least as new as
+// sourceModTime). Used by manual cover-override set/clear: the source
+// file's own mtime hasn't changed, but the served URL must reflect the
+// new choice immediately rather than waiting for the next time the
+// source file itself changes.
+func Force(logFolder, sourcePath string, coverBytes []byte, contentType string) (string, error) {
+	if len(coverBytes) == 0 {
+		return "", nil
+	}
+	dir := Dir(logFolder)
+	name := fileName(sourcePath, contentType)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(filepath.Join(dir, name), coverBytes, 0644); err != nil {
+		return "", err
+	}
+	return "/covers/" + name, nil
+}
+
+// WriteCustomOverrideImage stores a user-uploaded cover image under the
+// same covercache.Dir as auto-detected covers (rather than the design
+// doc's separate covers/overrides/ subdirectory -- see this plan's Global
+// Constraints for why), with an "override-" filename prefix so it can't
+// collide with sourcePath's own auto-cache entry. Always (re)writes:
+// there's no "is this already cached" question for a fresh upload.
+func WriteCustomOverrideImage(logFolder, sourcePath string, imageBytes []byte, contentType string) (string, error) {
+	dir := Dir(logFolder)
+	name := "override-" + fileName(sourcePath, contentType)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(filepath.Join(dir, name), imageBytes, 0644); err != nil {
+		return "", err
+	}
+	return "/covers/" + name, nil
+}
+
+// candidateFileName mirrors fileName's "hash the source path, not the
+// bytes" approach, plus the page number, so the cover-picker's thumbnail
+// grid gets one stable, distinct URL per (book, page) pair across calls.
+func candidateFileName(sourcePath string, page int, contentType string) string {
+	sum := sha256.Sum256([]byte(sourcePath))
+	ext := extByContentType[contentType]
+	if ext == "" {
+		ext = ".img"
+	}
+	return "candidate-" + hex.EncodeToString(sum[:]) + "-p" + strconv.Itoa(page) + ext
+}
+
+// WriteCandidateImage stores one page's candidate cover image (from
+// metadata.ListPDFCoverCandidates) for the cover-picker's thumbnail grid,
+// under covercache.Dir with a "candidate-" prefix (see
+// WriteCustomOverrideImage's doc comment for why this dir, not a
+// candidates/ subdirectory).
+func WriteCandidateImage(logFolder, sourcePath string, page int, imageBytes []byte, contentType string) (string, error) {
+	dir := Dir(logFolder)
+	name := candidateFileName(sourcePath, page, contentType)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(filepath.Join(dir, name), imageBytes, 0644); err != nil {
 		return "", err
 	}
 	return "/covers/" + name, nil
