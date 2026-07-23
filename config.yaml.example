@@ -1,0 +1,243 @@
+general:
+  working_folder: ""
+  library_folder: ""
+  log_folder: ""
+  filename_format: "{title} ({year}) - {author}"
+  # How many pages (from the start of the document) to search for a cover
+  # image before giving up on page-aware detection. Defaults to 10 if
+  # unset or 0.
+  pdf_cover_page_limit: 10
+
+heuristics:
+  known_junk_tags: ["OceanofPDF.com", "libgen.li", "libgen.rs", "z-lib.org", "fusionauth"]
+
+title_formatting:
+  hyphen_exceptions: [Anti-Patterns, Cloud-Native, Domain-Driven, Hands-On, High-Impact, High-Performance, High-Scale, High-Value, How-To, Model-Driven, Step-by-Step, Trade-Off, Well-Grounded, Cutting-Edge, Container-Based, Python-Powered]
+
+categories:
+  Fiction:
+    subcategories: [Sci-Fi, Fantasy, Mystery, General]
+  Technology:
+    subcategories:
+      - AI
+      - Architecture
+      - API
+      - Android
+      - Authentication
+      - C++
+      - Cloud
+      - CS
+      - Concurrency
+      - Consulting
+      - Craftsmanship
+      - CTO
+      - Database
+      - DataEng
+      - DotNet
+      - DevOps
+      - Distributed Systems
+      - Domain Driven Design
+      - DSA
+      - Finance
+      - General
+      - Golang
+      - Graphs
+      - Interviewing
+      - IOS
+      - Java
+      - Javascript
+      - Knowledge Graphs
+      - Kotlin
+      - Leadership
+      - Machine Learning
+      - Microservices
+      - Object Orientated
+      - Powershell
+      - Product
+      - Python
+      - Real Time
+      - Scala
+      - Strategy
+      - System Design
+      - Testing
+      - Types
+      - Typescript
+      - Wardley Mapping
+      - Web
+  Food:
+    subcategories: [Mexican, Korean]
+  Languages:
+    subcategories: [Korean, Spanish]
+  Magazines:
+    subcategories: [Men's Health, T3]
+  Uncategorized:
+    subcategories: []
+
+# Rules are checked in order; first match wins.
+# match_field can be: author, title, filename, metadata_subject
+rules:
+  - match_field: filename
+    match_value: "(?i)\\b\\.net\\b|c#|csharp|c-sharp|dotnet"
+    category: Technology
+    subcategory: DotNet
+  - match_field: filename
+    match_value: "(?i)\\bllm\\b|\\bai\\b|Large Language Model|deep learning|vibe coding|vibe code"
+    category: Technology
+    subcategory: AI
+  - match_field: title
+    match_value: "(?i)\\bllm\\b|\\bai\\b|Large Language Model|deep learning|vibe coding|vibe code"
+    category: Technology
+    subcategory: AI
+  - match_field: filename
+    match_value: "(?i)\\bcloud\\b|\\baws\\b|\\bazure\\b|\\bgcp\\b"
+    category: Technology
+    subcategory: Cloud
+  - match_field: filename
+    match_value: "(?i)machine learning"
+    category: Technology
+    subcategory: Machine Learning
+  - match_field: filename
+    match_value: "(?i)data engineer|data engineering"
+    category: Technology
+    subcategory: DataEng
+  - match_field: filename
+    match_value: "(?i)finance|markets|trading|financial"
+    category: Technology
+    subcategory: Finance
+  - match_field: filename
+    match_value: "(?i)\\bjavascript\\b|\\bjs\\b|\\bnode\\b|node\\.js"
+    category: Technology
+    subcategory: Javascript
+  - match_field: filename
+    match_value: "(?i)typescript"
+    category: Technology
+    subcategory: Typescript
+  - match_field: filename
+    match_value: "(?i)java|jvm|spring|spring-boot|spring_boot"
+    category: Technology
+    subcategory: Java
+  - match_field: filename
+    match_value: "(?i)kotlin"
+    category: Technology
+    subcategory: Kotlin
+  - match_field: filename
+    match_value: "(?i)python"
+    category: Technology
+    subcategory: Python
+  - match_field: filename
+    match_value: "(?i)\\bc\\+\\+"
+    category: Technology
+    subcategory: C++
+  - match_field: filename
+    match_value: "(?i)docker|kubernetes|\\bsre\\b|devops"
+    category: Technology
+    subcategory: DevOps
+  - match_field: filename
+    match_value: "(?i)ddd|domain-driven|domain-driven design|domain driven design"
+    category: Technology
+    subcategory: Domain Driven Design
+  - match_field: filename
+    match_value: "(?i)microservices"
+    category: Technology
+    subcategory: Microservices
+  - match_field: filename
+    match_value: "(?i)architecture|togaf|architect"
+    category: Technology
+    subcategory: Architecture
+  - match_field: filename
+    match_value: "(?i)\\bcto\\b"
+    category: Technology
+    subcategory: CTO
+  - match_field: filename
+    match_value: "(?i)\\bgo\\b|golang"
+    category: Technology
+    subcategory: Golang
+  - match_field: filename
+    match_value: "(?i)distributed-systems|distributed systems"
+    category: Technology
+    subcategory: Distributed Systems
+  - match_field: filename
+    match_value: "(?i)system design|system-design"
+    category: Technology
+    subcategory: System Design
+  - match_field: filename
+    match_value: "(?i)\\bapi\\b"
+    category: Technology
+    subcategory: API
+  - match_field: filename
+    match_value: "(?i)\\bdsa\\b|data structures|algorithms"
+    category: Technology
+    subcategory: DSA
+  - match_field: filename
+    match_value: "(?i)wardley|wardley mapping|wardley maps"
+    category: Technology
+    subcategory: Wardley Mapping
+  - match_field: filename
+    match_value: "(?i)\\bauth\\b|authentication|\\boauth\\b"
+    category: Technology
+    subcategory: Authentication
+  - match_field: filename
+    match_value: "(?i)powershell"
+    category: Technology
+    subcategory: Powershell
+  - match_field: filename
+    match_value: "(?i)scala"
+    category: Technology
+    subcategory: Scala
+  - match_field: filename
+    match_value: "(?i)database"
+    category: Technology
+    subcategory: Database
+  - match_field: filename
+    match_value: "(?i)concurrency"
+    category: Technology
+    subcategory: Concurrency
+  - match_field: filename
+    match_value: "(?i)realtime|real time|real-time|streaming"
+    category: Technology
+    subcategory: Real Time
+  - match_field: filename
+    match_value: "(?i)product|product manager|product management"
+    category: Technology
+    subcategory: Product
+  - match_field: filename
+    match_value: "(?i)interview|interviewing"
+    category: Technology
+    subcategory: Interviewing
+  - match_field: filename
+    match_value: "(?i)test|testing"
+    category: Technology
+    subcategory: Testing
+  - match_field: filename
+    match_value: "(?i)leadership|leaders|leading"
+    category: Technology
+    subcategory: Leadership
+  - match_field: filename
+    match_value: "(?i)strategy|strategist"
+    category: Technology
+    subcategory: Strategy
+  - match_field: filename
+    match_value: "(?i)consultant|consulting"
+    category: Technology
+    subcategory: Consulting
+  - match_field: filename
+    match_value: "(?i)computer science"
+    category: Technology
+    subcategory: CS
+  - match_field: filename
+    match_value: "(?i)oaxaca|wahaca|mexican"
+    category: Food
+    subcategory: Mexican
+  - match_field: filename
+    match_value: "(?i)korea"
+    category: Food
+    subcategory: Korean
+  - match_field: author
+    match_value: "Isaac Asimov"
+    category: Fiction
+    subcategory: Sci-Fi
+  - match_field: metadata_subject
+    match_value: "Fantasy"
+    category: Fiction
+    subcategory: Fantasy
+
