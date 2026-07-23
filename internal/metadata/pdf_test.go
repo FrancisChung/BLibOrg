@@ -30,7 +30,7 @@ func writePDFFixture(t *testing.T, content string) string {
 func TestExtractPDF(t *testing.T) {
 	path := writePDFFixture(t, testPDFFixture)
 
-	result, err := extractPDF(path)
+	result, err := extractPDF(path, 10)
 	if err != nil {
 		t.Fatalf("extractPDF returned error: %v", err)
 	}
@@ -74,7 +74,7 @@ func TestExtractPDF_UTF16BEEncodedStrings(t *testing.T) {
 
 	path := writePDFFixture(t, buf.String())
 
-	result, err := extractPDF(path)
+	result, err := extractPDF(path, 10)
 	if err != nil {
 		t.Fatalf("extractPDF returned error: %v", err)
 	}
@@ -99,7 +99,7 @@ func TestExtractPDF_Latin1EncodedAuthor(t *testing.T) {
 	fixture := "%PDF-1.4\n1 0 obj\n<< /Author (Simon Harrer,J\xf6rg Lenhard,Linus Dietz) >>\nendobj\ntrailer\n<< /Root 1 0 R /Info 1 0 R >>\n%%EOF"
 	path := writePDFFixture(t, fixture)
 
-	result, err := extractPDF(path)
+	result, err := extractPDF(path, 10)
 	if err != nil {
 		t.Fatalf("extractPDF returned error: %v", err)
 	}
@@ -138,7 +138,7 @@ trailer
 func TestExtractPDF_IgnoresEmbeddedGraphicMetadataBeforeRealInfoDict(t *testing.T) {
 	path := writePDFFixture(t, testPDFFixtureWithDecoyObjects)
 
-	result, err := extractPDF(path)
+	result, err := extractPDF(path, 10)
 	if err != nil {
 		t.Fatalf("extractPDF returned error: %v", err)
 	}
@@ -174,7 +174,7 @@ func TestExtractPDF_NoTrailerLeavesTitleAuthorEmptyButStillFindsYear(t *testing.
 		"%%EOF"
 	path := writePDFFixture(t, fixture)
 
-	result, err := extractPDF(path)
+	result, err := extractPDF(path, 10)
 	if err != nil {
 		t.Fatalf("extractPDF returned error: %v", err)
 	}
@@ -213,7 +213,7 @@ trailer
 func TestExtractPDF_UsesLatestIncrementalUpdateOfInfoObject(t *testing.T) {
 	path := writePDFFixture(t, testPDFFixtureWithIncrementalUpdate)
 
-	result, err := extractPDF(path)
+	result, err := extractPDF(path, 10)
 	if err != nil {
 		t.Fatalf("extractPDF returned error: %v", err)
 	}
@@ -231,7 +231,7 @@ func TestExtractPDF_TitleAuthorEmptyWhenInfoReferenceMissing(t *testing.T) {
 	fixture := "%PDF-1.4\n1 0 obj\n<< /Title (Decoy Bookmark) /Author (Someone) /CreationDate (D:20200101000000) >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF"
 	path := writePDFFixture(t, fixture)
 
-	result, err := extractPDF(path)
+	result, err := extractPDF(path, 10)
 	if err != nil {
 		t.Fatalf("extractPDF returned error: %v", err)
 	}
@@ -249,7 +249,7 @@ func TestExtractPDF_TitleAuthorEmptyWhenInfoObjectMissing(t *testing.T) {
 	fixture := "%PDF-1.4\n1 0 obj\n<< /Title (Decoy Bookmark) /Author (Someone) /CreationDate (D:20200101000000) >>\nendobj\ntrailer\n<< /Root 1 0 R /Info 99 0 R >>\n%%EOF"
 	path := writePDFFixture(t, fixture)
 
-	result, err := extractPDF(path)
+	result, err := extractPDF(path, 10)
 	if err != nil {
 		t.Fatalf("extractPDF returned error: %v", err)
 	}
@@ -264,7 +264,7 @@ func TestExtractPDF_TitleAuthorEmptyWhenInfoObjectMissing(t *testing.T) {
 func TestExtractPDF_NoMetadata(t *testing.T) {
 	path := writePDFFixture(t, "%PDF-1.4\n1 0 obj\n<< >>\nendobj\n%%EOF")
 
-	result, err := extractPDF(path)
+	result, err := extractPDF(path, 10)
 	if err != nil {
 		t.Fatalf("extractPDF returned error: %v", err)
 	}
@@ -288,7 +288,7 @@ func TestExtractPDF_PlaceholderTitleTreatedAsUnresolved(t *testing.T) {
 		"trailer\n<< /Root 1 0 R /Info 1 0 R >>\n%%EOF"
 	path := writePDFFixture(t, fixture)
 
-	result, err := extractPDF(path)
+	result, err := extractPDF(path, 10)
 	if err != nil {
 		t.Fatalf("extractPDF returned error: %v", err)
 	}
@@ -310,7 +310,7 @@ func TestExtractPDF_FindsCoverImage(t *testing.T) {
 		string(jpegData) + "\nendstream\nendobj\n"
 	path := writePDFFixture(t, pdf)
 
-	result, err := extractPDF(path)
+	result, err := extractPDF(path, 10)
 	if err != nil {
 		t.Fatalf("extractPDF returned error: %v", err)
 	}
@@ -325,11 +325,38 @@ func TestExtractPDF_FindsCoverImage(t *testing.T) {
 func TestExtractPDF_NoCoverLeavesFieldEmpty(t *testing.T) {
 	path := writePDFFixture(t, "%PDF-1.4\n1 0 obj\n<< /Title (Foo) >>\nendobj\n")
 
-	result, err := extractPDF(path)
+	result, err := extractPDF(path, 10)
 	if err != nil {
 		t.Fatalf("extractPDF returned error: %v", err)
 	}
 	if result.CoverBytes != nil {
 		t.Errorf("CoverBytes = %v, want nil", result.CoverBytes)
+	}
+}
+
+func TestExtractPDF_PageAwareCoverPrefersPageOrderOverByteOrder(t *testing.T) {
+	// Page 2's image object (5 0 obj) appears EARLIER in the file's byte
+	// order than page 1's image object (7 0 obj) -- reproducing a real
+	// case where file object order doesn't match page order. The
+	// page-aware walk must still pick page 1's image, not whichever
+	// happens to come first in the file.
+	page1JPEG := []byte("\xFF\xD8\xFFpage1cover")
+	page2JPEG := []byte("\xFF\xD8\xFFpage2diagram")
+	pdf := "%PDF-1.4\n" +
+		"5 0 obj\n<< /Type /XObject /Subtype /Image /Filter /DCTDecode /Length 17 >>\nstream\n" + string(page2JPEG) + "\nendstream\nendobj\n" +
+		"7 0 obj\n<< /Type /XObject /Subtype /Image /Filter /DCTDecode /Length 15 >>\nstream\n" + string(page1JPEG) + "\nendstream\nendobj\n" +
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+		"2 0 obj\n<< /Type /Pages /Kids [3 0 R 4 0 R] >>\nendobj\n" +
+		"3 0 obj\n<< /Type /Page /Resources << /XObject << /Im0 7 0 R >> >> >>\nendobj\n" +
+		"4 0 obj\n<< /Type /Page /Resources << /XObject << /Im0 5 0 R >> >> >>\nendobj\n" +
+		"trailer\n<< /Root 1 0 R >>\n%%EOF"
+	path := writePDFFixture(t, pdf)
+
+	result, err := extractPDF(path, 10)
+	if err != nil {
+		t.Fatalf("extractPDF returned error: %v", err)
+	}
+	if string(result.CoverBytes) != string(page1JPEG) {
+		t.Errorf("CoverBytes = %q, want page 1's cover %q (not page 2's, even though it appears first in file byte order)", result.CoverBytes, page1JPEG)
 	}
 }

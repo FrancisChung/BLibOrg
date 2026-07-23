@@ -148,6 +148,23 @@ func findPDFCover(data []byte) ([]byte, string, bool) {
 	return nil, "", false
 }
 
+// findPDFCoverPageAware is the primary cover-selection entry point: it
+// walks the page tree (walkPDFPageTree, pdf_pages.go) and returns the
+// first qualifying image found within the first pageLimit pages, in page
+// order. If the page tree can't be resolved at all, or no qualifying
+// image turns up within the page limit, it falls back to findPDFCover's
+// whole-file byte-order scan -- so this is never worse than the
+// pre-page-aware behavior, only better when a real page tree is present.
+func findPDFCoverPageAware(data []byte, pageLimit int) ([]byte, string, bool) {
+	idx := buildPDFObjIndex(data)
+	if pages, ok := walkPDFPageTree(idx, pageLimit); ok {
+		if images := findPDFPageImages(idx, pages, true); len(images) > 0 {
+			return images[0].bytes, images[0].contentType, true
+		}
+	}
+	return findPDFCover(data)
+}
+
 // extractPDF is a best-effort, dependency-free scanner: it looks for
 // literal (not hex-encoded, not compressed-object-stream) /Title, /Author,
 // /Subject, and /CreationDate entries in the raw PDF bytes, scoped to the
@@ -167,7 +184,7 @@ func findPDFCover(data []byte) ([]byte, string, bool) {
 // safe to whole-file-scan even without a confirmed Info dict: unlike
 // /Title/Author, those two keys essentially never appear on bookmark or
 // embedded-graphic objects in practice.
-func extractPDF(path string) (Result, error) {
+func extractPDF(path string, pageLimit int) (Result, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return Result{}, err
@@ -205,7 +222,7 @@ func extractPDF(path string) (Result, error) {
 	} else if year, ok := textutil.ExtractYear(fields["CreationDate"]); ok {
 		result.Year = year
 	}
-	if coverData, coverContentType, ok := findPDFCover(data); ok {
+	if coverData, coverContentType, ok := findPDFCoverPageAware(data, pageLimit); ok {
 		result.CoverBytes = coverData
 		result.CoverContentType = coverContentType
 	}

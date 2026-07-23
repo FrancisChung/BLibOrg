@@ -26,7 +26,7 @@ func Extract(path string, hyphenExceptions []string) (Result, error) {
 	case ".epub":
 		result, err = extractEpub(path)
 	case ".pdf":
-		result, err = extractPDF(path)
+		result, err = extractPDF(path, 0)
 	case ".mobi", ".azw3":
 		result, err = extractMobi(path)
 	default:
