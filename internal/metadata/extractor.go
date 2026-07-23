@@ -18,7 +18,7 @@ import (
 // should keep hyphenated rather than splitting on "-"
 // (cfg.TitleFormatting.HyphenExceptions). It is the only function other
 // packages should call.
-func Extract(path string, hyphenExceptions []string) (Result, error) {
+func Extract(path string, hyphenExceptions []string, pdfCoverPageLimit int) (Result, error) {
 	ext := strings.ToLower(filepath.Ext(path))
 	var result Result
 	var err error
@@ -26,7 +26,7 @@ func Extract(path string, hyphenExceptions []string) (Result, error) {
 	case ".epub":
 		result, err = extractEpub(path)
 	case ".pdf":
-		result, err = extractPDF(path, 0)
+		result, err = extractPDF(path, pdfCoverPageLimit)
 	case ".mobi", ".azw3":
 		result, err = extractMobi(path)
 	default:

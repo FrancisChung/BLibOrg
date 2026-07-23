@@ -10,7 +10,7 @@ func TestExtract_DispatchesByExtension(t *testing.T) {
 	epubPath := writeEpubFixture(t, `<?xml version="1.0"?>
 <package xmlns="http://www.idpf.org/2007/opf"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
 <dc:title>EpubTitle</dc:title></metadata></package>`)
-	result, err := Extract(epubPath, nil)
+	result, err := Extract(epubPath, nil, 0)
 	if err != nil {
 		t.Fatalf("Extract(.epub) error: %v", err)
 	}
@@ -25,7 +25,7 @@ endobj
 trailer
 << /Root 1 0 R /Info 1 0 R >>
 %%EOF`)
-	result, err = Extract(pdfPath, nil)
+	result, err = Extract(pdfPath, nil, 0)
 	if err != nil {
 		t.Fatalf("Extract(.pdf) error: %v", err)
 	}
@@ -34,7 +34,7 @@ trailer
 	}
 
 	mobiPath := writeMobiFixture(t, "MobiTitle", "", "", "")
-	result, err = Extract(mobiPath, nil)
+	result, err = Extract(mobiPath, nil, 0)
 	if err != nil {
 		t.Fatalf("Extract(.mobi) error: %v", err)
 	}
@@ -52,7 +52,7 @@ trailer
 	if err := os.WriteFile(azw3Path, data, 0644); err != nil {
 		t.Fatalf("write azw3 fixture: %v", err)
 	}
-	result, err = Extract(azw3Path, nil)
+	result, err = Extract(azw3Path, nil, 0)
 	if err != nil {
 		t.Fatalf("Extract(.azw3) error: %v", err)
 	}
@@ -60,7 +60,7 @@ trailer
 		t.Errorf("Extract(.azw3) Title = %q", result.Title)
 	}
 
-	if _, err := Extract(filepath.Join(t.TempDir(), "book.txt"), nil); err == nil {
+	if _, err := Extract(filepath.Join(t.TempDir(), "book.txt"), nil, 0); err == nil {
 		t.Error("expected error for unsupported extension, got nil")
 	}
 }
@@ -71,7 +71,7 @@ func TestExtract_CleansTitleAndAuthor(t *testing.T) {
 <dc:title>Foundation.</dc:title>
 <dc:creator>Bruce Eckel;Svetlana Isakova;</dc:creator>
 </metadata></package>`)
-	result, err := Extract(epubPath, nil)
+	result, err := Extract(epubPath, nil, 0)
 	if err != nil {
 		t.Fatalf("Extract(.epub) error: %v", err)
 	}
@@ -87,7 +87,7 @@ func TestExtract_FormatsTitle(t *testing.T) {
 	epubPath := writeEpubFixture(t, `<?xml version="1.0"?>
 <package xmlns="http://www.idpf.org/2007/opf"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
 <dc:title>high-performance_systems_for_the_cloud</dc:title></metadata></package>`)
-	result, err := Extract(epubPath, []string{"High-Performance"})
+	result, err := Extract(epubPath, []string{"High-Performance"}, 0)
 	if err != nil {
 		t.Fatalf("Extract(.epub) error: %v", err)
 	}

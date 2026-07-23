@@ -68,7 +68,7 @@ func Scan(cfg config.Config) ([]Book, error) {
 			b.Subcategory = parts[1]
 		}
 
-		if res, err := metadata.Extract(path, cfg.TitleFormatting.HyphenExceptions); err == nil {
+		if res, err := metadata.Extract(path, cfg.TitleFormatting.HyphenExceptions, cfg.General.PDFCoverPageLimit); err == nil {
 			b.Title = res.Title
 			b.Author = res.Author
 			b.Year = res.Year

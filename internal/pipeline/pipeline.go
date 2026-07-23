@@ -40,7 +40,7 @@ func Run(cfg config.Config) ([]*book.Book, error) {
 			b.SizeBytes = info.Size()
 		}
 
-		if res, err := metadata.Extract(path, cfg.TitleFormatting.HyphenExceptions); err == nil {
+		if res, err := metadata.Extract(path, cfg.TitleFormatting.HyphenExceptions, cfg.General.PDFCoverPageLimit); err == nil {
 			if res.Title != "" {
 				b.Title = book.Field{Value: res.Title, Source: book.SourceMetadata}
 			}

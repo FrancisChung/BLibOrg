@@ -17,10 +17,11 @@ type Config struct {
 }
 
 type General struct {
-	WorkingFolder  string `yaml:"working_folder"`
-	LibraryFolder  string `yaml:"library_folder"`
-	LogFolder      string `yaml:"log_folder"`
-	FilenameFormat string `yaml:"filename_format"`
+	WorkingFolder      string `yaml:"working_folder"`
+	LibraryFolder      string `yaml:"library_folder"`
+	LogFolder          string `yaml:"log_folder"`
+	FilenameFormat     string `yaml:"filename_format"`
+	PDFCoverPageLimit  int    `yaml:"pdf_cover_page_limit"`
 }
 
 type Heuristics struct {
