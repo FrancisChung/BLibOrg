@@ -82,10 +82,15 @@ extracted cover matches what a human sees when they open the PDF.
   candidate image was found on (reusing the decompression path
   `decodeFlatePDFImage`/`pdf_objects.go` already has for compressed
   streams), returns `true` if the stream contains a text-show operator —
-  `Tj` or `TJ`, each preceded by whitespace so a false match inside some
-  unrelated token isn't picked up — the exact signal already used by hand
-  to diagnose this bug (page 1's stream has a `BT ... TJ ... ET` block
-  showing "Chip Huyen" as vector text, separate from the image). Vector
+  `Tj` or `TJ` as a standalone token (word-boundary matched, not merely
+  substring matched) — the exact signal already used by hand to diagnose
+  this bug (page 1's stream has a `BT ... TJ ... ET` block showing "Chip
+  Huyen" as vector text, separate from the image). Confirmed empirically
+  against that real content stream: the array-form operator appears as
+  `]TJ` with no space before it (`[(C)-7 (h)... (n)]TJ`, directly after
+  its closing bracket, as InDesign-produced PDFs commonly emit it) —
+  ruling out a "preceded by whitespace" check, hence word-boundary
+  matching instead. Vector
   path/logo detection is deliberately left out of v1 — text is the
   strongest, simplest, already-proven-sufficient signal, and path-fill
   operators are common enough in decorative borders/backgrounds that
