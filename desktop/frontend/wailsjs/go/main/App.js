@@ -22,6 +22,10 @@ export function ConfirmApply(arg1, arg2) {
   return window['go']['main']['App']['ConfirmApply'](arg1, arg2);
 }
 
+export function ConfirmResetCoverCache() {
+  return window['go']['main']['App']['ConfirmResetCoverCache']();
+}
+
 export function ConfirmUndo(arg1) {
   return window['go']['main']['App']['ConfirmUndo'](arg1);
 }
@@ -52,6 +56,10 @@ export function PickCoverImageFile() {
 
 export function Recompute(arg1) {
   return window['go']['main']['App']['Recompute'](arg1);
+}
+
+export function ResetCoverCache() {
+  return window['go']['main']['App']['ResetCoverCache']();
 }
 
 export function Scan() {

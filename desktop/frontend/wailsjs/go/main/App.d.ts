@@ -12,6 +12,8 @@ export function ConfigStatus():Promise<appapi.ConfigStatusView>;
 
 export function ConfirmApply(arg1:number,arg2:string):Promise<boolean>;
 
+export function ConfirmResetCoverCache():Promise<boolean>;
+
 export function ConfirmUndo(arg1:number):Promise<boolean>;
 
 export function ListCategoryWarnings():Promise<Array<appapi.CategoryWarningView>>;
@@ -27,6 +29,8 @@ export function OpenFile(arg1:string):Promise<void>;
 export function PickCoverImageFile():Promise<string>;
 
 export function Recompute(arg1:appapi.BookView):Promise<appapi.BookView>;
+
+export function ResetCoverCache():Promise<void>;
 
 export function Scan():Promise<Array<appapi.BookView>>;
 

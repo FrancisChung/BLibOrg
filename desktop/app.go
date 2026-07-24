@@ -79,6 +79,10 @@ func (a *App) ClearCoverOverride(bookPath string) (string, error) {
 	return a.api.ClearCoverOverride(bookPath)
 }
 
+func (a *App) ResetCoverCache() error {
+	return a.api.ResetCoverCache()
+}
+
 // PickCoverImageFile shows a native "choose an image" file dialog and
 // returns the chosen path, or "" (not an error) if the user cancels --
 // matching runtime.OpenFileDialog's own cancel behavior. The frontend
@@ -175,13 +179,35 @@ func (a *App) ConfirmUndo(fileCount int) bool {
 	return isAffirmative(result)
 }
 
+// ConfirmResetCoverCache shows a native Yes/No dialog before
+// ResetCoverCache runs, mirroring ConfirmApply/ConfirmUndo -- clearing
+// hundreds of cached files and triggering a multi-minute rebuild on the
+// next Library visit is disruptive enough to warrant a confirmation
+// step, even though nothing genuinely irreplaceable is lost.
+func (a *App) ConfirmResetCoverCache() bool {
+	result, err := runtime.MessageDialog(a.ctx, runtime.MessageDialogOptions{
+		Type:  runtime.QuestionDialog,
+		Title: "Reset cover cache?",
+		Message: "This clears every cached cover image and the library scan " +
+			"cache, so the next time you open or refresh the Library, every " +
+			"book will be re-scanned from scratch. This does not affect any " +
+			"covers you've manually chosen.",
+		Buttons:       []string{"Reset", "Cancel"},
+		DefaultButton: "Cancel",
+	})
+	if err != nil {
+		return false
+	}
+	return isAffirmative(result)
+}
+
 // isAffirmative interprets a MessageDialog result. Wails only honors custom
 // Buttons on macOS; on Linux/Windows the dialog falls back to a default
 // Yes/No, so a literal check against the custom label alone silently
 // rejects every confirmation on those platforms.
 func isAffirmative(result string) bool {
 	switch result {
-	case "Move files", "Undo", "Yes", "OK":
+	case "Move files", "Undo", "Reset", "Yes", "OK":
 		return true
 	default:
 		return false
