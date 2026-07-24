@@ -72,6 +72,7 @@
   }
   main {
     flex: 1;
+    min-width: 0;
     padding: 24px 28px;
     text-align: left;
     display: flex;
