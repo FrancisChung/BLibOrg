@@ -20,6 +20,10 @@
     { view: 'warnings', label: 'Warnings' },
   ];
 
+  const settingsItems: { view: SidebarView; label: string }[] = [
+    { view: 'settings', label: 'Settings' },
+  ];
+
   function go(view: SidebarView) {
     dispatch('navigate', view);
   }
@@ -73,6 +77,18 @@
       {item.label}
     </button>
   {/each}
+
+  <div class="nav-divider"></div>
+  {#each settingsItems as item (item.view)}
+    <button
+      type="button"
+      class="nav-item"
+      class:active={active === item.view}
+      on:click={() => go(item.view)}
+    >
+      {item.label}
+    </button>
+  {/each}
 </nav>
 
 <style>
@@ -118,5 +134,10 @@
     text-transform: uppercase;
     color: var(--bf-text-muted);
     margin-top: 10px;
+  }
+  .nav-divider {
+    height: 1px;
+    background: var(--bf-border);
+    margin: 10px 4px;
   }
 </style>

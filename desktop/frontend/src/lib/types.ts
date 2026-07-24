@@ -150,4 +150,4 @@ export function groupIntoShelves(
     }));
 }
 
-export type SidebarView = 'scan' | 'library' | 'operations' | 'warnings';
+export type SidebarView = 'scan' | 'library' | 'operations' | 'warnings' | 'settings';

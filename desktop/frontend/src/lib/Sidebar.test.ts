@@ -79,4 +79,20 @@ describe('Sidebar', () => {
     expect(screen.getByRole('button', { name: 'All' }).className).toContain('active');
     expect(screen.getByRole('button', { name: 'Fiction' }).className).not.toContain('active');
   });
+
+  it('renders a Settings nav item', () => {
+    render(Sidebar, { active: 'operations' });
+    expect(screen.getByRole('button', { name: 'Settings' })).toBeInTheDocument();
+  });
+
+  it('emits navigate with "settings" when Settings is clicked', async () => {
+    const { component } = render(Sidebar, { active: 'library' });
+    const handler = vi.fn();
+    component.$on('navigate', handler);
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler.mock.calls[0][0].detail).toBe('settings');
+  });
 });

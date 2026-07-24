@@ -5,6 +5,7 @@
   import LibraryView from './lib/LibraryView.svelte';
   import OperationsLogView from './lib/OperationsLogView.svelte';
   import WarningsLogView from './lib/WarningsLogView.svelte';
+  import SettingsView from './lib/SettingsView.svelte';
   import type { SidebarView } from './lib/types';
   import { ConfigStatus } from '../wailsjs/go/main/App';
 
@@ -58,6 +59,8 @@
       <OperationsLogView />
     {:else if activeView === 'warnings'}
       <WarningsLogView />
+    {:else if activeView === 'settings'}
+      <SettingsView />
     {/if}
   </main>
 </div>
