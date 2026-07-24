@@ -188,3 +188,30 @@ func TestInvalidate_PropagatesSaveFailure(t *testing.T) {
 		t.Error("Invalidate returned nil error, want an error from the blocked write")
 	}
 }
+
+func TestReset_RemovesPersistedCacheFile(t *testing.T) {
+	dir := t.TempDir()
+	var c Cache
+	c.Put("/book.epub", Entry{Title: "Foundation"})
+	if err := c.Save(dir); err != nil {
+		t.Fatalf("Save returned error: %v", err)
+	}
+
+	if err := Reset(dir); err != nil {
+		t.Fatalf("Reset returned error: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, "library-cache.json")); !os.IsNotExist(err) {
+		t.Errorf("cache file still exists after Reset (stat err = %v), want removed", err)
+	}
+	reloaded := Load(dir)
+	if _, ok := reloaded.Fresh("/book.epub", time.Time{}, 0); ok {
+		t.Error("Fresh() = true after Reset, want false (cache should be empty)")
+	}
+}
+
+func TestReset_MissingFileIsNotAnError(t *testing.T) {
+	if err := Reset(t.TempDir()); err != nil {
+		t.Errorf("Reset on a directory with no cache file returned error: %v, want nil", err)
+	}
+}

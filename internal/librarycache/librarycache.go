@@ -14,6 +14,7 @@ package librarycache
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"time"
@@ -151,4 +152,15 @@ func Invalidate(logFolder, sourcePath string) error {
 	c := Load(logFolder)
 	c.Delete(sourcePath)
 	return c.Save(logFolder)
+}
+
+// Reset deletes the persisted cache file entirely, forcing every book to
+// be treated as new on the next Scan. A missing file is not an error --
+// idempotent, matching Load's own fail-open convention.
+func Reset(logFolder string) error {
+	err := os.Remove(cachePath(logFolder))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	return err
 }
