@@ -136,20 +136,29 @@ func pageContentSuggestsCompositeCover(idx *pdfObjIndex, page pdfPage) bool {
 		if !ok {
 			continue
 		}
-		_, stream, hasStream := splitPDFObjectBody(body)
+		dict, stream, hasStream := splitPDFObjectBody(body)
 		if !hasStream {
 			continue
 		}
-		// Content streams aren't required to declare a /Filter -- when a
-		// stream isn't (or doesn't parse as) zlib/Flate-compressed, fall
-		// back to treating it as literal, already-plain content-operator
-		// bytes rather than skipping it outright.
+		// Content streams aren't required to declare a /Filter -- only
+		// attempt zlib decompression when one is explicitly present
+		// (the same check decodeFlatePDFImage uses for image streams,
+		// pdf_flate.go), otherwise treat the stream as already-plain
+		// content-operator bytes. This avoids ever running the
+		// text-operator regex over corrupted/truncated compressed
+		// binary, which a blind try/fallback could do.
 		content := stream
-		if r, err := zlib.NewReader(bytes.NewReader(stream)); err == nil {
-			if decompressed, err := io.ReadAll(r); err == nil {
-				content = decompressed
+		if pdfFlateDecodeRe.Match(dict) {
+			r, err := zlib.NewReader(bytes.NewReader(stream))
+			if err != nil {
+				continue
 			}
+			decompressed, err := io.ReadAll(r)
 			r.Close()
+			if err != nil {
+				continue
+			}
+			content = decompressed
 		}
 		if matchesTextShowOperator(content) {
 			return true

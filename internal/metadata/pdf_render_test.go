@@ -127,3 +127,101 @@ func TestPageContentSuggestsCompositeCover_MatchesTJWithNoPrecedingSpace(t *test
 	}
 	_ = page // page isn't used by this specific sub-check; kept for clarity that it's the same fixture family
 }
+
+// buildMinimalValidPDFWithSplitContents is like buildMinimalValidPDF, but
+// splits the page's content across TWO /Contents objects referenced via
+// an array ("/Contents [N 0 R M 0 R]"), as real-world PDF producers
+// commonly emit -- testing pageContentSuggestsCompositeCover's array
+// /Contents resolution branch, which buildMinimalValidPDF's single-ref
+// /Contents never exercises.
+func buildMinimalValidPDFWithSplitContents() []byte {
+	jpeg := []byte("\xFF\xD8\xFFrealjpeg")
+	imageOps := "q 200 0 0 200 0 0 cm /Im0 Do Q"
+	textOps := "BT /F1 12 Tf 10 10 Td (Author Name) Tj ET"
+
+	var buf bytes.Buffer
+	offsets := make([]int, 0, 7)
+	buf.WriteString("%PDF-1.4\n")
+
+	writeObj := func(n int, body string) {
+		offsets = append(offsets, buf.Len())
+		fmt.Fprintf(&buf, "%d 0 obj\n%s\nendobj\n", n, body)
+	}
+
+	writeObj(1, "<< /Type /Catalog /Pages 2 0 R >>")
+	writeObj(2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>")
+	writeObj(3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] "+
+		"/Resources << /XObject << /Im0 4 0 R >> /Font << /F1 6 0 R >> >> /Contents [5 0 R 7 0 R] >>")
+	writeObj(4, fmt.Sprintf("<< /Type /XObject /Subtype /Image /Width 1 /Height 1 "+
+		"/ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /DCTDecode /Length %d >>\nstream\n%s\nendstream", len(jpeg), jpeg))
+	writeObj(5, fmt.Sprintf("<< /Length %d >>\nstream\n%s\nendstream", len(imageOps), imageOps))
+	writeObj(6, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
+	writeObj(7, fmt.Sprintf("<< /Length %d >>\nstream\n%s\nendstream", len(textOps), textOps))
+
+	xrefOffset := buf.Len()
+	fmt.Fprintf(&buf, "xref\n0 %d\n", len(offsets)+1)
+	buf.WriteString("0000000000 65535 f \n")
+	for _, off := range offsets {
+		fmt.Fprintf(&buf, "%010d 00000 n \n", off)
+	}
+	fmt.Fprintf(&buf, "trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n", len(offsets)+1, xrefOffset)
+
+	return buf.Bytes()
+}
+
+func TestPageContentSuggestsCompositeCover_ChecksAllArrayContentsStreams(t *testing.T) {
+	data := buildMinimalValidPDFWithSplitContents()
+	idx := buildPDFObjIndex(data)
+	pages, ok := walkPDFPageTree(idx, 10)
+	if !ok || len(pages) != 1 {
+		t.Fatalf("walkPDFPageTree ok=%v pages=%d, want ok=true pages=1", ok, len(pages))
+	}
+
+	if !pageContentSuggestsCompositeCover(idx, pages[0]) {
+		t.Error("pageContentSuggestsCompositeCover = false, want true -- the text-show operator is in the SECOND of two array-referenced /Contents streams, and must still be found")
+	}
+}
+
+func TestPageContentSuggestsCompositeCover_DetectsArrayFormTJWithNoPrecedingSpace(t *testing.T) {
+	// buildMinimalValidPDF's withText=true fixture already writes a
+	// single-string Tj, not the array-form TJ with no preceding space
+	// that real-world PDFs (InDesign) actually emit -- this test proves
+	// the full pageContentSuggestsCompositeCover path handles that exact
+	// shape, not just the standalone regex helper.
+	jpeg := []byte("\xFF\xD8\xFFrealjpeg")
+	contentOps := "q 200 0 0 200 0 0 cm /Im0 Do Q\nBT /F1 12 Tf 10 10 Td [(H)-7 (i)]TJ ET"
+
+	var buf bytes.Buffer
+	offsets := make([]int, 0, 6)
+	buf.WriteString("%PDF-1.4\n")
+	writeObj := func(n int, body string) {
+		offsets = append(offsets, buf.Len())
+		fmt.Fprintf(&buf, "%d 0 obj\n%s\nendobj\n", n, body)
+	}
+	writeObj(1, "<< /Type /Catalog /Pages 2 0 R >>")
+	writeObj(2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>")
+	writeObj(3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] "+
+		"/Resources << /XObject << /Im0 4 0 R >> /Font << /F1 6 0 R >> >> /Contents 5 0 R >>")
+	writeObj(4, fmt.Sprintf("<< /Type /XObject /Subtype /Image /Width 1 /Height 1 "+
+		"/ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /DCTDecode /Length %d >>\nstream\n%s\nendstream", len(jpeg), jpeg))
+	writeObj(5, fmt.Sprintf("<< /Length %d >>\nstream\n%s\nendstream", len(contentOps), contentOps))
+	writeObj(6, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
+	xrefOffset := buf.Len()
+	fmt.Fprintf(&buf, "xref\n0 %d\n", len(offsets)+1)
+	buf.WriteString("0000000000 65535 f \n")
+	for _, off := range offsets {
+		fmt.Fprintf(&buf, "%010d 00000 n \n", off)
+	}
+	fmt.Fprintf(&buf, "trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n", len(offsets)+1, xrefOffset)
+	data := buf.Bytes()
+
+	idx := buildPDFObjIndex(data)
+	pages, ok := walkPDFPageTree(idx, 10)
+	if !ok || len(pages) != 1 {
+		t.Fatalf("walkPDFPageTree ok=%v pages=%d, want ok=true pages=1", ok, len(pages))
+	}
+
+	if !pageContentSuggestsCompositeCover(idx, pages[0]) {
+		t.Error("pageContentSuggestsCompositeCover = false, want true -- must detect \"]TJ\" with no preceding space through the full function, not just the standalone regex helper")
+	}
+}
