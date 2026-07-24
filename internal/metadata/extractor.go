@@ -8,6 +8,21 @@ import (
 	"github.com/FrancisChung/book-organiser/internal/textutil"
 )
 
+// CoverExtractorVersion identifies the current cover-selection/extraction
+// logic across all formats (see extractPDF, extractEpub, extractMobi and
+// everything they call into for cover bytes). internal/librarian.Scan
+// stores this alongside each cached book so a cached CoverPath can be
+// distinguished from one produced by an older, since-improved version of
+// this logic -- a mismatch is treated as a cache miss even when the
+// source file's ModTime/Size haven't changed, forcing exactly one
+// re-extraction that then re-caches under the current version. Bump this
+// whenever a change here could cause an already-scanned file to yield
+// different cover bytes than before (e.g. the page-aware PDF cover walk
+// added in Plan A, or a new colorspace/filter becoming decodable) -- not
+// for changes that only affect Title/Author/Year, and not for changes
+// that only affect files this logic couldn't already handle.
+const CoverExtractorVersion = 1
+
 // Extract dispatches to the appropriate format-specific extractor based on
 // path's extension, then cleans the Title/Author it returns -- embedded
 // metadata not infrequently carries a stray trailing "." or ";" (leftover

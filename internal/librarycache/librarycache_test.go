@@ -101,6 +101,26 @@ func TestSaveThenLoad_RoundTripsEntriesIncludingCoverOverridden(t *testing.T) {
 	}
 }
 
+func TestSaveThenLoad_RoundTripsCoverVersion(t *testing.T) {
+	dir := t.TempDir()
+	modTime := time.Now().Truncate(time.Second)
+
+	var c Cache
+	c.Put("/book.epub", Entry{ModTime: modTime, Size: 100, CoverVersion: 3})
+	if err := c.Save(dir); err != nil {
+		t.Fatalf("Save returned error: %v", err)
+	}
+
+	loaded := Load(dir)
+	entry, ok := loaded.Fresh("/book.epub", modTime, 100)
+	if !ok {
+		t.Fatal("Fresh() = false after round-trip, want true")
+	}
+	if entry.CoverVersion != 3 {
+		t.Errorf("CoverVersion = %d, want 3", entry.CoverVersion)
+	}
+}
+
 func TestSave_NoOpWhenNotDirty(t *testing.T) {
 	dir := t.TempDir()
 	c := Load(dir) // empty, not dirty

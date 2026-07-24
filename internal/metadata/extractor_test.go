@@ -6,6 +6,12 @@ import (
 	"testing"
 )
 
+func TestCoverExtractorVersion_IsSetAndPositive(t *testing.T) {
+	if CoverExtractorVersion < 1 {
+		t.Errorf("CoverExtractorVersion = %d, want >= 1", CoverExtractorVersion)
+	}
+}
+
 func TestExtract_DispatchesByExtension(t *testing.T) {
 	epubPath := writeEpubFixture(t, `<?xml version="1.0"?>
 <package xmlns="http://www.idpf.org/2007/opf"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/">

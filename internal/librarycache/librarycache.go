@@ -21,6 +21,14 @@ import (
 
 // Entry is one cached book's derived fields, valid as long as the source
 // file's ModTime and Size match what was recorded when it was cached.
+// CoverVersion records which metadata.CoverExtractorVersion produced
+// CoverPath -- callers (internal/librarian.Scan) are responsible for
+// comparing it against the current version, since a ModTime+Size match
+// alone can't tell "the book file is unchanged" apart from "the cover
+// extraction algorithm has since improved and would now find something
+// different." A zero value (the Go default, and what any Entry persisted
+// before this field existed unmarshals to) is deliberately never a valid
+// version, so pre-existing entries safely miss once and self-heal.
 type Entry struct {
 	ModTime         time.Time `json:"modTime"`
 	Size            int64     `json:"size"`
@@ -31,6 +39,7 @@ type Entry struct {
 	Subcategory     string    `json:"subcategory"`
 	CoverPath       string    `json:"coverPath"`
 	CoverOverridden bool      `json:"coverOverridden"`
+	CoverVersion    int       `json:"coverVersion"`
 }
 
 // Cache is an in-memory, path-keyed view of the persisted library scan

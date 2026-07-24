@@ -5,14 +5,16 @@
 // anything -- it only reads back what's already there.
 //
 // Title/Author/Year/CoverPath/CoverOverridden come from a persisted scan
-// cache (internal/librarycache) keyed by each file's ModTime and Size when
-// possible; the expensive metadata.Extract/covercache.GetOverride/
-// covercache.Ensure trio only runs for a file that's new, edited, or when
-// forceRefresh is true. Because the cached fields are the *final,
-// override-resolved* result, a cache hit never re-checks the override
-// store -- internal/appapi's SetCoverOverride/SetCoverOverrideCustom/
-// ClearCoverOverride are responsible for calling librarycache.Invalidate
-// so the next Scan treats a changed book as a miss and re-resolves it.
+// cache (internal/librarycache) keyed by each file's ModTime and Size,
+// *and* by metadata.CoverExtractorVersion; the expensive
+// metadata.Extract/covercache.GetOverride/covercache.Force trio only runs
+// for a file that's new, edited, cached under an older cover-extraction
+// version, or when forceRefresh is true. Because the cached fields are
+// the *final, override-resolved* result, a cache hit never re-checks the
+// override store -- internal/appapi's SetCoverOverride/
+// SetCoverOverrideCustom/ClearCoverOverride are responsible for calling
+// librarycache.Invalidate so the next Scan treats a changed book as a
+// miss and re-resolves it.
 package librarian
 
 import (
@@ -55,10 +57,21 @@ var extractFunc = metadata.Extract
 //
 // Per-file Title/Author/Year/CoverPath/CoverOverridden are served from the
 // persisted scan cache whenever the file's current ModTime and Size match
-// what's cached, skipping metadata.Extract and cover resolution entirely.
-// A cache miss (new file, edited file) or forceRefresh=true runs today's
-// extract-then-override-check logic and updates the cache with the
-// resolved result. Files no longer present on disk are dropped from the
+// what's cached AND the cached entry's CoverVersion matches the current
+// metadata.CoverExtractorVersion, skipping metadata.Extract and cover
+// resolution entirely. A cache miss (new file, edited file, or an entry
+// cached under an older CoverVersion -- including the zero value any
+// entry persisted before this field existed unmarshals to) or
+// forceRefresh=true runs today's extract-then-override-check logic and
+// updates the cache with the resolved result, always via
+// covercache.Force rather than covercache.Ensure -- once Scan (via the
+// checks above) has already decided re-extraction is warranted, the
+// freshly-produced cover must actually be written, not silently skipped
+// because some earlier cover already happens to sit at that path with a
+// newer mtime than the book file (which is normal: covercache's own
+// filename is a function of sourcePath, not of the image bytes, so an
+// old, wrong cover and a new, correct one for the same book share the
+// same cache path). Files no longer present on disk are dropped from the
 // saved cache. A file metadata.Extract fails on (e.g. corrupt) still gets
 // a Book entry with empty Title/Author/Year/CoverPath rather than being
 // dropped, so it's still visible on its shelf; such a file is never
@@ -101,7 +114,7 @@ func Scan(cfg config.Config, forceRefresh bool) ([]Book, error) {
 		}
 
 		if !forceRefresh {
-			if entry, ok := cache.Fresh(path, info.ModTime(), info.Size()); ok {
+			if entry, ok := cache.Fresh(path, info.ModTime(), info.Size()); ok && entry.CoverVersion == metadata.CoverExtractorVersion {
 				b.Title = entry.Title
 				b.Author = entry.Author
 				b.Year = entry.Year
@@ -130,7 +143,7 @@ func Scan(cfg config.Config, forceRefresh bool) ([]Book, error) {
 				switch ov.Type {
 				case covercache.OverrideCustom:
 					b.CoverPath = ov.ImagePath
-					coverBytes = nil // already have a stable URL; skip covercache.Ensure below
+					coverBytes = nil // already have a stable URL; skip covercache.Force below
 				case covercache.OverrideEmbedded:
 					if data, ct, ok, pageErr := metadata.ExtractPDFPageCover(path, ov.Page); pageErr == nil && ok {
 						coverBytes, coverContentType = data, ct
@@ -141,7 +154,7 @@ func Scan(cfg config.Config, forceRefresh bool) ([]Book, error) {
 			}
 
 			if len(coverBytes) > 0 {
-				if coverURL, err := covercache.Ensure(cfg.General.LogFolder, path, info.ModTime(), coverBytes, coverContentType); err == nil {
+				if coverURL, err := covercache.Force(cfg.General.LogFolder, path, coverBytes, coverContentType); err == nil {
 					b.CoverPath = coverURL
 				}
 			}
@@ -156,6 +169,7 @@ func Scan(cfg config.Config, forceRefresh bool) ([]Book, error) {
 				Subcategory:     b.Subcategory,
 				CoverPath:       b.CoverPath,
 				CoverOverridden: b.CoverOverridden,
+				CoverVersion:    metadata.CoverExtractorVersion,
 			})
 		}
 

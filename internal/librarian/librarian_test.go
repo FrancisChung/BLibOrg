@@ -277,6 +277,7 @@ func TestScan_UsesCachedFieldsAndSkipsExtractOnCacheHit(t *testing.T) {
 		ModTime: info.ModTime(), Size: info.Size(),
 		Title: "Foundation", Author: "Isaac Asimov", Year: "1951",
 		Category: "Fiction", Subcategory: "Sci-Fi", CoverPath: "/covers/abc.jpg",
+		CoverVersion: metadata.CoverExtractorVersion,
 	})
 	if err := cache.Save(logDir); err != nil {
 		t.Fatalf("save cache fixture: %v", err)
@@ -317,6 +318,7 @@ func TestScan_CachedCoverOverriddenIsServedWithoutRecheckingOverrideStore(t *tes
 	cache.Put(path, librarycache.Entry{
 		ModTime: info.ModTime(), Size: info.Size(),
 		Title: "Foundation", CoverPath: "/covers/override-xyz.jpg", CoverOverridden: true,
+		CoverVersion: metadata.CoverExtractorVersion,
 	})
 	if err := cache.Save(logDir); err != nil {
 		t.Fatalf("save cache fixture: %v", err)
@@ -413,6 +415,116 @@ func TestScan_DropsRemovedFileFromCache(t *testing.T) {
 	reloaded := librarycache.Load(logDir)
 	if _, ok := reloaded.Fresh(filepath.Join(libDir, "Gone.epub"), time.Time{}, 0); ok {
 		t.Error("removed file's cache entry was not dropped")
+	}
+}
+
+func TestScan_StaleCoverVersionForcesReExtractionDespiteMatchingModTimeAndSize(t *testing.T) {
+	orig := extractFunc
+	defer func() { extractFunc = orig }()
+
+	libDir := t.TempDir()
+	logDir := t.TempDir()
+	path := writeFixtureFile(t, libDir, filepath.Join("Fiction", "Sci-Fi", "Foundation.epub"))
+	info, _ := os.Stat(path)
+
+	// Simulates an entry cached by a prior version of the cover-extraction
+	// logic: ModTime and Size match exactly (the book file itself never
+	// changed), but CoverVersion is stale (0, the zero value any
+	// pre-this-fix persisted entry unmarshals to).
+	cache := librarycache.Load(logDir)
+	cache.Put(path, librarycache.Entry{
+		ModTime: info.ModTime(), Size: info.Size(),
+		Title: "Stale Title", CoverPath: "/covers/wrong-old-image.jpg", CoverVersion: 0,
+	})
+	if err := cache.Save(logDir); err != nil {
+		t.Fatalf("save cache fixture: %v", err)
+	}
+
+	called := false
+	extractFunc = func(path string, hyphenExceptions []string, pdfCoverPageLimit int) (metadata.Result, error) {
+		called = true
+		return metadata.Result{Title: "Fresh Title"}, nil
+	}
+
+	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logDir}}
+	books, err := Scan(cfg, false)
+	if err != nil {
+		t.Fatalf("Scan returned error: %v", err)
+	}
+	if !called {
+		t.Error("extractFunc was not called for a CoverVersion-stale entry despite matching ModTime/Size -- a book cached under an old cover-extraction algorithm would be stuck forever")
+	}
+	if len(books) != 1 || books[0].Title != "Fresh Title" {
+		t.Errorf("books = %+v, want [{Title: Fresh Title}]", books)
+	}
+}
+
+func TestScan_ReExtractedEntryIsCachedWithCurrentCoverVersion(t *testing.T) {
+	libDir := t.TempDir()
+	logDir := t.TempDir()
+	epubPath := filepath.Join(libDir, "Fiction", "Sci-Fi", "Foundation.epub")
+	writeEpubWithCover(t, epubPath, []byte{0xFF, 0xD8, 0xFF, 0xE0})
+
+	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logDir}}
+	if _, err := Scan(cfg, false); err != nil {
+		t.Fatalf("Scan returned error: %v", err)
+	}
+
+	reloaded := librarycache.Load(logDir)
+	info, err := os.Stat(epubPath)
+	if err != nil {
+		t.Fatalf("stat fixture: %v", err)
+	}
+	entry, ok := reloaded.Fresh(epubPath, info.ModTime(), info.Size())
+	if !ok {
+		t.Fatal("Fresh() = false after a fresh Scan wrote the entry, want true")
+	}
+	if entry.CoverVersion != metadata.CoverExtractorVersion {
+		t.Errorf("CoverVersion = %d, want %d (metadata.CoverExtractorVersion)", entry.CoverVersion, metadata.CoverExtractorVersion)
+	}
+}
+
+func TestScan_OverwritesStaleCoverFileEvenWhenCacheFileHasNewerMtime(t *testing.T) {
+	orig := extractFunc
+	defer func() { extractFunc = orig }()
+
+	libDir := t.TempDir()
+	logDir := t.TempDir()
+	path := writeFixtureFile(t, libDir, filepath.Join("Fiction", "Sci-Fi", "Foundation.epub"))
+
+	// Simulate the real bug: a cover file already cached under this exact
+	// sourcePath+contentType, whose own mtime (just written, "now") is
+	// necessarily >= the source book file's mtime -- exactly the condition
+	// covercache.Ensure treats as "already fresh, don't rewrite." If Scan
+	// still called Ensure here, the stale bytes below would survive
+	// unchanged even though extraction (mocked below) finds different ones.
+	staleURL, err := covercache.Force(logDir, path, []byte("STALE-WRONG-IMAGE-BYTES"), "image/jpeg")
+	if err != nil {
+		t.Fatalf("seed stale cover: %v", err)
+	}
+	staleCoverPath := filepath.Join(covercache.Dir(logDir), filepath.Base(staleURL))
+
+	extractFunc = func(path string, hyphenExceptions []string, pdfCoverPageLimit int) (metadata.Result, error) {
+		return metadata.Result{
+			Title:            "Foundation",
+			CoverBytes:       []byte("FRESH-CORRECT-IMAGE-BYTES"),
+			CoverContentType: "image/jpeg",
+		}, nil
+	}
+
+	// forceRefresh=true: a real re-scan of an unchanged file, the same
+	// situation a user hitting "Refresh" produces.
+	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logDir}}
+	if _, err := Scan(cfg, true); err != nil {
+		t.Fatalf("Scan returned error: %v", err)
+	}
+
+	got, err := os.ReadFile(staleCoverPath)
+	if err != nil {
+		t.Fatalf("read cover file after Scan: %v", err)
+	}
+	if string(got) != "FRESH-CORRECT-IMAGE-BYTES" {
+		t.Errorf("cover file on disk = %q, want the freshly-extracted bytes -- Scan must overwrite an existing cached cover once it re-extracts, not silently skip the write", got)
 	}
 }
 
