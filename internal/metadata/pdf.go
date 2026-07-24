@@ -155,14 +155,38 @@ func findPDFCover(data []byte) ([]byte, string, bool) {
 // image turns up within the page limit, it falls back to findPDFCover's
 // whole-file byte-order scan -- so this is never worse than the
 // pre-page-aware behavior, only better when a real page tree is present.
+// renderPDFPageAsCoverFunc is a seam so tests can verify whether
+// full-page rendering was invoked without a real PDFium call in every
+// test; production code always uses renderPDFPageAsCover (pdf_render.go).
+var renderPDFPageAsCoverFunc = renderPDFPageAsCover
+
 func findPDFCoverPageAware(data []byte, pageLimit int) ([]byte, string, bool) {
 	idx := buildPDFObjIndex(data)
 	if pages, ok := walkPDFPageTree(idx, pageLimit); ok {
 		if images := findPDFPageImages(idx, pages, true); len(images) > 0 {
-			return images[0].bytes, images[0].contentType, true
+			img := images[0]
+			if page, found := findPageByNumber(pages, img.page); found && pageContentSuggestsCompositeCover(idx, page) {
+				if renderedBytes, renderedContentType, ok := renderPDFPageAsCoverFunc(data, img.page); ok {
+					return renderedBytes, renderedContentType, true
+				}
+			}
+			return img.bytes, img.contentType, true
 		}
 	}
 	return findPDFCover(data)
+}
+
+// findPageByNumber returns the page in pages whose 1-based number matches,
+// for looking up the page a candidate image was found on (pdfPageImage
+// only carries the page number, not the full pdfPage, since
+// findPDFPageImages predates this file's need for it).
+func findPageByNumber(pages []pdfPage, number int) (pdfPage, bool) {
+	for _, p := range pages {
+		if p.number == number {
+			return p, true
+		}
+	}
+	return pdfPage{}, false
 }
 
 // extractPDF is a best-effort, dependency-free scanner: it looks for

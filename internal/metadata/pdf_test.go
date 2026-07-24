@@ -360,3 +360,68 @@ func TestExtractPDF_PageAwareCoverPrefersPageOrderOverByteOrder(t *testing.T) {
 		t.Errorf("CoverBytes = %q, want page 1's cover %q (not page 2's, even though it appears first in file byte order)", result.CoverBytes, page1JPEG)
 	}
 }
+
+func TestFindPDFCoverPageAware_RendersFullPageWhenCompositeCoverDetected(t *testing.T) {
+	orig := renderPDFPageAsCoverFunc
+	defer func() { renderPDFPageAsCoverFunc = orig }()
+
+	called := false
+	var calledWithPage int
+	renderPDFPageAsCoverFunc = func(data []byte, pageNum int) ([]byte, string, bool) {
+		called = true
+		calledWithPage = pageNum
+		return []byte("RENDERED-PNG-BYTES"), "image/png", true
+	}
+
+	data := buildMinimalValidPDF(true) // withText=true -- heuristic should fire
+	imageBytes, contentType, ok := findPDFCoverPageAware(data, 10)
+	if !ok {
+		t.Fatal("findPDFCoverPageAware ok=false, want true")
+	}
+	if !called {
+		t.Fatal("renderPDFPageAsCoverFunc was not called despite a composite-cover page")
+	}
+	if calledWithPage != 1 {
+		t.Errorf("called with page %d, want 1", calledWithPage)
+	}
+	if string(imageBytes) != "RENDERED-PNG-BYTES" || contentType != "image/png" {
+		t.Errorf("got %q/%q, want the rendered stand-in bytes/content-type", imageBytes, contentType)
+	}
+}
+
+func TestFindPDFCoverPageAware_UsesRawImageWhenNoCompositeCoverSignal(t *testing.T) {
+	orig := renderPDFPageAsCoverFunc
+	defer func() { renderPDFPageAsCoverFunc = orig }()
+
+	renderPDFPageAsCoverFunc = func(data []byte, pageNum int) ([]byte, string, bool) {
+		t.Fatal("renderPDFPageAsCoverFunc should not be called for an image-only page")
+		return nil, "", false
+	}
+
+	data := buildMinimalValidPDF(false) // no text -- heuristic should not fire
+	_, contentType, ok := findPDFCoverPageAware(data, 10)
+	if !ok {
+		t.Fatal("findPDFCoverPageAware ok=false, want true")
+	}
+	if contentType != "image/jpeg" {
+		t.Errorf("contentType = %q, want image/jpeg (raw extraction, not rendered)", contentType)
+	}
+}
+
+func TestFindPDFCoverPageAware_FallsBackToRawImageWhenRenderFails(t *testing.T) {
+	orig := renderPDFPageAsCoverFunc
+	defer func() { renderPDFPageAsCoverFunc = orig }()
+
+	renderPDFPageAsCoverFunc = func(data []byte, pageNum int) ([]byte, string, bool) {
+		return nil, "", false // simulate a PDFium failure
+	}
+
+	data := buildMinimalValidPDF(true) // heuristic fires, but rendering fails
+	imageBytes, contentType, ok := findPDFCoverPageAware(data, 10)
+	if !ok {
+		t.Fatal("findPDFCoverPageAware ok=false, want true (should still return the raw image)")
+	}
+	if contentType != "image/jpeg" || len(imageBytes) == 0 {
+		t.Errorf("got %q/%d bytes, want the raw image/jpeg fallback when rendering fails", contentType, len(imageBytes))
+	}
+}
