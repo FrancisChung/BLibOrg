@@ -5,6 +5,8 @@
   export let active: SidebarView;
   export let libraryCategories: string[] = [];
   export let activeLibraryCategory: string = '';
+  // Mirrors App.svelte's SIDEBAR_DEFAULT_WIDTH -- App always passes width
+  // explicitly, so this default only matters for standalone/test renders.
   export let width: number = 220;
 
   const dispatch = createEventDispatcher<{ navigate: SidebarView; selectCategory: string }>();
