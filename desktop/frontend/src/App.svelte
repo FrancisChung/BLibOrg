@@ -15,6 +15,19 @@
   let libraryCategories: string[] = [];
   let activeLibraryCategory = '';
 
+  const SIDEBAR_WIDTH_KEY = 'sidebarWidth';
+  const SIDEBAR_MIN_WIDTH = 160;
+  const SIDEBAR_MAX_WIDTH = 400;
+  const SIDEBAR_DEFAULT_WIDTH = 220;
+
+  function loadSidebarWidth(): number {
+    const stored = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
+    return stored >= SIDEBAR_MIN_WIDTH && stored <= SIDEBAR_MAX_WIDTH ? stored : SIDEBAR_DEFAULT_WIDTH;
+  }
+
+  let sidebarWidth = loadSidebarWidth();
+  let resizingSidebar = false;
+
   onMount(async () => {
     const status = await ConfigStatus();
     if (status.error) {
@@ -34,6 +47,23 @@
   function onCategoriesLoaded(e: CustomEvent<string[]>) {
     libraryCategories = e.detail;
   }
+
+  function onResizeMouseDown() {
+    resizingSidebar = true;
+    window.addEventListener('mousemove', onResizeMouseMove);
+    window.addEventListener('mouseup', onResizeMouseUp);
+  }
+
+  function onResizeMouseMove(e: MouseEvent) {
+    sidebarWidth = Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, e.clientX));
+  }
+
+  function onResizeMouseUp() {
+    resizingSidebar = false;
+    window.removeEventListener('mousemove', onResizeMouseMove);
+    window.removeEventListener('mouseup', onResizeMouseUp);
+    localStorage.setItem(SIDEBAR_WIDTH_KEY, String(sidebarWidth));
+  }
 </script>
 
 <div class="shell">
@@ -41,9 +71,18 @@
     active={activeView}
     {libraryCategories}
     {activeLibraryCategory}
+    width={sidebarWidth}
     on:navigate={onNavigate}
     on:selectCategory={onSelectCategory}
   />
+  <div
+    class="resize-handle"
+    class:resizing={resizingSidebar}
+    role="separator"
+    aria-orientation="vertical"
+    aria-label="Resize sidebar"
+    on:mousedown={onResizeMouseDown}
+  ></div>
   <main>
     {#if configError}
       <div class="banner error">{configError}</div>
@@ -69,6 +108,22 @@
   .shell {
     display: flex;
     min-height: 100vh;
+  }
+  .resize-handle {
+    width: 6px;
+    flex-shrink: 0;
+    cursor: col-resize;
+    position: relative;
+  }
+  .resize-handle:hover::after,
+  .resize-handle.resizing::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 2px;
+    width: 2px;
+    background: var(--bf-blue);
   }
   main {
     flex: 1;

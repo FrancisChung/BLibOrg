@@ -101,4 +101,69 @@ describe('App', () => {
       expect(screen.getByText('No books found in the library folder yet.')).toBeInTheDocument();
     });
   });
+
+  it('resizes the sidebar by dragging the resize handle, and persists the final width', async () => {
+    render(App);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Scan & Review' })).toBeInTheDocument();
+    });
+
+    const handle = screen.getByRole('separator', { name: 'Resize sidebar' });
+    await fireEvent.mouseDown(handle);
+    await fireEvent.mouseMove(window, { clientX: 300 });
+    await fireEvent.mouseUp(window);
+
+    expect(screen.getByRole('navigation')).toHaveStyle({ width: '300px' });
+    expect(localStorage.getItem('sidebarWidth')).toBe('300');
+  });
+
+  it('clamps sidebar width to 160-400px while dragging past either bound', async () => {
+    render(App);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Scan & Review' })).toBeInTheDocument();
+    });
+
+    const handle = screen.getByRole('separator', { name: 'Resize sidebar' });
+    await fireEvent.mouseDown(handle);
+
+    await fireEvent.mouseMove(window, { clientX: 50 });
+    expect(screen.getByRole('navigation')).toHaveStyle({ width: '160px' });
+
+    await fireEvent.mouseMove(window, { clientX: 900 });
+    expect(screen.getByRole('navigation')).toHaveStyle({ width: '400px' });
+
+    await fireEvent.mouseUp(window);
+    expect(localStorage.getItem('sidebarWidth')).toBe('400');
+  });
+
+  it('restores a previously persisted sidebar width on mount', async () => {
+    localStorage.setItem('sidebarWidth', '275');
+    render(App);
+    await waitFor(() => {
+      expect(screen.getByRole('navigation')).toHaveStyle({ width: '275px' });
+    });
+  });
+
+  it('falls back to the 220px default when the stored width is invalid or out of range', async () => {
+    localStorage.setItem('sidebarWidth', 'not-a-number');
+    render(App);
+    await waitFor(() => {
+      expect(screen.getByRole('navigation')).toHaveStyle({ width: '220px' });
+    });
+  });
+
+  it('stops tracking the drag after mouseup, so further mouse movement has no effect', async () => {
+    render(App);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Scan & Review' })).toBeInTheDocument();
+    });
+
+    const handle = screen.getByRole('separator', { name: 'Resize sidebar' });
+    await fireEvent.mouseDown(handle);
+    await fireEvent.mouseMove(window, { clientX: 300 });
+    await fireEvent.mouseUp(window);
+
+    await fireEvent.mouseMove(window, { clientX: 180 });
+    expect(screen.getByRole('navigation')).toHaveStyle({ width: '300px' });
+  });
 });
