@@ -3,12 +3,22 @@ package appapi
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/FrancisChung/book-organiser/internal/config"
 	"github.com/FrancisChung/book-organiser/internal/covercache"
 	"github.com/FrancisChung/book-organiser/internal/librarycache"
 )
+
+// urlPath strips covercache's cache-busting "?v=" query, if present, so
+// tests can assert on the underlying file path/extension.
+func urlPath(url string) string {
+	if i := strings.IndexByte(url, '?'); i >= 0 {
+		return url[:i]
+	}
+	return url
+}
 
 func twoPagePDFFixture() []byte {
 	jpeg1 := []byte("\xFF\xD8\xFFpage1jpeg")
@@ -56,6 +66,32 @@ func TestListPDFCoverCandidates_ReturnsThumbnailPerPage(t *testing.T) {
 	}
 }
 
+func TestSetCoverOverride_ToADifferentPageReturnsADifferentURL(t *testing.T) {
+	// Regression test for the "Choose cover" picker appearing to do
+	// nothing: covercache's filename depends only on sourcePath+
+	// contentType, never on which page was chosen or its bytes, so
+	// picking a different page must still surface as a different URL
+	// (via a cache-busting query) or the frontend's <img src> binding
+	// would never notice the change.
+	app, _, _ := newTestAppWithConfig(t)
+	bookPath := filepath.Join(t.TempDir(), "book.pdf")
+	if err := os.WriteFile(bookPath, twoPagePDFFixture(), 0644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	url1, err := app.SetCoverOverride(bookPath, 1)
+	if err != nil {
+		t.Fatalf("SetCoverOverride(page=1): %v", err)
+	}
+	url2, err := app.SetCoverOverride(bookPath, 2)
+	if err != nil {
+		t.Fatalf("SetCoverOverride(page=2): %v", err)
+	}
+	if url1 == url2 {
+		t.Errorf("url1 == url2 (%q), want a different URL for a different page's image", url1)
+	}
+}
+
 func TestSetCoverOverride_PersistsAndReturnsCoverURL(t *testing.T) {
 	app, _, logFolder := newTestAppWithConfig(t)
 	bookPath := filepath.Join(t.TempDir(), "book.pdf")
@@ -100,7 +136,7 @@ func TestSetCoverOverrideCustom_PersistsAndReturnsCoverURL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SetCoverOverrideCustom returned error: %v", err)
 	}
-	if filepath.Ext(url) != ".png" {
+	if filepath.Ext(urlPath(url)) != ".png" {
 		t.Errorf("url = %q, want a .png extension", url)
 	}
 
@@ -125,7 +161,7 @@ func TestSetCoverOverrideCustomFromFile_ReadsFileAndInfersContentType(t *testing
 	if err != nil {
 		t.Fatalf("SetCoverOverrideCustomFromFile returned error: %v", err)
 	}
-	if filepath.Ext(url) != ".png" {
+	if filepath.Ext(urlPath(url)) != ".png" {
 		t.Errorf("url = %q, want a .png extension", url)
 	}
 }

@@ -44,8 +44,18 @@ func fileName(sourcePath, suffix, contentType string) string {
 }
 
 // writeCoverFile (re)writes bytes to name under logFolder's cover cache
-// directory, creating the directory if needed, and returns the URL path
-// the frontend should use as an <img src>.
+// directory, creating the directory if needed, and returns the URL the
+// frontend should use as an <img src>, with a cache-busting "?v=" query
+// derived from bytes' own content. name is a function of sourcePath (and,
+// for candidates, a page suffix) -- never of the image bytes -- so the
+// same book can get a genuinely different cover written under the exact
+// same name (a re-extraction after a cover-extraction fix, or a manual
+// override to a different embedded page). Without the query param, that
+// new content would be invisible to any caller: a browser/webview's HTTP
+// cache has no reason to re-fetch an unchanged URL, and a Svelte
+// `<img src={url}>` binding only re-renders when the bound string itself
+// changes -- neither depends on Cache-Control headers or file mtimes, so
+// both would otherwise keep showing stale bytes indefinitely.
 func writeCoverFile(logFolder, name string, bytes []byte) (string, error) {
 	dir := Dir(logFolder)
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -54,7 +64,16 @@ func writeCoverFile(logFolder, name string, bytes []byte) (string, error) {
 	if err := os.WriteFile(filepath.Join(dir, name), bytes, 0644); err != nil {
 		return "", err
 	}
-	return "/covers/" + name, nil
+	return "/covers/" + name + "?v=" + contentVersion(bytes), nil
+}
+
+// contentVersion returns a short, deterministic fingerprint of bytes for
+// use as writeCoverFile's cache-busting query value: same content, same
+// value (so an unchanged re-write doesn't needlessly invalidate a
+// still-correct display); different content, a different value.
+func contentVersion(bytes []byte) string {
+	sum := sha256.Sum256(bytes)
+	return hex.EncodeToString(sum[:4])
 }
 
 // Ensure writes coverBytes to the cache under logFolder if no fresher cache

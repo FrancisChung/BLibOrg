@@ -9,6 +9,35 @@ import (
 	"time"
 )
 
+// urlPath strips a cache-busting query string (if any) from a covercache
+// URL, mirroring how both the frontend's <img src> resolution and Go's
+// net/http request parsing treat "path?query" -- the query is never part
+// of the on-disk file lookup.
+func urlPath(url string) string {
+	if i := strings.IndexByte(url, '?'); i >= 0 {
+		return url[:i]
+	}
+	return url
+}
+
+func TestForce_ReturnsDifferentURLWhenContentDiffers(t *testing.T) {
+	logFolder := t.TempDir()
+	url1, err := Force(logFolder, "/library/book.epub", []byte("first-content"), "image/jpeg")
+	if err != nil {
+		t.Fatalf("first Force returned error: %v", err)
+	}
+	url2, err := Force(logFolder, "/library/book.epub", []byte("second-content"), "image/jpeg")
+	if err != nil {
+		t.Fatalf("second Force returned error: %v", err)
+	}
+	if url1 == url2 {
+		t.Error("url1 == url2, want a different URL when the written content differs -- otherwise a frontend <img src> binding never re-fetches after a cover changes")
+	}
+	if urlPath(url1) != urlPath(url2) {
+		t.Errorf("urlPath(url1) = %q, urlPath(url2) = %q, want the same underlying file path (only a cache-busting query should differ)", urlPath(url1), urlPath(url2))
+	}
+}
+
 func TestEnsure_EmptyCoverBytesReturnsEmptyPath(t *testing.T) {
 	logFolder := t.TempDir()
 	url, err := Ensure(logFolder, "/library/Fiction/book.epub", time.Now(), nil, "image/jpeg")
@@ -28,11 +57,11 @@ func TestEnsure_WritesCoverAndReturnsURL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Ensure returned error: %v", err)
 	}
-	if filepath.Ext(url) != ".jpg" {
+	if filepath.Ext(urlPath(url)) != ".jpg" {
 		t.Errorf("url = %q, want a .jpg extension", url)
 	}
 
-	cachePath := filepath.Join(Dir(logFolder), filepath.Base(url))
+	cachePath := filepath.Join(Dir(logFolder), filepath.Base(urlPath(url)))
 	written, err := os.ReadFile(cachePath)
 	if err != nil {
 		t.Fatalf("read cached file: %v", err)
@@ -75,7 +104,7 @@ func TestEnsure_RewritesWhenSourceIsNewerThanCache(t *testing.T) {
 		t.Fatalf("second Ensure returned error: %v", err)
 	}
 
-	cachePath := filepath.Join(Dir(logFolder), filepath.Base(url))
+	cachePath := filepath.Join(Dir(logFolder), filepath.Base(urlPath(url)))
 	written, err := os.ReadFile(cachePath)
 	if err != nil {
 		t.Fatalf("read cached file: %v", err)
@@ -97,7 +126,7 @@ func TestForce_AlwaysRewritesRegardlessOfExistingCache(t *testing.T) {
 		t.Fatalf("Force returned error: %v", err)
 	}
 
-	written, err := os.ReadFile(filepath.Join(Dir(logFolder), filepath.Base(url)))
+	written, err := os.ReadFile(filepath.Join(Dir(logFolder), filepath.Base(urlPath(url))))
 	if err != nil {
 		t.Fatalf("read cached file: %v", err)
 	}
@@ -122,10 +151,10 @@ func TestWriteCustomOverrideImage_WritesUnderCoversDirWithOverridePrefix(t *test
 	if err != nil {
 		t.Fatalf("WriteCustomOverrideImage returned error: %v", err)
 	}
-	if filepath.Ext(url) != ".png" {
+	if filepath.Ext(urlPath(url)) != ".png" {
 		t.Errorf("url = %q, want a .png extension", url)
 	}
-	name := filepath.Base(url)
+	name := filepath.Base(urlPath(url))
 	if name[:len("override-")] != "override-" {
 		t.Errorf("filename = %q, want an override- prefix", name)
 	}

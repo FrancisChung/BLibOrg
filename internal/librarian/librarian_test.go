@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,6 +13,15 @@ import (
 	"github.com/FrancisChung/book-organiser/internal/librarycache"
 	"github.com/FrancisChung/book-organiser/internal/metadata"
 )
+
+// urlPath strips covercache's cache-busting "?v=" query, if present, so
+// tests can assert on the underlying file path.
+func urlPath(url string) string {
+	if i := strings.IndexByte(url, '?'); i >= 0 {
+		return url[:i]
+	}
+	return url
+}
 
 func writeFixtureFile(t *testing.T, dir, relPath string) string {
 	t.Helper()
@@ -502,7 +512,7 @@ func TestScan_OverwritesStaleCoverFileEvenWhenCacheFileHasNewerMtime(t *testing.
 	if err != nil {
 		t.Fatalf("seed stale cover: %v", err)
 	}
-	staleCoverPath := filepath.Join(covercache.Dir(logDir), filepath.Base(staleURL))
+	staleCoverPath := filepath.Join(covercache.Dir(logDir), filepath.Base(urlPath(staleURL)))
 
 	extractFunc = func(path string, hyphenExceptions []string, pdfCoverPageLimit int) (metadata.Result, error) {
 		return metadata.Result{
@@ -515,7 +525,8 @@ func TestScan_OverwritesStaleCoverFileEvenWhenCacheFileHasNewerMtime(t *testing.
 	// forceRefresh=true: a real re-scan of an unchanged file, the same
 	// situation a user hitting "Refresh" produces.
 	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logDir}}
-	if _, err := Scan(cfg, true); err != nil {
+	books, err := Scan(cfg, true)
+	if err != nil {
 		t.Fatalf("Scan returned error: %v", err)
 	}
 
@@ -525,6 +536,17 @@ func TestScan_OverwritesStaleCoverFileEvenWhenCacheFileHasNewerMtime(t *testing.
 	}
 	if string(got) != "FRESH-CORRECT-IMAGE-BYTES" {
 		t.Errorf("cover file on disk = %q, want the freshly-extracted bytes -- Scan must overwrite an existing cached cover once it re-extracts, not silently skip the write", got)
+	}
+
+	// The returned CoverPath must also differ from the stale URL -- not
+	// just the on-disk bytes -- or a frontend <img src={book.coverPath}>
+	// binding would never notice the change and would keep displaying
+	// whatever it already rendered for that (identical) URL string.
+	if len(books) != 1 {
+		t.Fatalf("len(books) = %d, want 1", len(books))
+	}
+	if books[0].CoverPath == staleURL {
+		t.Error("CoverPath is unchanged from the stale URL -- a frontend <img src> binding would never re-fetch, even though the file content changed")
 	}
 }
 
