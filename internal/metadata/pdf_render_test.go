@@ -86,3 +86,44 @@ func TestRenderPDFPageAsCover_OutOfRangePageReturnsNotOK(t *testing.T) {
 		t.Error("renderPDFPageAsCover ok=true for an out-of-range page, want false")
 	}
 }
+
+func TestPageContentSuggestsCompositeCover_TrueWhenPageHasTextShowOperator(t *testing.T) {
+	data := buildMinimalValidPDF(true)
+	idx := buildPDFObjIndex(data)
+	pages, ok := walkPDFPageTree(idx, 10)
+	if !ok || len(pages) != 1 {
+		t.Fatalf("walkPDFPageTree ok=%v pages=%d, want ok=true pages=1", ok, len(pages))
+	}
+
+	if !pageContentSuggestsCompositeCover(idx, pages[0]) {
+		t.Error("pageContentSuggestsCompositeCover = false, want true (fixture has a Tj text-show block)")
+	}
+}
+
+func TestPageContentSuggestsCompositeCover_FalseWhenPageIsImageOnly(t *testing.T) {
+	data := buildMinimalValidPDF(false)
+	idx := buildPDFObjIndex(data)
+	pages, ok := walkPDFPageTree(idx, 10)
+	if !ok || len(pages) != 1 {
+		t.Fatalf("walkPDFPageTree ok=%v pages=%d, want ok=true pages=1", ok, len(pages))
+	}
+
+	if pageContentSuggestsCompositeCover(idx, pages[0]) {
+		t.Error("pageContentSuggestsCompositeCover = true, want false (fixture has only an image Do operator, no text)")
+	}
+}
+
+func TestPageContentSuggestsCompositeCover_MatchesTJWithNoPrecedingSpace(t *testing.T) {
+	// The real content stream that motivated this whole feature has "]TJ"
+	// with no space before the operator (InDesign's typical output for
+	// the array-form text-show operator) -- a naive "preceded by
+	// whitespace" check would miss exactly this case.
+	idx := buildPDFObjIndex(buildMinimalValidPDF(false)) // only need a valid idx/page shape
+	pages, _ := walkPDFPageTree(idx, 10)
+	page := pages[0]
+
+	if !matchesTextShowOperator([]byte("[(H)-7 (i)]TJ")) {
+		t.Error("matchesTextShowOperator = false for \"]TJ\" with no preceding space, want true")
+	}
+	_ = page // page isn't used by this specific sub-check; kept for clarity that it's the same fixture family
+}

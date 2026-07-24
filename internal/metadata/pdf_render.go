@@ -13,7 +13,11 @@ package metadata
 
 import (
 	"bytes"
+	"compress/zlib"
 	"image/png"
+	"io"
+	"regexp"
+	"strconv"
 	"sync"
 	"time"
 
@@ -89,4 +93,67 @@ func renderPDFPageAsCover(data []byte, pageNum int) (imageBytes []byte, contentT
 		return nil, "", false
 	}
 	return buf.Bytes(), "image/png", true
+}
+
+var pdfContentsRefRe = regexp.MustCompile(`/Contents\s+(\d+)\s+\d+\s+R`)
+var pdfContentsArrayRe = regexp.MustCompile(`/Contents\s*\[([^\]]*)\]`)
+var pdfTextShowOperatorRe = regexp.MustCompile(`\b(Tj|TJ)\b`)
+
+// matchesTextShowOperator reports whether stream contains a PDF text-show
+// operator (Tj, the single-string form; or TJ, the array-with-kerning
+// form) as a standalone token. Word-boundary matched rather than requiring
+// a preceding space: real-world PDFs (InDesign's output, confirmed on
+// this feature's motivating example) commonly write the array form as
+// "]TJ" with no space between the closing bracket and the operator.
+func matchesTextShowOperator(stream []byte) bool {
+	return pdfTextShowOperatorRe.Match(stream)
+}
+
+// pageContentSuggestsCompositeCover reports whether page's content
+// stream(s) contain a text-show operator, alongside whatever image is
+// drawn there -- the signal that the page's true visual cover is a
+// composite of that image plus separately-drawn text (a title, author
+// name, or similar), which plain image-XObject extraction can never
+// recover. A page's /Contents may be a single indirect reference or an
+// array of them (multiple content-stream objects concatenated in order,
+// as PDF producers commonly emit); every one of them is checked.
+func pageContentSuggestsCompositeCover(idx *pdfObjIndex, page pdfPage) bool {
+	var objNums []int
+	if m := pdfContentsArrayRe.FindSubmatch(page.dict); m != nil {
+		for _, ref := range pdfKidRefRe.FindAllSubmatch(m[1], -1) {
+			if n, err := strconv.Atoi(string(ref[1])); err == nil {
+				objNums = append(objNums, n)
+			}
+		}
+	} else if m := pdfContentsRefRe.FindSubmatch(page.dict); m != nil {
+		if n, err := strconv.Atoi(string(m[1])); err == nil {
+			objNums = append(objNums, n)
+		}
+	}
+
+	for _, n := range objNums {
+		body, ok := idx.lookup(n)
+		if !ok {
+			continue
+		}
+		_, stream, hasStream := splitPDFObjectBody(body)
+		if !hasStream {
+			continue
+		}
+		// Content streams aren't required to declare a /Filter -- when a
+		// stream isn't (or doesn't parse as) zlib/Flate-compressed, fall
+		// back to treating it as literal, already-plain content-operator
+		// bytes rather than skipping it outright.
+		content := stream
+		if r, err := zlib.NewReader(bytes.NewReader(stream)); err == nil {
+			if decompressed, err := io.ReadAll(r); err == nil {
+				content = decompressed
+			}
+			r.Close()
+		}
+		if matchesTextShowOperator(content) {
+			return true
+		}
+	}
+	return false
 }
