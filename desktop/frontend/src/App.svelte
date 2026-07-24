@@ -9,7 +9,7 @@
   import type { SidebarView } from './lib/types';
   import { ConfigStatus } from '../wailsjs/go/main/App';
 
-  let activeView: SidebarView = 'scan';
+  let activeView: SidebarView = 'library';
   let configError = '';
   let configWarnings: string[] = [];
   let libraryCategories: string[] = [];

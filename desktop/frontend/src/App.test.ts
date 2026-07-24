@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, screen, waitFor } from '@testing-library/svelte';
 
 vi.mock('../wailsjs/go/main/App', () => ({
@@ -20,12 +20,17 @@ describe('App', () => {
     vi.mocked(ConfigStatus).mockResolvedValue({ path: '', error: '' });
     vi.mocked(ListOperationBatches).mockResolvedValue([]);
     vi.mocked(ListCategoryWarnings).mockResolvedValue([]);
+    vi.mocked(ListLibrary).mockResolvedValue({ books: [], categories: [] });
   });
 
-  it('shows Scan & Review by default', async () => {
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  it('shows Library by default', async () => {
     render(App);
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Scan' })).toBeInTheDocument();
+      expect(screen.getByText('No books found in the library folder yet.')).toBeInTheDocument();
     });
   });
 
@@ -80,15 +85,18 @@ describe('App', () => {
     });
   });
 
-  it('switches to the Library view when its sidebar item is clicked', async () => {
-    vi.mocked(ListLibrary).mockResolvedValue({ books: [], categories: [] });
+  it('switches to Scan & Review and back to Library when their sidebar items are clicked', async () => {
     render(App);
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Scan & Review' })).toBeInTheDocument();
+      expect(screen.getByText('No books found in the library folder yet.')).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Scan & Review' }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Scan' })).toBeInTheDocument();
     });
 
     await fireEvent.click(screen.getByRole('button', { name: 'Library' }));
-
     await waitFor(() => {
       expect(screen.getByText('No books found in the library folder yet.')).toBeInTheDocument();
     });
