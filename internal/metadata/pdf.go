@@ -148,18 +148,23 @@ func findPDFCover(data []byte) ([]byte, string, bool) {
 	return nil, "", false
 }
 
-// findPDFCoverPageAware is the primary cover-selection entry point: it
-// walks the page tree (walkPDFPageTree, pdf_pages.go) and returns the
-// first qualifying image found within the first pageLimit pages, in page
-// order. If the page tree can't be resolved at all, or no qualifying
-// image turns up within the page limit, it falls back to findPDFCover's
-// whole-file byte-order scan -- so this is never worse than the
-// pre-page-aware behavior, only better when a real page tree is present.
 // renderPDFPageAsCoverFunc is a seam so tests can verify whether
 // full-page rendering was invoked without a real PDFium call in every
 // test; production code always uses renderPDFPageAsCover (pdf_render.go).
 var renderPDFPageAsCoverFunc = renderPDFPageAsCover
 
+// findPDFCoverPageAware is the primary cover-selection entry point: it
+// walks the page tree (walkPDFPageTree, pdf_pages.go) and returns the
+// first qualifying image found within the first pageLimit pages, in page
+// order. If that image's page also shows signs of being a composite
+// cover -- a text-show operator alongside the image, per
+// pageContentSuggestsCompositeCover -- the whole page is rendered in
+// full instead (renderPDFPageAsCover, pdf_render.go), falling back to the
+// raw image if rendering fails. If the page tree can't be resolved at
+// all, or no qualifying image turns up within the page limit, it falls
+// back to findPDFCover's whole-file byte-order scan -- so this is never
+// worse than the pre-page-aware behavior, only better when a real page
+// tree is present.
 func findPDFCoverPageAware(data []byte, pageLimit int) ([]byte, string, bool) {
 	idx := buildPDFObjIndex(data)
 	if pages, ok := walkPDFPageTree(idx, pageLimit); ok {
