@@ -5,6 +5,7 @@
   export let active: SidebarView;
   export let libraryCategories: string[] = [];
   export let activeLibraryCategory: string = '';
+  export let width: number = 220;
 
   const dispatch = createEventDispatcher<{ navigate: SidebarView; selectCategory: string }>();
 
@@ -34,7 +35,7 @@
   }
 </script>
 
-<nav class="sidebar">
+<nav class="sidebar" style="width: {width}px">
   {#each topLevelItems as item (item.view)}
     <button
       type="button"
@@ -93,7 +94,6 @@
 
 <style>
   .sidebar {
-    width: 220px;
     flex-shrink: 0;
     background: var(--bf-surface);
     border-right: 1px solid var(--bf-border);

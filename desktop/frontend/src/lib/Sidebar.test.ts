@@ -95,4 +95,14 @@ describe('Sidebar', () => {
     expect(handler).toHaveBeenCalledTimes(1);
     expect(handler.mock.calls[0][0].detail).toBe('settings');
   });
+
+  it('defaults to a width of 220px when no width prop is passed', () => {
+    render(Sidebar, { active: 'library' });
+    expect(screen.getByRole('navigation')).toHaveStyle({ width: '220px' });
+  });
+
+  it('applies a passed width prop as an inline style', () => {
+    render(Sidebar, { active: 'library', width: 300 });
+    expect(screen.getByRole('navigation')).toHaveStyle({ width: '300px' });
+  });
 });
