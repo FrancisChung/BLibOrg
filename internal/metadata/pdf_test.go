@@ -330,6 +330,32 @@ func TestExtractPDF_UsesTrailerWithInfoEvenWhenNotLastInFileOrder(t *testing.T) 
 	}
 }
 
+func TestExtractPDF_UsesXRefStreamWithInfoEvenWhenNotLastInFileOrder(t *testing.T) {
+	// The XRef-stream analog of the test above: a linearized PDF using
+	// PDF 1.5+ cross-reference streams instead of classic trailers has
+	// the exact same failure shape -- the first (byte-order) XRef stream
+	// object has /Info, the last (byte-order) one, associated with the
+	// tail/base cross-reference data, does not. This is arguably the more
+	// common real-world shape, since most modern linearized PDFs are
+	// 1.5+ and use XRef streams rather than classic trailers.
+	fixture := "%PDF-1.5\n" +
+		"3 0 obj\n<< /Title (XRef Stream Linearized Book) /Author (Some Author) >>\nendobj\n" +
+		"20 0 obj\n<< /Type /XRef /Info 3 0 R /Root 4 0 R /Size 21 /W [1 1 1] /Length 3 >>\nstream\nabc\nendstream\nendobj\n%%EOF\n" +
+		"21 0 obj\n<< /Type /XRef /Root 4 0 R /Size 22 /W [1 1 1] /Length 3 >>\nstream\ndef\nendstream\nendobj\n%%EOF"
+	path := writePDFFixture(t, fixture)
+
+	result, err := extractPDF(path, 10)
+	if err != nil {
+		t.Fatalf("extractPDF returned error: %v", err)
+	}
+	if result.Title != "XRef Stream Linearized Book" {
+		t.Errorf("Title = %q, want %q (the XRef stream that actually has /Info, not the byte-order-last one)", result.Title, "XRef Stream Linearized Book")
+	}
+	if result.Author != "Some Author" {
+		t.Errorf("Author = %q, want %q", result.Author, "Some Author")
+	}
+}
+
 func TestFindPDFCoverPageAware_RendersFullPageWhenOnlyImageHasUnsupportedFilter(t *testing.T) {
 	orig := renderPDFPageAsCoverFunc
 	defer func() { renderPDFPageAsCoverFunc = orig }()
@@ -367,7 +393,9 @@ func TestFindPDFCoverPageAware_FallsBackToWholeFileScanWhenUndecodableImageRende
 	orig := renderPDFPageAsCoverFunc
 	defer func() { renderPDFPageAsCoverFunc = orig }()
 
+	called := false
 	renderPDFPageAsCoverFunc = func(data []byte, pageNum int) ([]byte, string, bool) {
+		called = true
 		return nil, "", false // simulate a PDFium failure
 	}
 
@@ -380,6 +408,14 @@ func TestFindPDFCoverPageAware_FallsBackToWholeFileScanWhenUndecodableImageRende
 			"5 0 obj\n<< /Type /XObject /Subtype /Image /Filter /DCTDecode /Length 20 >>\nstream\n" + string(jpegData) + "\nendstream\nendobj\n")
 
 	imageBytes, contentType, ok := findPDFCoverPageAware(data, 10)
+	if !called {
+		// Without this check, deleting the undecodable-image fallback
+		// entirely would still pass this test via findPDFCover's
+		// whole-file scan alone -- this pins that the fallback chain
+		// (attempt PDFium render, then fall through on failure) is what
+		// actually ran, not a coincidental pass.
+		t.Fatal("renderPDFPageAsCoverFunc was not called; this test doesn't exercise the undecodable-image fallback at all")
+	}
 	if !ok {
 		t.Fatal("findPDFCoverPageAware ok=false, want true (whole-file fallback should still find the DCTDecode image)")
 	}

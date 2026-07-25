@@ -196,12 +196,20 @@ func findTrailerDictWithInfo(data []byte) []byte {
 // using a PDF 1.5+ cross-reference stream instead of a classic "trailer
 // <<...>>" keyword block: the XRef stream object (/Type /XRef) carries
 // the same /Root, /Info, /Size keys directly in its own dictionary, per
-// the PDF spec. Returns the LAST such object's dict in file order
-// (mirroring findInfoDictBody's "most recent update wins" handling for
-// classic trailers, since a later XRef stream supersedes an earlier
-// one), or nil if no /Type /XRef object exists anywhere in idx. Takes an
-// already-built *pdfObjIndex (from findInfoDictBody, its only caller)
-// rather than building its own, avoiding a second full-file re-scan.
+// the PDF spec. Prefers the LAST such object that actually declares
+// /Info, for the same reason findTrailerDictWithInfo does for classic
+// trailers: a linearized PDF's tail XRef stream (associated with the
+// base/original cross-reference data preserved near the end of the file)
+// is commonly stripped of /Root and /Info, while an earlier one
+// (prepended for fast web view) is the complete, authoritative one.
+// Falls back to the literal last /Type /XRef object if none declares
+// /Info at all -- the caller's own /Info lookup will then correctly
+// report "not found" regardless of which XRef dict was returned, so this
+// only changes behavior when an earlier XRef stream has /Info and the
+// last one doesn't. Returns nil if no /Type /XRef object exists anywhere
+// in idx. Takes an already-built *pdfObjIndex (from findInfoDictBody, its
+// only caller) rather than building its own, avoiding a second full-file
+// re-scan.
 func findXRefStreamTrailerDict(idx *pdfObjIndex) []byte {
 	objNums := make([]int, 0, len(idx.literal))
 	for n := range idx.literal {
@@ -210,14 +218,21 @@ func findXRefStreamTrailerDict(idx *pdfObjIndex) []byte {
 	sort.Slice(objNums, func(i, j int) bool {
 		return idx.literalOrder[objNums[i]] < idx.literalOrder[objNums[j]]
 	})
-	var found []byte
+	var lastXRefDict []byte
+	var lastXRefDictWithInfo []byte
 	for _, n := range objNums {
 		dict, _, _ := splitPDFObjectBody(idx.literal[n])
 		if pdfXRefTypeRe.Match(dict) {
-			found = dict
+			lastXRefDict = dict
+			if pdfInfoRefRe.Match(dict) {
+				lastXRefDictWithInfo = dict
+			}
 		}
 	}
-	return found
+	if lastXRefDictWithInfo != nil {
+		return lastXRefDictWithInfo
+	}
+	return lastXRefDict
 }
 
 // findPDFCover scans data for the first qualifying image XObject stream
