@@ -330,6 +330,64 @@ func TestExtractPDF_UsesTrailerWithInfoEvenWhenNotLastInFileOrder(t *testing.T) 
 	}
 }
 
+func TestFindPDFCoverPageAware_RendersFullPageWhenOnlyImageHasUnsupportedFilter(t *testing.T) {
+	orig := renderPDFPageAsCoverFunc
+	defer func() { renderPDFPageAsCoverFunc = orig }()
+
+	called := false
+	var calledWithPage int
+	renderPDFPageAsCoverFunc = func(data []byte, pageNum int) ([]byte, string, bool) {
+		called = true
+		calledWithPage = pageNum
+		return []byte("RENDERED-PNG-BYTES"), "image/png", true
+	}
+
+	data := []byte(
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+			"2 0 obj\n<< /Type /Pages /Kids [3 0 R] >>\nendobj\n" +
+			"3 0 obj\n<< /Type /Page /Resources << /XObject << /Im0 4 0 R >> >> >>\nendobj\n" +
+			"4 0 obj\n<< /Type /XObject /Subtype /Image /Filter /JPXDecode /Length 10 >>\nstream\njpxbytes12\nendstream\nendobj\n")
+
+	imageBytes, contentType, ok := findPDFCoverPageAware(data, 10)
+	if !ok {
+		t.Fatal("findPDFCoverPageAware ok=false, want true")
+	}
+	if !called {
+		t.Fatal("renderPDFPageAsCoverFunc was not called despite an undecodable-filter image")
+	}
+	if calledWithPage != 1 {
+		t.Errorf("called with page %d, want 1", calledWithPage)
+	}
+	if string(imageBytes) != "RENDERED-PNG-BYTES" || contentType != "image/png" {
+		t.Errorf("got %q/%q, want the rendered stand-in bytes/content-type", imageBytes, contentType)
+	}
+}
+
+func TestFindPDFCoverPageAware_FallsBackToWholeFileScanWhenUndecodableImageRenderFails(t *testing.T) {
+	orig := renderPDFPageAsCoverFunc
+	defer func() { renderPDFPageAsCoverFunc = orig }()
+
+	renderPDFPageAsCoverFunc = func(data []byte, pageNum int) ([]byte, string, bool) {
+		return nil, "", false // simulate a PDFium failure
+	}
+
+	jpegData := []byte("\xFF\xD8\xFFfallbackjpegbytes")
+	data := []byte(
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+			"2 0 obj\n<< /Type /Pages /Kids [3 0 R] >>\nendobj\n" +
+			"3 0 obj\n<< /Type /Page /Resources << /XObject << /Im0 4 0 R >> >> >>\nendobj\n" +
+			"4 0 obj\n<< /Type /XObject /Subtype /Image /Filter /JPXDecode /Length 10 >>\nstream\njpxbytes12\nendstream\nendobj\n" +
+			"5 0 obj\n<< /Type /XObject /Subtype /Image /Filter /DCTDecode /Length 20 >>\nstream\n" + string(jpegData) + "\nendstream\nendobj\n")
+
+	imageBytes, contentType, ok := findPDFCoverPageAware(data, 10)
+	if !ok {
+		t.Fatal("findPDFCoverPageAware ok=false, want true (whole-file fallback should still find the DCTDecode image)")
+	}
+	if contentType != "image/jpeg" || string(imageBytes) != string(jpegData) {
+		t.Errorf("got %q/%q, want the whole-file-scan-found DCTDecode image", imageBytes, contentType)
+	}
+}
+
 func TestExtractPDF_FindsInfoDictCompressedInsideObjStm(t *testing.T) {
 	// Reproduces the real "Domain-Driven Design in PHP" bug's first half:
 	// the Info dictionary is compressed inside a /Type /ObjStm object

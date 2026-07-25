@@ -189,6 +189,60 @@ func TestFindPDFPageImages_FormCycleDoesNotHang(t *testing.T) {
 	}
 }
 
+func TestFindFirstPageWithUndecodableImage_FindsPageWithUnsupportedFilter(t *testing.T) {
+	data := []byte(
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+			"2 0 obj\n<< /Type /Pages /Kids [3 0 R 4 0 R] >>\nendobj\n" +
+			"3 0 obj\n<< /Type /Page /Resources << /Font << /F1 9 0 R >> >> >>\nendobj\n" +
+			"4 0 obj\n<< /Type /Page /Resources << /XObject << /Im0 5 0 R >> >> >>\nendobj\n" +
+			"5 0 obj\n<< /Type /XObject /Subtype /Image /Filter /JPXDecode /Length 10 >>\nstream\njpxbytes12\nendstream\nendobj\n")
+	idx := buildPDFObjIndex(data)
+	pages, ok := walkPDFPageTree(idx, 10)
+	if !ok {
+		t.Fatal("walkPDFPageTree not ok")
+	}
+	pageNum, ok := findFirstPageWithUndecodableImage(idx, pages)
+	if !ok {
+		t.Fatal("findFirstPageWithUndecodableImage ok=false, want true")
+	}
+	if pageNum != 2 {
+		t.Errorf("pageNum = %d, want 2 (page 1 has no image at all, page 2 has the undecodable one)", pageNum)
+	}
+}
+
+func TestFindFirstPageWithUndecodableImage_NoImagesReturnsNotOK(t *testing.T) {
+	data := []byte(
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+			"2 0 obj\n<< /Type /Pages /Kids [3 0 R] >>\nendobj\n" +
+			"3 0 obj\n<< /Type /Page /Resources << /Font << /F1 9 0 R >> >> >>\nendobj\n")
+	idx := buildPDFObjIndex(data)
+	pages, ok := walkPDFPageTree(idx, 10)
+	if !ok {
+		t.Fatal("walkPDFPageTree not ok")
+	}
+	if _, ok := findFirstPageWithUndecodableImage(idx, pages); ok {
+		t.Error("findFirstPageWithUndecodableImage ok=true, want false (no image XObjects anywhere)")
+	}
+}
+
+func TestFindFirstPageWithUndecodableImage_SkipsDecodableImage(t *testing.T) {
+	jpegData := []byte("\xFF\xD8\xFFfakejpegbytes")
+	data := []byte(
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+			"2 0 obj\n<< /Type /Pages /Kids [3 0 R] >>\nendobj\n" +
+			"3 0 obj\n<< /Type /Page /Resources << /XObject << /Im0 4 0 R >> >> >>\nendobj\n" +
+			"4 0 obj\n<< /Type /XObject /Subtype /Image /Filter /DCTDecode /Length 16 >>\nstream\n" +
+			string(jpegData) + "\nendstream\nendobj\n")
+	idx := buildPDFObjIndex(data)
+	pages, ok := walkPDFPageTree(idx, 10)
+	if !ok {
+		t.Fatal("walkPDFPageTree not ok")
+	}
+	if _, ok := findFirstPageWithUndecodableImage(idx, pages); ok {
+		t.Error("findFirstPageWithUndecodableImage ok=true, want false (the only image is a decodable DCTDecode one)")
+	}
+}
+
 func TestDecodePDFImageStream_UnresolvableFlateDecodeSkipped(t *testing.T) {
 	// No /Width or /Height at all, so geometry parsing fails regardless of
 	// filter -- confirms decodePDFImageStream's FlateDecode fallback still

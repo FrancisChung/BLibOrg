@@ -138,3 +138,49 @@ func decodePDFImageStream(idx *pdfObjIndex, resources, dict, stream []byte) (dat
 	}
 	return decodeFlatePDFImage(idx, resources, dict, stream)
 }
+
+// findFirstPageWithUndecodableImage walks pages' own (not nested-Form)
+// XObject entries looking for a /Subtype /Image entry that
+// decodePDFImageStream couldn't decode (e.g. an unsupported filter like
+// JPXDecode/JPEG 2000) -- a signal that the page's true cover exists but
+// this package's image decoders don't understand its encoding, so
+// findPDFCoverPageAware (pdf.go) falls back to a full-page PDFium render
+// (which does understand it) for such a page. Deliberately standalone
+// rather than sharing findImagesInXObjects' traversal: it doesn't need
+// that function's Form-XObject recursion, depth cap, or visited-set (an
+// undecodable image directly on the page is the only shape this bug
+// needs to detect), and keeping it separate avoids changing
+// findPDFPageImages' behavior for ListPDFCoverCandidates/
+// ExtractPDFPageCover (pdf_override.go), which should stay unaffected.
+// Returns ok=false if no page in pages has any /Subtype /Image XObject
+// that fails to decode.
+func findFirstPageWithUndecodableImage(idx *pdfObjIndex, pages []pdfPage) (pageNumber int, ok bool) {
+	for _, p := range pages {
+		resources, ok := resolveDictValue(idx, p.dict, "Resources")
+		if !ok {
+			continue
+		}
+		xobjects, ok := resolveDictValue(idx, resources, "XObject")
+		if !ok {
+			continue
+		}
+		for _, ref := range pdfXObjectEntryRe.FindAllSubmatch(xobjects, -1) {
+			objNum, err := strconv.Atoi(string(ref[1]))
+			if err != nil {
+				continue
+			}
+			body, ok := idx.lookup(objNum)
+			if !ok {
+				continue
+			}
+			dict, stream, hasStream := splitPDFObjectBody(body)
+			if !hasStream || !pdfSubtypeImageRe.Match(dict) {
+				continue
+			}
+			if _, _, ok := decodePDFImageStream(idx, resources, dict, stream); !ok {
+				return p.number, true
+			}
+		}
+	}
+	return 0, false
+}
