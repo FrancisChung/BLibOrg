@@ -303,6 +303,33 @@ func TestExtractPDF_UsesLastXRefStreamWhenMultiplePresent(t *testing.T) {
 	}
 }
 
+func TestExtractPDF_UsesTrailerWithInfoEvenWhenNotLastInFileOrder(t *testing.T) {
+	// Reproduces a real linearized PDF's structure: the FIRST (byte-order)
+	// trailer, prepended near the start of the file for fast web view, is
+	// the complete, authoritative one (with /Info and /Prev pointing to
+	// the base xref table); the LAST (byte-order) trailer, associated
+	// with that base/original xref table at the tail of the file, has
+	// been stripped of /Root and /Info by the linearization tool. Blindly
+	// picking "the byte-order-last trailer" would miss the real Info
+	// dict entirely.
+	fixture := "%PDF-1.4\n" +
+		"3 0 obj\n<< /Title (Linearized Book) /Author (Some Author) >>\nendobj\n" +
+		"trailer\n<< /Root 4 0 R /Info 3 0 R /Prev 9999 >>\n%%EOF\n" +
+		"trailer\n<< /Root 4 0 R /Size 10 >>\n%%EOF"
+	path := writePDFFixture(t, fixture)
+
+	result, err := extractPDF(path, 10)
+	if err != nil {
+		t.Fatalf("extractPDF returned error: %v", err)
+	}
+	if result.Title != "Linearized Book" {
+		t.Errorf("Title = %q, want %q (the trailer that actually has /Info, not the byte-order-last one)", result.Title, "Linearized Book")
+	}
+	if result.Author != "Some Author" {
+		t.Errorf("Author = %q, want %q", result.Author, "Some Author")
+	}
+}
+
 func TestExtractPDF_FindsInfoDictCompressedInsideObjStm(t *testing.T) {
 	// Reproduces the real "Domain-Driven Design in PHP" bug's first half:
 	// the Info dictionary is compressed inside a /Type /ObjStm object

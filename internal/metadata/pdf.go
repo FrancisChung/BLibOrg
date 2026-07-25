@@ -127,28 +127,26 @@ func decodePDFString(raw []byte) string {
 // /Title, or an Illustrator diagram's own /Author -- and a naive
 // first-match-anywhere scan can pick up a graphic's metadata instead of
 // the book's if that graphic's object happens to appear earlier in the
-// file. If the file has multiple trailers (incremental updates), the last
-// one is used -- and, for the same "most recent update wins" reason, the
-// object lookup below resolves via pdfObjIndex.lookup, which already
-// prefers the LAST literal occurrence of a given object number (see
-// buildPDFObjIndex) and additionally resolves an object compressed inside
-// a /Type /ObjStm container (common in XeTeX/LaTeX-produced PDFs, which
-// never appears as literal "N ... obj ... endobj" text in the file at
-// all). If no classic "trailer <<...>>" keyword block exists at all,
-// falls back to findXRefStreamTrailerDict for PDFs using a PDF 1.5+
-// cross-reference stream instead (which carries the same /Info key
-// directly in its own dictionary). Returns ok=false (caller falls back to
-// a whole-file scan) if neither a trailer nor an XRef stream
-// trailer-equivalent, no /Info reference, or no matching object is found
-// -- preserving prior best-effort behavior for atypical PDFs rather than
-// erroring.
+// file. If the file has multiple classic trailers, the last one that
+// actually declares /Info is used (see findTrailerDictWithInfo) -- not
+// simply the byte-order-last trailer, since a linearized PDF's tail
+// trailer commonly lacks /Info entirely. The object lookup below resolves
+// via pdfObjIndex.lookup, which already prefers the LAST literal
+// occurrence of a given object number (see buildPDFObjIndex) and
+// additionally resolves an object compressed inside a /Type /ObjStm
+// container (common in XeTeX/LaTeX-produced PDFs, which never appears as
+// literal "N ... obj ... endobj" text in the file at all). If no classic
+// trailer declares /Info at all, falls back to findXRefStreamTrailerDict
+// for PDFs using a PDF 1.5+ cross-reference stream instead (which carries
+// the same /Info key directly in its own dictionary). Returns ok=false
+// (caller falls back to a whole-file scan) if neither a trailer nor an
+// XRef stream trailer-equivalent, no /Info reference, or no matching
+// object is found -- preserving prior best-effort behavior for atypical
+// PDFs rather than erroring.
 func findInfoDictBody(data []byte) ([]byte, bool) {
 	idx := buildPDFObjIndex(data)
-	var trailerDict []byte
-	trailers := pdfTrailerRe.FindAllSubmatch(data, -1)
-	if len(trailers) > 0 {
-		trailerDict = trailers[len(trailers)-1][1]
-	} else {
+	trailerDict := findTrailerDictWithInfo(data)
+	if trailerDict == nil {
 		trailerDict = findXRefStreamTrailerDict(idx)
 		if trailerDict == nil {
 			return nil, false
@@ -168,6 +166,30 @@ func findInfoDictBody(data []byte) ([]byte, bool) {
 	}
 	dict, _, _ := splitPDFObjectBody(body)
 	return dict, true
+}
+
+// findTrailerDictWithInfo scans classic "trailer <<...>>" blocks in file
+// order and returns the LAST one that actually declares an /Info key --
+// not simply the byte-order-last trailer. A linearized PDF's tail
+// trailer (associated with the base/original cross-reference table
+// preserved near the end of the file) is commonly stripped of /Root and
+// /Info by the linearization tool, while the first trailer in file order
+// (prepended for fast web view) is the complete, authoritative one --
+// blindly trusting "last in file order" would pick the wrong one.
+// Scanning in reverse and returning the first /Info-bearing match found
+// preserves "last wins" for the already-supported genuine
+// incremental-update case (where every trailer has /Info, and the reverse
+// scan's first hit IS the true last one), while correctly skipping a
+// linearized tail trailer that lacks /Info. Returns nil if no classic
+// trailer declares /Info at all, or if data has no classic trailer.
+func findTrailerDictWithInfo(data []byte) []byte {
+	trailers := pdfTrailerRe.FindAllSubmatch(data, -1)
+	for i := len(trailers) - 1; i >= 0; i-- {
+		if pdfInfoRefRe.Match(trailers[i][1]) {
+			return trailers[i][1]
+		}
+	}
+	return nil
 }
 
 // findXRefStreamTrailerDict locates the trailer-equivalent dict for PDFs
