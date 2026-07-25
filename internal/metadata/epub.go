@@ -156,7 +156,7 @@ func findEpubFirstSpineImage(r *zip.ReadCloser, opfFullPath string, p epubPackag
 	imgZipPath := epubPathJoin(spineZipPath, string(m[1]))
 
 	for _, item := range p.Manifest.Items {
-		if epubPathJoin(opfFullPath, item.Href) == imgZipPath {
+		if item.MediaType != "" && epubPathJoin(opfFullPath, item.Href) == imgZipPath {
 			return imgZipPath, item.MediaType, true
 		}
 	}

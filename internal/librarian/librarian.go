@@ -74,8 +74,9 @@ var extractFunc = metadata.Extract
 // old, wrong cover and a new, correct one for the same book share the
 // same cache path). Files no longer present on disk are dropped from the
 // saved cache. A file metadata.Extract fails on (e.g. corrupt) still gets
-// a Book entry with empty Title/Author/Year/CoverPath rather than being
-// dropped, so it's still visible on its shelf; such a file is never
+// a Book entry (with an empty CoverPath, and Title/Author/Year filled in
+// on a best-effort basis by applyFilenameHeuristicFallback) rather than
+// being dropped, so it's still visible on its shelf; such a file is never
 // cached, so it's retried on every subsequent Scan until it succeeds or is
 // removed.
 func Scan(cfg config.Config, forceRefresh bool) ([]Book, error) {
@@ -131,25 +132,7 @@ func Scan(cfg config.Config, forceRefresh bool) ([]Book, error) {
 			b.Author = res.Author
 			b.Year = res.Year
 
-			// Mirrors internal/pipeline.Run's existing filename-heuristic
-			// fallback: embedded metadata sometimes resolves to nothing
-			// usable (a missing field, or extractEpub/extractPDF's own
-			// placeholder-value checks blanking a known-junk value), and
-			// the Library view previously had no fallback at all for that
-			// case, unlike Scan & Review.
-			if b.Title == "" || b.Author == "" || b.Year == "" {
-				stem := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
-				h := heuristics.Parse(stem, cfg.Heuristics.KnownJunkTags)
-				if b.Title == "" && h.Title != "" {
-					b.Title = h.Title
-				}
-				if b.Author == "" && h.Author != "" {
-					b.Author = h.Author
-				}
-				if b.Year == "" && h.Year != "" {
-					b.Year = h.Year
-				}
-			}
+			applyFilenameHeuristicFallback(&b, path, cfg.Heuristics.KnownJunkTags)
 
 			coverBytes, coverContentType := res.CoverBytes, res.CoverContentType
 
@@ -193,6 +176,14 @@ func Scan(cfg config.Config, forceRefresh bool) ([]Book, error) {
 				CoverVersion:    metadata.CoverExtractorVersion,
 				MetadataVersion: metadata.MetadataExtractorVersion,
 			})
+		} else {
+			// extractFunc failed (e.g. a corrupt file) -- this book is
+			// never cached (see this function's doc comment), so it gets
+			// no cache-hit benefit from the fallback below, but it should
+			// still get a best-effort Title/Author/Year rather than
+			// staying blank until the frontend's raw-filename fallback
+			// takes over.
+			applyFilenameHeuristicFallback(&b, path, cfg.Heuristics.KnownJunkTags)
 		}
 
 		books = append(books, b)
@@ -202,4 +193,35 @@ func Scan(cfg config.Config, forceRefresh bool) ([]Book, error) {
 	_ = cache.Save(cfg.General.LogFolder) // best-effort: a save failure shouldn't fail this Scan's results
 
 	return books, nil
+}
+
+// applyFilenameHeuristicFallback fills in any of b's Title/Author/Year
+// that came back empty (a missing field, or extractEpub/extractPDF's own
+// placeholder-value checks blanking a known-junk value) using
+// heuristics.Parse against path's filename -- mirroring
+// internal/pipeline.Run's existing filename-heuristic fallback, which the
+// Library view previously had no equivalent of at all. A non-empty
+// metadata-sourced field is never overwritten. Called from both the
+// extraction-success and extraction-failure branches of Scan: on success,
+// this must run before cache.Put so the heuristic-derived values -- not
+// blanks -- are what gets cached (otherwise the very next Scan would read
+// the blank cached entry back on a cache hit, silently reverting this
+// fallback); on failure, the book is never cached at all, so this simply
+// gives it a best-effort Title/Author/Year instead of leaving it blank
+// until the frontend's own raw-filename display fallback takes over.
+func applyFilenameHeuristicFallback(b *Book, path string, knownJunkTags []string) {
+	if b.Title != "" && b.Author != "" && b.Year != "" {
+		return
+	}
+	stem := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+	h := heuristics.Parse(stem, knownJunkTags)
+	if b.Title == "" && h.Title != "" {
+		b.Title = h.Title
+	}
+	if b.Author == "" && h.Author != "" {
+		b.Author = h.Author
+	}
+	if b.Year == "" && h.Year != "" {
+		b.Year = h.Year
+	}
 }

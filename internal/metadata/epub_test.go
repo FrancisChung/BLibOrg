@@ -250,6 +250,95 @@ func TestExtractEpub_FirstSpineImageGuessesMediaTypeWhenNotInManifest(t *testing
 	}
 }
 
+func TestExtractEpub_FirstSpineImageResolvesRelativeToSpineDocumentNotOPF(t *testing.T) {
+	// A common real-world layout (Sigil/calibre-authored EPUBs): the OPF
+	// sits at "OEBPS/content.opf", but the spine document and its image
+	// live one directory deeper, in "OEBPS/Text/" and "OEBPS/Images/"
+	// respectively, referenced from the spine document via a
+	// "../Images/..." relative path. The image's in-zip path must be
+	// resolved relative to the SPINE DOCUMENT's own directory
+	// ("OEBPS/Text/"), not the OPF's ("OEBPS/") -- those differ here, so
+	// resolving against the wrong base would silently fail to find the
+	// image (a regression this test would catch that the flat single-
+	// directory fixtures above cannot, since their spine doc and OPF
+	// happen to share a directory).
+	opf := `<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="2.0">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>Some Book</dc:title>
+  </metadata>
+  <manifest>
+    <item id="page1" href="Text/page1.xhtml" media-type="application/xhtml+xml"/>
+    <item id="img1" href="Images/cover.jpg" media-type="image/jpeg"/>
+  </manifest>
+  <spine>
+    <itemref idref="page1"/>
+  </spine>
+</package>`
+	pageHTML := `<html><body><img src="../Images/cover.jpg"/></body></html>`
+	coverBytes := []byte{0xFF, 0xD8, 0xFF, 0xE0, 'f', 'a', 'k', 'e'}
+	path := writeEpubFixtureWithFiles(t, opf, map[string][]byte{
+		"OEBPS/Text/page1.xhtml": []byte(pageHTML),
+		"OEBPS/Images/cover.jpg": coverBytes,
+	})
+
+	result, err := extractEpub(path)
+	if err != nil {
+		t.Fatalf("extractEpub returned error: %v", err)
+	}
+	if string(result.CoverBytes) != string(coverBytes) {
+		t.Errorf("CoverBytes = %v, want %v (image resolved relative to the spine document's directory)", result.CoverBytes, coverBytes)
+	}
+	if result.CoverContentType != "image/jpeg" {
+		t.Errorf("CoverContentType = %q, want image/jpeg", result.CoverContentType)
+	}
+}
+
+func TestExtractEpub_CombinedNoCoverAndPlaceholderMetadata(t *testing.T) {
+	// Reproduces the exact real-world bug shape end to end: a calibre
+	// conversion with no OPF cover convention at all (cover fallback,
+	// this file), AND a bare-numeric placeholder title plus "Unknown"
+	// author (placeholder blanking, a separate fix) -- both problems
+	// present in the same book, not just each in isolation.
+	opf := `<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="2.0">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>728310488</dc:title>
+    <dc:creator>Unknown</dc:creator>
+  </metadata>
+  <manifest>
+    <item id="page1" href="page1.html" media-type="application/xhtml+xml"/>
+    <item id="img1" href="cover-like.jpg" media-type="image/jpeg"/>
+  </manifest>
+  <spine>
+    <itemref idref="page1"/>
+  </spine>
+</package>`
+	pageHTML := `<html><body><div style="text-align:center"><img src="cover-like.jpg"/></div></body></html>`
+	coverBytes := []byte{0xFF, 0xD8, 0xFF, 0xE0, 'f', 'a', 'k', 'e'}
+	path := writeEpubFixtureWithFiles(t, opf, map[string][]byte{
+		"OEBPS/page1.html":     []byte(pageHTML),
+		"OEBPS/cover-like.jpg": coverBytes,
+	})
+
+	result, err := extractEpub(path)
+	if err != nil {
+		t.Fatalf("extractEpub returned error: %v", err)
+	}
+	if result.Title != "" {
+		t.Errorf("Title = %q, want empty (numeric placeholder blanked)", result.Title)
+	}
+	if result.Author != "" {
+		t.Errorf("Author = %q, want empty (\"Unknown\" placeholder blanked)", result.Author)
+	}
+	if string(result.CoverBytes) != string(coverBytes) {
+		t.Errorf("CoverBytes = %v, want %v (spine-image fallback still finds the cover)", result.CoverBytes, coverBytes)
+	}
+	if result.CoverContentType != "image/jpeg" {
+		t.Errorf("CoverContentType = %q, want image/jpeg", result.CoverContentType)
+	}
+}
+
 func TestExtractEpub_NumericTitlePlaceholderTreatedAsUnresolved(t *testing.T) {
 	opf := `<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="2.0">
