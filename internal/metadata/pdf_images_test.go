@@ -83,6 +83,112 @@ func TestFindPDFPageImages_StopAtFirstFalseCollectsAll(t *testing.T) {
 	}
 }
 
+func TestFindPDFPageImages_FindsImageNestedInsideFormXObject(t *testing.T) {
+	// Reproduces the real "Programming with Types" bug: the page's own
+	// XObject entry is a Form (/Subtype /Form), and the actual image is
+	// nested inside THAT form's own Resources/XObject, not directly on
+	// the page.
+	jpegData := []byte("\xFF\xD8\xFFfakejpegbytes")
+	data := []byte(
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+			"2 0 obj\n<< /Type /Pages /Kids [3 0 R] >>\nendobj\n" +
+			"3 0 obj\n<< /Type /Page /Resources << /XObject << /Fm1 10 0 R >> >> >>\nendobj\n" +
+			"10 0 obj\n<< /Type /XObject /Subtype /Form /Resources << /XObject << /Im0 11 0 R >> >> >>\nstream\nq Q\nendstream\nendobj\n" +
+			"11 0 obj\n<< /Type /XObject /Subtype /Image /Filter /DCTDecode /Length 16 >>\nstream\n" +
+			string(jpegData) + "\nendstream\nendobj\n")
+
+	idx := buildPDFObjIndex(data)
+	pages, ok := walkPDFPageTree(idx, 10)
+	if !ok {
+		t.Fatal("walkPDFPageTree not ok")
+	}
+	images := findPDFPageImages(idx, pages, true)
+	if len(images) != 1 {
+		t.Fatalf("len(images) = %d, want 1 (image nested inside the page's Form XObject)", len(images))
+	}
+	if string(images[0].bytes) != string(jpegData) {
+		t.Errorf("images[0].bytes = %q, want %q", images[0].bytes, jpegData)
+	}
+}
+
+func TestFindPDFPageImages_FindsImageFourFormsDeep(t *testing.T) {
+	// Four chained Form XObjects (Fm1 -> Fm2 -> Fm3 -> Fm4), with the
+	// image directly inside Fm4's own Resources -- exactly at the 4-level
+	// depth cap, must still be found.
+	jpegData := []byte("\xFF\xD8\xFFfakejpegbytes")
+	data := []byte(
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+			"2 0 obj\n<< /Type /Pages /Kids [3 0 R] >>\nendobj\n" +
+			"3 0 obj\n<< /Type /Page /Resources << /XObject << /Fm1 10 0 R >> >> >>\nendobj\n" +
+			"10 0 obj\n<< /Type /XObject /Subtype /Form /Resources << /XObject << /Fm2 11 0 R >> >> >>\nstream\nq Q\nendstream\nendobj\n" +
+			"11 0 obj\n<< /Type /XObject /Subtype /Form /Resources << /XObject << /Fm3 12 0 R >> >> >>\nstream\nq Q\nendstream\nendobj\n" +
+			"12 0 obj\n<< /Type /XObject /Subtype /Form /Resources << /XObject << /Fm4 13 0 R >> >> >>\nstream\nq Q\nendstream\nendobj\n" +
+			"13 0 obj\n<< /Type /XObject /Subtype /Form /Resources << /XObject << /Im0 14 0 R >> >> >>\nstream\nq Q\nendstream\nendobj\n" +
+			"14 0 obj\n<< /Type /XObject /Subtype /Image /Filter /DCTDecode /Length 16 >>\nstream\n" +
+			string(jpegData) + "\nendstream\nendobj\n")
+
+	idx := buildPDFObjIndex(data)
+	pages, ok := walkPDFPageTree(idx, 10)
+	if !ok {
+		t.Fatal("walkPDFPageTree not ok")
+	}
+	images := findPDFPageImages(idx, pages, true)
+	if len(images) != 1 {
+		t.Fatalf("len(images) = %d, want 1 (image exactly 4 forms deep, at the depth cap)", len(images))
+	}
+}
+
+func TestFindPDFPageImages_DoesNotFindImageFiveFormsDeep(t *testing.T) {
+	// Same shape as the four-forms-deep test, but with one more Form
+	// (Fm5) in the chain -- the image is now 5 forms deep and must NOT
+	// be found (depth cap enforced, protecting against pathological
+	// nesting).
+	jpegData := []byte("\xFF\xD8\xFFfakejpegbytes")
+	data := []byte(
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+			"2 0 obj\n<< /Type /Pages /Kids [3 0 R] >>\nendobj\n" +
+			"3 0 obj\n<< /Type /Page /Resources << /XObject << /Fm1 10 0 R >> >> >>\nendobj\n" +
+			"10 0 obj\n<< /Type /XObject /Subtype /Form /Resources << /XObject << /Fm2 11 0 R >> >> >>\nstream\nq Q\nendstream\nendobj\n" +
+			"11 0 obj\n<< /Type /XObject /Subtype /Form /Resources << /XObject << /Fm3 12 0 R >> >> >>\nstream\nq Q\nendstream\nendobj\n" +
+			"12 0 obj\n<< /Type /XObject /Subtype /Form /Resources << /XObject << /Fm4 13 0 R >> >> >>\nstream\nq Q\nendstream\nendobj\n" +
+			"13 0 obj\n<< /Type /XObject /Subtype /Form /Resources << /XObject << /Fm5 14 0 R >> >> >>\nstream\nq Q\nendstream\nendobj\n" +
+			"14 0 obj\n<< /Type /XObject /Subtype /Form /Resources << /XObject << /Im0 15 0 R >> >> >>\nstream\nq Q\nendstream\nendobj\n" +
+			"15 0 obj\n<< /Type /XObject /Subtype /Image /Filter /DCTDecode /Length 16 >>\nstream\n" +
+			string(jpegData) + "\nendstream\nendobj\n")
+
+	idx := buildPDFObjIndex(data)
+	pages, ok := walkPDFPageTree(idx, 10)
+	if !ok {
+		t.Fatal("walkPDFPageTree not ok")
+	}
+	images := findPDFPageImages(idx, pages, true)
+	if len(images) != 0 {
+		t.Fatalf("len(images) = %d, want 0 (image 5 forms deep, past the depth cap)", len(images))
+	}
+}
+
+func TestFindPDFPageImages_FormCycleDoesNotHang(t *testing.T) {
+	// Fm1 references Fm2, which references Fm1 back -- a malformed
+	// cyclic PDF. The visited-set guard must stop the recursion; test
+	// completing at all (without hanging) is proof it worked.
+	data := []byte(
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+			"2 0 obj\n<< /Type /Pages /Kids [3 0 R] >>\nendobj\n" +
+			"3 0 obj\n<< /Type /Page /Resources << /XObject << /Fm1 10 0 R >> >> >>\nendobj\n" +
+			"10 0 obj\n<< /Type /XObject /Subtype /Form /Resources << /XObject << /Fm2 11 0 R >> >> >>\nstream\nq Q\nendstream\nendobj\n" +
+			"11 0 obj\n<< /Type /XObject /Subtype /Form /Resources << /XObject << /Fm1 10 0 R >> >> >>\nstream\nq Q\nendstream\nendobj\n")
+
+	idx := buildPDFObjIndex(data)
+	pages, ok := walkPDFPageTree(idx, 10)
+	if !ok {
+		t.Fatal("walkPDFPageTree not ok")
+	}
+	images := findPDFPageImages(idx, pages, false)
+	if len(images) != 0 {
+		t.Fatalf("len(images) = %d, want 0 (pure cycle, no images anywhere)", len(images))
+	}
+}
+
 func TestDecodePDFImageStream_UnresolvableFlateDecodeSkipped(t *testing.T) {
 	// No /Width or /Height at all, so geometry parsing fails regardless of
 	// filter -- confirms decodePDFImageStream's FlateDecode fallback still
