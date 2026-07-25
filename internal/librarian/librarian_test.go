@@ -370,6 +370,62 @@ func TestScan_ExtractsAndCachesANewFile(t *testing.T) {
 	}
 }
 
+func TestScan_FallsBackToFilenameHeuristicsWhenMetadataFieldsAreEmpty(t *testing.T) {
+	orig := extractFunc
+	defer func() { extractFunc = orig }()
+
+	libDir := t.TempDir()
+	logDir := t.TempDir()
+	writeFixtureFile(t, libDir, filepath.Join("Technology", "Cloud", "Cloud Native Microservices Cookbook (2024) - Varun Yadav.epub"))
+
+	extractFunc = func(path string, hyphenExceptions []string, pdfCoverPageLimit int) (metadata.Result, error) {
+		return metadata.Result{}, nil // Title/Author/Year all empty, as if extraction found nothing usable
+	}
+
+	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logDir}}
+	books, err := Scan(cfg, false)
+	if err != nil {
+		t.Fatalf("Scan returned error: %v", err)
+	}
+	if len(books) != 1 {
+		t.Fatalf("len(books) = %d, want 1", len(books))
+	}
+	if books[0].Title != "Cloud Native Microservices Cookbook" {
+		t.Errorf("Title = %q, want %q (derived from the filename via heuristics.Parse)", books[0].Title, "Cloud Native Microservices Cookbook")
+	}
+	if books[0].Author != "Varun Yadav" {
+		t.Errorf("Author = %q, want %q", books[0].Author, "Varun Yadav")
+	}
+	if books[0].Year != "2024" {
+		t.Errorf("Year = %q, want 2024", books[0].Year)
+	}
+}
+
+func TestScan_MetadataFieldsTakePrecedenceOverFilenameHeuristics(t *testing.T) {
+	orig := extractFunc
+	defer func() { extractFunc = orig }()
+
+	libDir := t.TempDir()
+	logDir := t.TempDir()
+	writeFixtureFile(t, libDir, filepath.Join("Fiction", "Sci-Fi", "Some Random Filename.epub"))
+
+	extractFunc = func(path string, hyphenExceptions []string, pdfCoverPageLimit int) (metadata.Result, error) {
+		return metadata.Result{Title: "Foundation", Author: "Isaac Asimov", Year: "1951"}, nil
+	}
+
+	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logDir}}
+	books, err := Scan(cfg, false)
+	if err != nil {
+		t.Fatalf("Scan returned error: %v", err)
+	}
+	if len(books) != 1 {
+		t.Fatalf("len(books) = %d, want 1", len(books))
+	}
+	if books[0].Title != "Foundation" || books[0].Author != "Isaac Asimov" || books[0].Year != "1951" {
+		t.Errorf("books[0] = %+v, want the metadata-sourced fields, not filename heuristics", books[0])
+	}
+}
+
 func TestScan_ReExtractsAnEditedFile(t *testing.T) {
 	orig := extractFunc
 	defer func() { extractFunc = orig }()

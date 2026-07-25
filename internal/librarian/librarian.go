@@ -24,6 +24,7 @@ import (
 
 	"github.com/FrancisChung/book-organiser/internal/config"
 	"github.com/FrancisChung/book-organiser/internal/covercache"
+	"github.com/FrancisChung/book-organiser/internal/heuristics"
 	"github.com/FrancisChung/book-organiser/internal/librarycache"
 	"github.com/FrancisChung/book-organiser/internal/metadata"
 	"github.com/FrancisChung/book-organiser/internal/scanner"
@@ -129,6 +130,26 @@ func Scan(cfg config.Config, forceRefresh bool) ([]Book, error) {
 			b.Title = res.Title
 			b.Author = res.Author
 			b.Year = res.Year
+
+			// Mirrors internal/pipeline.Run's existing filename-heuristic
+			// fallback: embedded metadata sometimes resolves to nothing
+			// usable (a missing field, or extractEpub/extractPDF's own
+			// placeholder-value checks blanking a known-junk value), and
+			// the Library view previously had no fallback at all for that
+			// case, unlike Scan & Review.
+			if b.Title == "" || b.Author == "" || b.Year == "" {
+				stem := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+				h := heuristics.Parse(stem, cfg.Heuristics.KnownJunkTags)
+				if b.Title == "" && h.Title != "" {
+					b.Title = h.Title
+				}
+				if b.Author == "" && h.Author != "" {
+					b.Author = h.Author
+				}
+				if b.Year == "" && h.Year != "" {
+					b.Year = h.Year
+				}
+			}
 
 			coverBytes, coverContentType := res.CoverBytes, res.CoverContentType
 
