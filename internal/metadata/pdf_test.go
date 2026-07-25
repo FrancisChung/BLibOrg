@@ -384,6 +384,67 @@ func TestExtractPDF_FindsInfoDictCompressedInsideObjStmViaXRefStreamTrailer(t *t
 	}
 }
 
+func TestExtractPDF_HexStringTitleAndAuthor(t *testing.T) {
+	// Reproduces the real "Domain-Driven Design in PHP" bug's second half:
+	// XeTeX writes /Title and /Author as PDF hex strings (UTF-16BE with a
+	// BOM), not literal parenthesized strings.
+	titleHex := fmt.Sprintf("%x", utf16BEBytes("Domain-Driven Design in PHP"))
+	authorHex := fmt.Sprintf("%x", utf16BEBytes("Carlos Buenosvinos, Christian Soronellas and Keyvan Akbary"))
+
+	fixture := "%PDF-1.4\n1 0 obj\n<< /Title <" + titleHex + "> /Author <" + authorHex + "> /CreationDate (D:20220523070329) >>\nendobj\ntrailer\n<< /Root 1 0 R /Info 1 0 R >>\n%%EOF"
+	path := writePDFFixture(t, fixture)
+
+	result, err := extractPDF(path, 10)
+	if err != nil {
+		t.Fatalf("extractPDF returned error: %v", err)
+	}
+	if result.Title != "Domain-Driven Design in PHP" {
+		t.Errorf("Title = %q, want %q", result.Title, "Domain-Driven Design in PHP")
+	}
+	if result.Author != "Carlos Buenosvinos, Christian Soronellas and Keyvan Akbary" {
+		t.Errorf("Author = %q, want %q", result.Author, "Carlos Buenosvinos, Christian Soronellas and Keyvan Akbary")
+	}
+	if result.Year != "2022" {
+		t.Errorf("Year = %q, want 2022", result.Year)
+	}
+}
+
+func TestExtractPDF_LiteralStringTakesPrecedenceOverHexStringForSameKey(t *testing.T) {
+	// Contrived (a real Info dict wouldn't mix syntaxes for the same
+	// key), but locks in the precedence rule deterministically rather
+	// than leaving it to undefined map/regex-ordering behavior.
+	hexTitle := fmt.Sprintf("%x", utf16BEBytes("Hex Title"))
+	fixture := "%PDF-1.4\n1 0 obj\n<< /Title (Literal Title) /Title <" + hexTitle + "> >>\nendobj\ntrailer\n<< /Root 1 0 R /Info 1 0 R >>\n%%EOF"
+	path := writePDFFixture(t, fixture)
+
+	result, err := extractPDF(path, 10)
+	if err != nil {
+		t.Fatalf("extractPDF returned error: %v", err)
+	}
+	if result.Title != "Literal Title" {
+		t.Errorf("Title = %q, want %q (literal-string syntax takes precedence over hex-string)", result.Title, "Literal Title")
+	}
+}
+
+func TestDecodePDFHexBytes_PadsOddLengthWithImplicitTrailingZero(t *testing.T) {
+	even := decodePDFHexBytes([]byte("901FA3"))
+	if string(even) != "\x90\x1F\xA3" {
+		t.Errorf("even-length decode = %q, want %q", even, "\x90\x1F\xA3")
+	}
+	odd := decodePDFHexBytes([]byte("901FA"))
+	if string(odd) != "\x90\x1F\xA0" {
+		t.Errorf("odd-length decode = %q, want %q (PDF spec: an odd trailing digit gets an implicit trailing 0)", odd, "\x90\x1F\xA0")
+	}
+}
+
+func TestDecodePDFHexBytes_StripsWhitespace(t *testing.T) {
+	// PDF hex strings may contain whitespace between digit pairs.
+	got := decodePDFHexBytes([]byte("90 1F A3"))
+	if string(got) != "\x90\x1F\xA3" {
+		t.Errorf("decode with whitespace = %q, want %q", got, "\x90\x1F\xA3")
+	}
+}
+
 func TestExtractPDF_TitleAuthorEmptyWhenInfoReferenceMissing(t *testing.T) {
 	// A trailer exists but has no /Info entry at all -- same "can't confirm
 	// the real Info dict" situation as no trailer at all.

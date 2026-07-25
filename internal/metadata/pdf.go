@@ -2,6 +2,7 @@ package metadata
 
 import (
 	"bytes"
+	"encoding/hex"
 	"os"
 	"regexp"
 	"sort"
@@ -13,6 +14,7 @@ import (
 )
 
 var pdfLiteralStringRe = regexp.MustCompile(`/(Title|Author|Subject|CreationDate)\s*\(((?:[^()\\]|\\.)*)\)`)
+var pdfHexStringRe = regexp.MustCompile(`/(Title|Author|Subject|CreationDate)\s*<([0-9A-Fa-f\s]*)>`)
 var pdfDateYearRe = regexp.MustCompile(`D:(\d{4})`)
 var pdfTrailerRe = regexp.MustCompile(`(?s)trailer\s*<<(.*?)>>`)
 var pdfInfoRefRe = regexp.MustCompile(`/Info\s+(\d+)\s+\d+\s+R`)
@@ -55,6 +57,31 @@ func unescapePDFBytes(s string) []byte {
 		out = append(out, s[i])
 	}
 	return out
+}
+
+// decodePDFHexBytes decodes h (the content of a PDF hex string, between
+// its enclosing < and >) into raw bytes: whitespace and any non-hex
+// character are stripped first (PDF permits whitespace inside a hex
+// string), then an odd number of remaining digits gets an implicit
+// trailing "0" appended per the spec (e.g. <901FA> means <901FA0>)
+// before pairing. Sibling to unescapePDFBytes, which does the equivalent
+// job for literal-string source syntax -- both feed their raw-byte
+// result into decodePDFString for the shared encoding-detection step.
+func decodePDFHexBytes(h []byte) []byte {
+	digits := make([]byte, 0, len(h))
+	for _, b := range h {
+		if (b >= '0' && b <= '9') || (b >= 'a' && b <= 'f') || (b >= 'A' && b <= 'F') {
+			digits = append(digits, b)
+		}
+	}
+	if len(digits)%2 != 0 {
+		digits = append(digits, '0')
+	}
+	decoded, err := hex.DecodeString(string(digits))
+	if err != nil {
+		return nil
+	}
+	return decoded
 }
 
 // decodePDFString interprets already-unescaped PDF literal-string bytes per
@@ -287,6 +314,16 @@ func extractPDF(path string, pageLimit int) (Result, error) {
 			continue // keep first match only
 		}
 		fields[key] = decodePDFString(unescapePDFBytes(string(m[2])))
+	}
+	for _, m := range pdfHexStringRe.FindAllSubmatch(scope, -1) {
+		key := string(m[1])
+		if !foundInfo && (key == "Title" || key == "Author") {
+			continue
+		}
+		if _, exists := fields[key]; exists {
+			continue // literal-string match (if any) takes precedence
+		}
+		fields[key] = decodePDFString(decodePDFHexBytes(m[2]))
 	}
 
 	title := fields["Title"]
