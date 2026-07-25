@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 	"unicode/utf16"
 
@@ -14,6 +15,7 @@ var pdfLiteralStringRe = regexp.MustCompile(`/(Title|Author|Subject|CreationDate
 var pdfDateYearRe = regexp.MustCompile(`D:(\d{4})`)
 var pdfTrailerRe = regexp.MustCompile(`(?s)trailer\s*<<(.*?)>>`)
 var pdfInfoRefRe = regexp.MustCompile(`/Info\s+(\d+)\s+\d+\s+R`)
+var pdfXRefTypeRe = regexp.MustCompile(`/Type\s*/XRef\b`)
 var pdfImageStreamRe = regexp.MustCompile(`(?s)<<([^>]*?)>>\s*stream\r?\n(.*?)endstream`)
 var pdfSubtypeImageRe = regexp.MustCompile(`/Subtype\s*/Image`)
 var pdfDCTDecodeRe = regexp.MustCompile(`/Filter\s*/DCTDecode|/Filter\s*\[[^\]]*/DCTDecode`)
@@ -100,18 +102,26 @@ func decodePDFString(raw []byte) string {
 // object N itself was rewritten by an incremental update (common for
 // PDFs edited by annotation/signing/metadata tools, which append rather
 // than rewrite), the LAST "N ... obj ... endobj" block in the file is
-// used too, not the first (now-superseded) one. Returns ok=false (caller
-// falls back to a whole-file scan) if no trailer, no /Info reference, or
-// no matching object is found -- preserving prior best-effort behavior
-// for atypical PDFs (e.g. ones using cross-reference streams instead of a
-// classic trailer) rather than erroring.
+// used too, not the first (now-superseded) one. If no classic "trailer
+// <<...>>" keyword block exists at all, falls back to
+// findXRefStreamTrailerDict for PDFs using a PDF 1.5+ cross-reference
+// stream instead (which carries the same /Info key directly in its own
+// dictionary). Returns ok=false (caller falls back to a whole-file scan)
+// if neither a trailer nor an XRef stream trailer-equivalent, no /Info
+// reference, or no matching object is found -- preserving prior
+// best-effort behavior for atypical PDFs rather than erroring.
 func findInfoDictBody(data []byte) ([]byte, bool) {
+	var trailerDict []byte
 	trailers := pdfTrailerRe.FindAllSubmatch(data, -1)
-	if len(trailers) == 0 {
-		return nil, false
+	if len(trailers) > 0 {
+		trailerDict = trailers[len(trailers)-1][1]
+	} else {
+		trailerDict = findXRefStreamTrailerDict(data)
+		if trailerDict == nil {
+			return nil, false
+		}
 	}
-	last := trailers[len(trailers)-1]
-	infoMatch := pdfInfoRefRe.FindSubmatch(last[1])
+	infoMatch := pdfInfoRefRe.FindSubmatch(trailerDict)
 	if infoMatch == nil {
 		return nil, false
 	}
@@ -122,6 +132,33 @@ func findInfoDictBody(data []byte) ([]byte, bool) {
 		return nil, false
 	}
 	return objMatches[len(objMatches)-1][1], true
+}
+
+// findXRefStreamTrailerDict locates the trailer-equivalent dict for PDFs
+// using a PDF 1.5+ cross-reference stream instead of a classic "trailer
+// <<...>>" keyword block: the XRef stream object (/Type /XRef) carries
+// the same /Root, /Info, /Size keys directly in its own dictionary, per
+// the PDF spec. Returns the LAST such object's dict in file order
+// (mirroring findInfoDictBody's "most recent update wins" handling for
+// classic trailers, since a later XRef stream supersedes an earlier
+// one), or nil if no /Type /XRef object exists anywhere in data.
+func findXRefStreamTrailerDict(data []byte) []byte {
+	idx := buildPDFObjIndex(data)
+	objNums := make([]int, 0, len(idx.literal))
+	for n := range idx.literal {
+		objNums = append(objNums, n)
+	}
+	sort.Slice(objNums, func(i, j int) bool {
+		return idx.literalOrder[objNums[i]] < idx.literalOrder[objNums[j]]
+	})
+	var found []byte
+	for _, n := range objNums {
+		dict, _, _ := splitPDFObjectBody(idx.literal[n])
+		if pdfXRefTypeRe.Match(dict) {
+			found = dict
+		}
+	}
+	return found
 }
 
 // findPDFCover scans data for the first qualifying image XObject stream

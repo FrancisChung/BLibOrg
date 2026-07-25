@@ -227,6 +227,81 @@ func TestExtractPDF_UsesLatestIncrementalUpdateOfInfoObject(t *testing.T) {
 	}
 }
 
+const testPDFFixtureXRefStreamTrailer = `%PDF-1.5
+3 0 obj
+<< /Title (XRef Stream Book) /Author (Jane Author) /CreationDate (D:20220101000000) >>
+endobj
+20 0 obj
+<< /Type /XRef /Info 3 0 R /Root 4 0 R /Size 21 /W [1 1 1] /Length 3 >>
+stream
+abc
+endstream
+endobj
+%%EOF`
+
+func TestExtractPDF_FindsInfoDictViaXRefStreamWhenNoClassicTrailer(t *testing.T) {
+	path := writePDFFixture(t, testPDFFixtureXRefStreamTrailer)
+
+	result, err := extractPDF(path, 10)
+	if err != nil {
+		t.Fatalf("extractPDF returned error: %v", err)
+	}
+	if result.Title != "XRef Stream Book" {
+		t.Errorf("Title = %q, want %q (Info dict located via the XRef stream's own /Info entry, not a classic trailer)", result.Title, "XRef Stream Book")
+	}
+	if result.Author != "Jane Author" {
+		t.Errorf("Author = %q, want %q", result.Author, "Jane Author")
+	}
+	if result.Year != "2022" {
+		t.Errorf("Year = %q, want 2022", result.Year)
+	}
+}
+
+const testPDFFixtureMultipleXRefStreams = `%PDF-1.5
+3 0 obj
+<< /Title (Old Title) /Author (Old Author) >>
+endobj
+5 0 obj
+<< /Title (New Title) /Author (New Author) >>
+endobj
+20 0 obj
+<< /Type /XRef /Info 3 0 R /Root 4 0 R /Size 21 /W [1 1 1] /Length 3 >>
+stream
+abc
+endstream
+endobj
+%%EOF
+21 0 obj
+<< /Type /XRef /Info 5 0 R /Root 4 0 R /Size 22 /W [1 1 1] /Length 3 >>
+stream
+def
+endstream
+endobj
+%%EOF`
+
+func TestExtractPDF_UsesLastXRefStreamWhenMultiplePresent(t *testing.T) {
+	// Simulates an incrementally-updated PDF using cross-reference
+	// streams: two /Type /XRef objects present, pointing /Info at TWO
+	// DIFFERENT objects (20 -> object 3 "Old Title", the earlier one; 21
+	// -> object 5 "New Title", the later one). Deliberately different
+	// targets (not the same object rewritten) so this test actually
+	// distinguishes "last XRef wins" from "first XRef wins" -- if the
+	// code picked the first /Type /XRef match instead of the last, it
+	// would resolve to the old title instead.
+	path := writePDFFixture(t, testPDFFixtureMultipleXRefStreams)
+
+	result, err := extractPDF(path, 10)
+	if err != nil {
+		t.Fatalf("extractPDF returned error: %v", err)
+	}
+	if result.Title != "New Title" {
+		t.Errorf("Title = %q, want %q (the latest incremental update, via the latest XRef stream)", result.Title, "New Title")
+	}
+	if result.Author != "New Author" {
+		t.Errorf("Author = %q, want %q", result.Author, "New Author")
+	}
+}
+
 func TestExtractPDF_TitleAuthorEmptyWhenInfoReferenceMissing(t *testing.T) {
 	// A trailer exists but has no /Info entry at all -- same "can't confirm
 	// the real Info dict" situation as no trailer at all.
