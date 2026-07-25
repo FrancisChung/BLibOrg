@@ -21,7 +21,7 @@ import (
 // added in Plan A, or a new colorspace/filter becoming decodable) -- not
 // for changes that only affect Title/Author/Year, and not for changes
 // that only affect files this logic couldn't already handle.
-const CoverExtractorVersion = 3 // bumped: findPDFPageImages now recurses into Form XObjects (pdf_images.go), and findPDFCover's whole-file fallback now decodes FlateDecode images (pdf.go) -- both can produce different/additional cover bytes than before for the same book.
+const CoverExtractorVersion = 4 // bumped: extractEpub can now fall back to the first spine document's first <img> when no OPF cover convention (EPUB3 properties="cover-image" or EPUB2 meta name="cover") is present, producing a cover where none existed before for the same book.
 
 // MetadataExtractorVersion identifies the current Title/Author/Year
 // extraction logic, parallel to CoverExtractorVersion but tracked
@@ -34,7 +34,7 @@ const CoverExtractorVersion = 3 // bumped: findPDFPageImages now recurses into F
 // cached entry. Bump this whenever a change here could cause an
 // already-scanned file to yield a different Title/Author/Year than
 // before -- not for changes that only affect cover bytes.
-const MetadataExtractorVersion = 2 // bumped: findInfoDictBody can now resolve an Info dict compressed inside an ObjStm, and extractPDF can now decode hex-string (not just literal-string) Title/Author/Subject/CreationDate values.
+const MetadataExtractorVersion = 3 // bumped: extractEpub now blanks placeholder Title/Author values (a bare numeric ID, or a literal "Unknown" author) instead of returning them as-is, and internal/librarian.Scan now falls back to filename heuristics (matching internal/pipeline.Run's existing behavior) whenever Title/Author/Year comes back empty.
 
 // Extract dispatches to the appropriate format-specific extractor based on
 // path's extension, then cleans the Title/Author it returns -- embedded
