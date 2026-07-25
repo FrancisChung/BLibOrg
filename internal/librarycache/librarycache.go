@@ -41,6 +41,7 @@ type Entry struct {
 	CoverPath       string    `json:"coverPath"`
 	CoverOverridden bool      `json:"coverOverridden"`
 	CoverVersion    int       `json:"coverVersion"`
+	MetadataVersion int       `json:"metadataVersion"`
 }
 
 // Cache is an in-memory, path-keyed view of the persisted library scan

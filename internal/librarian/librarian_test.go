@@ -287,7 +287,7 @@ func TestScan_UsesCachedFieldsAndSkipsExtractOnCacheHit(t *testing.T) {
 		ModTime: info.ModTime(), Size: info.Size(),
 		Title: "Foundation", Author: "Isaac Asimov", Year: "1951",
 		Category: "Fiction", Subcategory: "Sci-Fi", CoverPath: "/covers/abc.jpg",
-		CoverVersion: metadata.CoverExtractorVersion,
+		CoverVersion: metadata.CoverExtractorVersion, MetadataVersion: metadata.MetadataExtractorVersion,
 	})
 	if err := cache.Save(logDir); err != nil {
 		t.Fatalf("save cache fixture: %v", err)
@@ -328,7 +328,7 @@ func TestScan_CachedCoverOverriddenIsServedWithoutRecheckingOverrideStore(t *tes
 	cache.Put(path, librarycache.Entry{
 		ModTime: info.ModTime(), Size: info.Size(),
 		Title: "Foundation", CoverPath: "/covers/override-xyz.jpg", CoverOverridden: true,
-		CoverVersion: metadata.CoverExtractorVersion,
+		CoverVersion: metadata.CoverExtractorVersion, MetadataVersion: metadata.MetadataExtractorVersion,
 	})
 	if err := cache.Save(logDir); err != nil {
 		t.Fatalf("save cache fixture: %v", err)
@@ -491,6 +491,73 @@ func TestScan_ReExtractedEntryIsCachedWithCurrentCoverVersion(t *testing.T) {
 	}
 	if entry.CoverVersion != metadata.CoverExtractorVersion {
 		t.Errorf("CoverVersion = %d, want %d (metadata.CoverExtractorVersion)", entry.CoverVersion, metadata.CoverExtractorVersion)
+	}
+}
+
+func TestScan_StaleMetadataVersionForcesReExtractionDespiteMatchingCoverVersion(t *testing.T) {
+	orig := extractFunc
+	defer func() { extractFunc = orig }()
+
+	libDir := t.TempDir()
+	logDir := t.TempDir()
+	path := writeFixtureFile(t, libDir, filepath.Join("Fiction", "Sci-Fi", "Foundation.epub"))
+	info, _ := os.Stat(path)
+
+	// Simulates an entry cached before the XRef-stream Info-dict fix:
+	// ModTime, Size, and CoverVersion all match (the book file and its
+	// cover-extraction logic haven't changed), but MetadataVersion is
+	// stale (0, the zero value any pre-this-fix persisted entry
+	// unmarshals to).
+	cache := librarycache.Load(logDir)
+	cache.Put(path, librarycache.Entry{
+		ModTime: info.ModTime(), Size: info.Size(),
+		Title: "Stale Title", CoverVersion: metadata.CoverExtractorVersion, MetadataVersion: 0,
+	})
+	if err := cache.Save(logDir); err != nil {
+		t.Fatalf("save cache fixture: %v", err)
+	}
+
+	called := false
+	extractFunc = func(path string, hyphenExceptions []string, pdfCoverPageLimit int) (metadata.Result, error) {
+		called = true
+		return metadata.Result{Title: "Fresh Title"}, nil
+	}
+
+	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logDir}}
+	books, err := Scan(cfg, false)
+	if err != nil {
+		t.Fatalf("Scan returned error: %v", err)
+	}
+	if !called {
+		t.Error("extractFunc was not called for a MetadataVersion-stale entry despite matching ModTime/Size/CoverVersion -- a book cached under an old metadata-extraction algorithm would be stuck forever")
+	}
+	if len(books) != 1 || books[0].Title != "Fresh Title" {
+		t.Errorf("books = %+v, want [{Title: Fresh Title}]", books)
+	}
+}
+
+func TestScan_ReExtractedEntryIsCachedWithCurrentMetadataVersion(t *testing.T) {
+	libDir := t.TempDir()
+	logDir := t.TempDir()
+	epubPath := filepath.Join(libDir, "Fiction", "Sci-Fi", "Foundation.epub")
+	writeEpubWithCover(t, epubPath, []byte{0xFF, 0xD8, 0xFF, 0xE0})
+
+	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logDir}}
+	if _, err := Scan(cfg, false); err != nil {
+		t.Fatalf("Scan returned error: %v", err)
+	}
+
+	reloaded := librarycache.Load(logDir)
+	info, err := os.Stat(epubPath)
+	if err != nil {
+		t.Fatalf("stat fixture: %v", err)
+	}
+	entry, ok := reloaded.Fresh(epubPath, info.ModTime(), info.Size())
+	if !ok {
+		t.Fatal("Fresh() = false after a fresh Scan wrote the entry, want true")
+	}
+	if entry.MetadataVersion != metadata.MetadataExtractorVersion {
+		t.Errorf("MetadataVersion = %d, want %d (metadata.MetadataExtractorVersion)", entry.MetadataVersion, metadata.MetadataExtractorVersion)
 	}
 }
 

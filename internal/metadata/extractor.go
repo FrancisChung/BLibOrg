@@ -21,7 +21,20 @@ import (
 // added in Plan A, or a new colorspace/filter becoming decodable) -- not
 // for changes that only affect Title/Author/Year, and not for changes
 // that only affect files this logic couldn't already handle.
-const CoverExtractorVersion = 2 // bumped: findPDFCoverPageAware can now render a full composite-cover page (pdf_render.go), producing different bytes than before for the same book.
+const CoverExtractorVersion = 3 // bumped: findPDFPageImages now recurses into Form XObjects (pdf_images.go), and findPDFCover's whole-file fallback now decodes FlateDecode images (pdf.go) -- both can produce different/additional cover bytes than before for the same book.
+
+// MetadataExtractorVersion identifies the current Title/Author/Year
+// extraction logic, parallel to CoverExtractorVersion but tracked
+// separately since a change to one rarely affects the other -- bumping
+// CoverExtractorVersion for a Title/Author-only change would force every
+// book's already-correct cover to be needlessly re-extracted and
+// re-cached, and vice versa. internal/librarian.Scan stores this
+// alongside each cached book the same way CoverVersion is stored,
+// forcing exactly one re-extraction whenever it's stale relative to a
+// cached entry. Bump this whenever a change here could cause an
+// already-scanned file to yield a different Title/Author/Year than
+// before -- not for changes that only affect cover bytes.
+const MetadataExtractorVersion = 1 // findInfoDictBody can now locate the Info dict via a PDF 1.5+ cross-reference stream, not just a classic trailer.
 
 // Extract dispatches to the appropriate format-specific extractor based on
 // path's extension, then cleans the Title/Author it returns -- embedded

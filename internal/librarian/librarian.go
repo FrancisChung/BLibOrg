@@ -114,7 +114,7 @@ func Scan(cfg config.Config, forceRefresh bool) ([]Book, error) {
 		}
 
 		if !forceRefresh {
-			if entry, ok := cache.Fresh(path, info.ModTime(), info.Size()); ok && entry.CoverVersion == metadata.CoverExtractorVersion {
+			if entry, ok := cache.Fresh(path, info.ModTime(), info.Size()); ok && entry.CoverVersion == metadata.CoverExtractorVersion && entry.MetadataVersion == metadata.MetadataExtractorVersion {
 				b.Title = entry.Title
 				b.Author = entry.Author
 				b.Year = entry.Year
@@ -170,6 +170,7 @@ func Scan(cfg config.Config, forceRefresh bool) ([]Book, error) {
 				CoverPath:       b.CoverPath,
 				CoverOverridden: b.CoverOverridden,
 				CoverVersion:    metadata.CoverExtractorVersion,
+				MetadataVersion: metadata.MetadataExtractorVersion,
 			})
 		}
 
