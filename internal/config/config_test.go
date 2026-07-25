@@ -14,6 +14,7 @@ general:
   log_folder: "/library/.book-organiser-logs"
   filename_format: "{title} ({year}) - {author}"
   pdf_cover_page_limit: 10
+  scan_concurrency: 4
 
 heuristics:
   known_junk_tags: ["OceanofPDF.com", "libgen.li"]
@@ -57,6 +58,9 @@ func TestLoad(t *testing.T) {
 	}
 	if cfg.General.PDFCoverPageLimit != 10 {
 		t.Errorf("General.PDFCoverPageLimit = %d, want 10", cfg.General.PDFCoverPageLimit)
+	}
+	if cfg.General.ScanConcurrency != 4 {
+		t.Errorf("General.ScanConcurrency = %d, want 4", cfg.General.ScanConcurrency)
 	}
 	if len(cfg.Heuristics.KnownJunkTags) != 2 || cfg.Heuristics.KnownJunkTags[0] != "OceanofPDF.com" {
 		t.Errorf("KnownJunkTags = %v", cfg.Heuristics.KnownJunkTags)
