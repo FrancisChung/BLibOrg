@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -670,6 +671,98 @@ func TestScan_OverwritesStaleCoverFileEvenWhenCacheFileHasNewerMtime(t *testing.
 	}
 	if books[0].CoverPath == staleURL {
 		t.Error("CoverPath is unchanged from the stale URL -- a frontend <img src> binding would never re-fetch, even though the file content changed")
+	}
+}
+
+func TestScan_ProcessesAllBooksCorrectlyUnderConcurrency(t *testing.T) {
+	orig := extractFunc
+	defer func() { extractFunc = orig }()
+
+	libDir := t.TempDir()
+	logDir := t.TempDir()
+	var paths []string
+	for i := 0; i < 8; i++ {
+		p := writeFixtureFile(t, libDir, filepath.Join("Fiction", "Book"+strconv.Itoa(i)+".epub"))
+		paths = append(paths, p)
+	}
+
+	extractFunc = func(path string, hyphenExceptions []string, pdfCoverPageLimit int) (metadata.Result, error) {
+		// Distinct, path-derived output: a concurrency bug that mixed up
+		// results between goroutines (e.g. writing to the wrong slice
+		// index) would be caught by the per-book assertion below, not
+		// silently masked by every book getting an identical value.
+		return metadata.Result{Title: "Title-for-" + filepath.Base(path)}, nil
+	}
+
+	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logDir, ScanConcurrency: 3}}
+	books, err := Scan(cfg, false)
+	if err != nil {
+		t.Fatalf("Scan returned error: %v", err)
+	}
+	if len(books) != len(paths) {
+		t.Fatalf("len(books) = %d, want %d", len(books), len(paths))
+	}
+	for i, b := range books {
+		if b.SourcePath != paths[i] {
+			t.Errorf("books[%d].SourcePath = %q, want %q (path order not preserved)", i, b.SourcePath, paths[i])
+		}
+		want := "Title-for-" + filepath.Base(paths[i])
+		if b.Title != want {
+			t.Errorf("books[%d].Title = %q, want %q (result mismatched to the wrong path -- a concurrency bug)", i, b.Title, want)
+		}
+	}
+}
+
+func TestScan_AllBooksCachedCorrectlyAfterConcurrentScan(t *testing.T) {
+	libDir := t.TempDir()
+	logDir := t.TempDir()
+	var paths []string
+	for i := 0; i < 6; i++ {
+		p := filepath.Join(libDir, "Fiction", "Book"+strconv.Itoa(i)+".epub")
+		writeEpubWithCover(t, p, []byte{0xFF, 0xD8, 0xFF, 0xE0})
+		paths = append(paths, p)
+	}
+
+	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logDir, ScanConcurrency: 4}}
+	if _, err := Scan(cfg, false); err != nil {
+		t.Fatalf("Scan returned error: %v", err)
+	}
+
+	reloaded := librarycache.Load(logDir)
+	for _, p := range paths {
+		info, err := os.Stat(p)
+		if err != nil {
+			t.Fatalf("stat %s: %v", p, err)
+		}
+		if _, ok := reloaded.Fresh(p, info.ModTime(), info.Size()); !ok {
+			t.Errorf("no cache entry found for %s after a concurrent scan (a lost update racing on the cache mutex)", p)
+		}
+	}
+}
+
+func TestScan_ZeroScanConcurrencyStillWorks(t *testing.T) {
+	orig := extractFunc
+	defer func() { extractFunc = orig }()
+
+	libDir := t.TempDir()
+	logDir := t.TempDir()
+	writeFixtureFile(t, libDir, filepath.Join("Fiction", "Foundation.epub"))
+
+	extractFunc = func(path string, hyphenExceptions []string, pdfCoverPageLimit int) (metadata.Result, error) {
+		return metadata.Result{Title: "Foundation"}, nil
+	}
+
+	// ScanConcurrency left at its zero value (unset) -- matching what an
+	// existing config.yaml with no scan_concurrency key unmarshals to --
+	// must default to a working concurrency (runtime.NumCPU()), not zero
+	// goroutines / a deadlock on the semaphore channel.
+	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logDir}}
+	books, err := Scan(cfg, false)
+	if err != nil {
+		t.Fatalf("Scan returned error: %v", err)
+	}
+	if len(books) != 1 || books[0].Title != "Foundation" {
+		t.Errorf("books = %+v, want one book titled Foundation", books)
 	}
 }
 

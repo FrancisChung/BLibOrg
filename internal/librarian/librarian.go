@@ -20,7 +20,9 @@ package librarian
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/FrancisChung/book-organiser/internal/config"
 	"github.com/FrancisChung/book-organiser/internal/covercache"
@@ -79,6 +81,15 @@ var extractFunc = metadata.Extract
 // being dropped, so it's still visible on its shelf; such a file is never
 // cached, so it's retried on every subsequent Scan until it succeeds or is
 // removed.
+//
+// Every path's single-book work (scanOneBook, below) runs concurrently,
+// bounded by cfg.General.ScanConcurrency (0/unset means
+// runtime.NumCPU()) via a semaphore channel + WaitGroup -- safe because
+// metadata.Extract is documented safe for concurrent use (see its own
+// doc comment) and the one other piece of state shared across workers,
+// the in-memory cache, is guarded by its own mutex (see scanOneBook).
+// The returned slice preserves paths' original order regardless of which
+// goroutine finishes first, matching the pre-parallel behavior exactly.
 func Scan(cfg config.Config, forceRefresh bool) ([]Book, error) {
 	paths, err := scanner.Scan(cfg.General.LibraryFolder)
 	if err != nil {
@@ -87,112 +98,156 @@ func Scan(cfg config.Config, forceRefresh bool) ([]Book, error) {
 
 	cache := librarycache.Load(cfg.General.LogFolder)
 	seen := make(map[string]bool, len(paths))
-
-	books := make([]Book, 0, len(paths))
 	for _, path := range paths {
 		seen[path] = true
+	}
 
-		rel, err := filepath.Rel(cfg.General.LibraryFolder, path)
-		if err != nil {
-			continue
-		}
-		parts := strings.Split(filepath.ToSlash(filepath.Dir(rel)), "/")
+	concurrency := cfg.General.ScanConcurrency
+	if concurrency <= 0 {
+		concurrency = runtime.NumCPU()
+	}
 
-		b := Book{
-			SourcePath: path,
-			Format:     strings.TrimPrefix(strings.ToLower(filepath.Ext(path)), "."),
-		}
-		if len(parts) >= 1 && parts[0] != "." {
-			b.Category = parts[0]
-		}
-		if len(parts) >= 2 {
-			b.Subcategory = parts[1]
-		}
+	results := make([]Book, len(paths))
+	included := make([]bool, len(paths))
+	var cacheMu sync.Mutex
+	sem := make(chan struct{}, concurrency)
+	var wg sync.WaitGroup
 
-		info, statErr := os.Stat(path)
-		if statErr != nil {
+	for i, path := range paths {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(i int, path string) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			results[i], included[i] = scanOneBook(cfg, forceRefresh, &cache, &cacheMu, path)
+		}(i, path)
+	}
+	wg.Wait()
+
+	books := make([]Book, 0, len(paths))
+	for i, b := range results {
+		if included[i] {
 			books = append(books, b)
-			continue
 		}
-
-		if !forceRefresh {
-			if entry, ok := cache.Fresh(path, info.ModTime(), info.Size()); ok && entry.CoverVersion == metadata.CoverExtractorVersion && entry.MetadataVersion == metadata.MetadataExtractorVersion {
-				b.Title = entry.Title
-				b.Author = entry.Author
-				b.Year = entry.Year
-				b.CoverPath = entry.CoverPath
-				b.CoverOverridden = entry.CoverOverridden
-				books = append(books, b)
-				continue
-			}
-		}
-
-		if res, err := extractFunc(path, cfg.TitleFormatting.HyphenExceptions, cfg.General.PDFCoverPageLimit); err == nil {
-			b.Title = res.Title
-			b.Author = res.Author
-			b.Year = res.Year
-
-			applyFilenameHeuristicFallback(&b, path, cfg.Heuristics.KnownJunkTags)
-
-			coverBytes, coverContentType := res.CoverBytes, res.CoverContentType
-
-			// A manual override, if one is set for this book, replaces the
-			// cover portion of Extract's result -- but Extract itself still
-			// ran above, so Title/Author/Year are never lost for an
-			// overridden book (see this plan's Global Constraints for why
-			// this deliberately narrows the design doc's "extraction is
-			// skipped entirely" wording to cover selection only).
-			if ov, found, ovErr := covercache.GetOverride(cfg.General.LogFolder, path); ovErr == nil && found {
-				b.CoverOverridden = true
-				switch ov.Type {
-				case covercache.OverrideCustom:
-					b.CoverPath = ov.ImagePath
-					coverBytes = nil // already have a stable URL; skip covercache.Force below
-				case covercache.OverrideEmbedded:
-					if data, ct, ok, pageErr := metadata.ExtractPDFPageCover(path, ov.Page); pageErr == nil && ok {
-						coverBytes, coverContentType = data, ct
-					} else {
-						coverBytes = nil
-					}
-				}
-			}
-
-			if len(coverBytes) > 0 {
-				if coverURL, err := covercache.Force(cfg.General.LogFolder, path, coverBytes, coverContentType); err == nil {
-					b.CoverPath = coverURL
-				}
-			}
-
-			cache.Put(path, librarycache.Entry{
-				ModTime:         info.ModTime(),
-				Size:            info.Size(),
-				Title:           b.Title,
-				Author:          b.Author,
-				Year:            b.Year,
-				Category:        b.Category,
-				Subcategory:     b.Subcategory,
-				CoverPath:       b.CoverPath,
-				CoverOverridden: b.CoverOverridden,
-				CoverVersion:    metadata.CoverExtractorVersion,
-				MetadataVersion: metadata.MetadataExtractorVersion,
-			})
-		} else {
-			// extractFunc failed (e.g. a corrupt file) -- this book is
-			// never cached (see this function's doc comment), so it gets
-			// no cache-hit benefit from the fallback below, but it should
-			// still get a best-effort Title/Author/Year rather than
-			// staying blank until the frontend's raw-filename fallback
-			// takes over.
-			applyFilenameHeuristicFallback(&b, path, cfg.Heuristics.KnownJunkTags)
-		}
-
-		books = append(books, b)
 	}
 
 	cache.Keep(seen)
 	_ = cache.Save(cfg.General.LogFolder) // best-effort: a save failure shouldn't fail this Scan's results
 
 	return books, nil
+}
+
+// scanOneBook resolves a single book at path -- its Category/Subcategory
+// from its position under cfg.General.LibraryFolder, then either a cache
+// hit or a full metadata.Extract-then-override-check -- the single-book
+// logic Scan's loop used to run inline, extracted so a bounded pool of
+// goroutines can each run one call of this function concurrently. ok is
+// false only when path can't be made relative to
+// cfg.General.LibraryFolder (mirrors the original loop's "continue"
+// entirely skipping that path, rather than adding an empty entry for
+// it). cache and cacheMu are shared across every concurrent call: cacheMu
+// must be held around every cache.Fresh/cache.Put call (librarycache.Cache
+// wraps a plain, non-thread-safe map), but never around the expensive
+// metadata.Extract/covercache work in between -- concurrent extraction is
+// what actually gets parallelized, not serialized behind the same lock.
+func scanOneBook(cfg config.Config, forceRefresh bool, cache *librarycache.Cache, cacheMu *sync.Mutex, path string) (Book, bool) {
+	rel, err := filepath.Rel(cfg.General.LibraryFolder, path)
+	if err != nil {
+		return Book{}, false
+	}
+	parts := strings.Split(filepath.ToSlash(filepath.Dir(rel)), "/")
+
+	b := Book{
+		SourcePath: path,
+		Format:     strings.TrimPrefix(strings.ToLower(filepath.Ext(path)), "."),
+	}
+	if len(parts) >= 1 && parts[0] != "." {
+		b.Category = parts[0]
+	}
+	if len(parts) >= 2 {
+		b.Subcategory = parts[1]
+	}
+
+	info, statErr := os.Stat(path)
+	if statErr != nil {
+		return b, true
+	}
+
+	if !forceRefresh {
+		cacheMu.Lock()
+		entry, ok := cache.Fresh(path, info.ModTime(), info.Size())
+		cacheMu.Unlock()
+		if ok && entry.CoverVersion == metadata.CoverExtractorVersion && entry.MetadataVersion == metadata.MetadataExtractorVersion {
+			b.Title = entry.Title
+			b.Author = entry.Author
+			b.Year = entry.Year
+			b.CoverPath = entry.CoverPath
+			b.CoverOverridden = entry.CoverOverridden
+			return b, true
+		}
+	}
+
+	if res, err := extractFunc(path, cfg.TitleFormatting.HyphenExceptions, cfg.General.PDFCoverPageLimit); err == nil {
+		b.Title = res.Title
+		b.Author = res.Author
+		b.Year = res.Year
+
+		applyFilenameHeuristicFallback(&b, path, cfg.Heuristics.KnownJunkTags)
+
+		coverBytes, coverContentType := res.CoverBytes, res.CoverContentType
+
+		// A manual override, if one is set for this book, replaces the
+		// cover portion of Extract's result -- but Extract itself still
+		// ran above, so Title/Author/Year are never lost for an
+		// overridden book (see this plan's Global Constraints for why
+		// this deliberately narrows the design doc's "extraction is
+		// skipped entirely" wording to cover selection only).
+		if ov, found, ovErr := covercache.GetOverride(cfg.General.LogFolder, path); ovErr == nil && found {
+			b.CoverOverridden = true
+			switch ov.Type {
+			case covercache.OverrideCustom:
+				b.CoverPath = ov.ImagePath
+				coverBytes = nil // already have a stable URL; skip covercache.Force below
+			case covercache.OverrideEmbedded:
+				if data, ct, ok, pageErr := metadata.ExtractPDFPageCover(path, ov.Page); pageErr == nil && ok {
+					coverBytes, coverContentType = data, ct
+				} else {
+					coverBytes = nil
+				}
+			}
+		}
+
+		if len(coverBytes) > 0 {
+			if coverURL, err := covercache.Force(cfg.General.LogFolder, path, coverBytes, coverContentType); err == nil {
+				b.CoverPath = coverURL
+			}
+		}
+
+		cacheMu.Lock()
+		cache.Put(path, librarycache.Entry{
+			ModTime:         info.ModTime(),
+			Size:            info.Size(),
+			Title:           b.Title,
+			Author:          b.Author,
+			Year:            b.Year,
+			Category:        b.Category,
+			Subcategory:     b.Subcategory,
+			CoverPath:       b.CoverPath,
+			CoverOverridden: b.CoverOverridden,
+			CoverVersion:    metadata.CoverExtractorVersion,
+			MetadataVersion: metadata.MetadataExtractorVersion,
+		})
+		cacheMu.Unlock()
+	} else {
+		// extractFunc failed (e.g. a corrupt file) -- this book is never
+		// cached (see Scan's doc comment), so it gets no cache-hit
+		// benefit from the fallback below, but it should still get a
+		// best-effort Title/Author/Year rather than staying blank until
+		// the frontend's raw-filename fallback takes over.
+		applyFilenameHeuristicFallback(&b, path, cfg.Heuristics.KnownJunkTags)
+	}
+
+	return b, true
 }
 
 // applyFilenameHeuristicFallback fills in any of b's Title/Author/Year
