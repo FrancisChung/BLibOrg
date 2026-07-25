@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"regexp"
+	"strings"
 
 	"github.com/FrancisChung/book-organiser/internal/textutil"
 )
@@ -37,7 +39,14 @@ type epubPackage struct {
 			Properties string `xml:"properties,attr"`
 		} `xml:"item"`
 	} `xml:"manifest"`
+	Spine struct {
+		ItemRefs []struct {
+			IDRef string `xml:"idref,attr"`
+		} `xml:"itemref"`
+	} `xml:"spine"`
 }
+
+var epubImgSrcRe = regexp.MustCompile(`(?i)<img[^>]*\ssrc=["']([^"']*)["']`)
 
 func findZipFile(r *zip.ReadCloser, name string) (*zip.File, bool) {
 	for _, f := range r.File {
@@ -94,6 +103,106 @@ func splitEpubProperties(properties string) []string {
 	return out
 }
 
+// findEpubFirstSpineImage is the fallback used when findEpubCoverItem
+// finds neither the EPUB3 nor EPUB2 cover convention: many older,
+// malformed, or auto-converted EPUBs (e.g. a calibre conversion with no
+// cover metadata at all) still put the cover image alone on an
+// otherwise-empty first page, so the first <img> tag in the first spine
+// document is, in practice, the cover. Unlike findEpubCoverItem, this
+// returns the fully-resolved in-zip path (not an OPF-relative href),
+// since the image's path is computed relative to the spine document's
+// own location, which may differ from the OPF's. Returns ok=false if the
+// spine is empty, its first item can't be resolved to a manifest href,
+// that document can't be opened, or it contains no <img> tag at all.
+func findEpubFirstSpineImage(r *zip.ReadCloser, opfFullPath string, p epubPackage) (zipPath, mediaType string, ok bool) {
+	if len(p.Spine.ItemRefs) == 0 {
+		return "", "", false
+	}
+	firstID := p.Spine.ItemRefs[0].IDRef
+	var spineHref string
+	for _, item := range p.Manifest.Items {
+		if item.ID == firstID {
+			spineHref = item.Href
+			break
+		}
+	}
+	if spineHref == "" {
+		return "", "", false
+	}
+	spineZipPath := epubPathJoin(opfFullPath, spineHref)
+	sf, found := findZipFile(r, spineZipPath)
+	if !found {
+		return "", "", false
+	}
+	src, err := sf.Open()
+	if err != nil {
+		return "", "", false
+	}
+	defer src.Close()
+	data, err := io.ReadAll(src)
+	if err != nil {
+		return "", "", false
+	}
+	m := epubImgSrcRe.FindSubmatch(data)
+	if m == nil {
+		return "", "", false
+	}
+	imgZipPath := epubPathJoin(spineZipPath, string(m[1]))
+
+	for _, item := range p.Manifest.Items {
+		if epubPathJoin(opfFullPath, item.Href) == imgZipPath {
+			return imgZipPath, item.MediaType, true
+		}
+	}
+	if guessed := epubGuessMediaType(imgZipPath); guessed != "" {
+		return imgZipPath, guessed, true
+	}
+	return "", "", false
+}
+
+// epubGuessMediaType infers a media type from a zip path's file
+// extension, for the rare case findEpubFirstSpineImage locates an <img>
+// tag whose target isn't itself declared in the manifest (a more
+// malformed EPUB than the manifest-declared common case). Returns "" for
+// an unrecognized extension, so callers can treat that as "give up"
+// rather than guessing wrong.
+func epubGuessMediaType(zipPath string) string {
+	switch strings.ToLower(path.Ext(zipPath)) {
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".png":
+		return "image/png"
+	case ".gif":
+		return "image/gif"
+	case ".svg":
+		return "image/svg+xml"
+	default:
+		return ""
+	}
+}
+
+// readEpubCoverBytes opens zipPath within r and, if successful, sets
+// result.CoverBytes/CoverContentType -- the shared "open, read, assign"
+// step both findEpubCoverItem's result and findEpubFirstSpineImage's
+// fallback result go through once a candidate cover has been located.
+func readEpubCoverBytes(r *zip.ReadCloser, zipPath, mediaType string, result *Result) {
+	cfile, found := findZipFile(r, zipPath)
+	if !found {
+		return
+	}
+	crf, err := cfile.Open()
+	if err != nil {
+		return
+	}
+	defer crf.Close()
+	data, err := io.ReadAll(crf)
+	if err != nil {
+		return
+	}
+	result.CoverBytes = data
+	result.CoverContentType = mediaType
+}
+
 func extractEpub(path string) (Result, error) {
 	r, err := zip.OpenReader(path)
 	if err != nil {
@@ -145,15 +254,9 @@ func extractEpub(path string) (Result, error) {
 		// must use the "path" package, not "path/filepath" (which uses "\"
 		// on Windows and would silently fail to match).
 		coverZipPath := epubPathJoin(c.Rootfiles.Rootfile.FullPath, href)
-		if cfile, found := findZipFile(r, coverZipPath); found {
-			if crf, err := cfile.Open(); err == nil {
-				if data, err := io.ReadAll(crf); err == nil {
-					result.CoverBytes = data
-					result.CoverContentType = mediaType
-				}
-				crf.Close()
-			}
-		}
+		readEpubCoverBytes(r, coverZipPath, mediaType, &result)
+	} else if zipPath, mediaType, ok := findEpubFirstSpineImage(r, c.Rootfiles.Rootfile.FullPath, p); ok {
+		readEpubCoverBytes(r, zipPath, mediaType, &result)
 	}
 
 	return result, nil
