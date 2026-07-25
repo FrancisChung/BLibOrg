@@ -113,7 +113,10 @@
     width: 6px;
     flex-shrink: 0;
     cursor: col-resize;
-    position: relative;
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    height: 100vh;
   }
   .resize-handle:hover::after,
   .resize-handle.resizing::after {

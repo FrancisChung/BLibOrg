@@ -97,6 +97,11 @@
 <style>
   .sidebar {
     flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    height: 100vh;
+    overflow-y: auto;
     background: var(--bf-surface);
     border-right: 1px solid var(--bf-border);
     padding: 28px 16px 20px;
