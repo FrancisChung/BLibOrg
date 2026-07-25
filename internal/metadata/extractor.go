@@ -34,7 +34,7 @@ const CoverExtractorVersion = 3 // bumped: findPDFPageImages now recurses into F
 // cached entry. Bump this whenever a change here could cause an
 // already-scanned file to yield a different Title/Author/Year than
 // before -- not for changes that only affect cover bytes.
-const MetadataExtractorVersion = 1 // findInfoDictBody can now locate the Info dict via a PDF 1.5+ cross-reference stream, not just a classic trailer.
+const MetadataExtractorVersion = 2 // bumped: findInfoDictBody can now resolve an Info dict compressed inside an ObjStm, and extractPDF can now decode hex-string (not just literal-string) Title/Author/Subject/CreationDate values.
 
 // Extract dispatches to the appropriate format-specific extractor based on
 // path's extension, then cleans the Title/Author it returns -- embedded
