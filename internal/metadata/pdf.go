@@ -5,6 +5,7 @@ import (
 	"os"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"unicode/utf16"
 
@@ -98,25 +99,28 @@ func decodePDFString(raw []byte) string {
 // first-match-anywhere scan can pick up a graphic's metadata instead of
 // the book's if that graphic's object happens to appear earlier in the
 // file. If the file has multiple trailers (incremental updates), the last
-// one is used -- and, for the same "most recent update wins" reason, if
-// object N itself was rewritten by an incremental update (common for
-// PDFs edited by annotation/signing/metadata tools, which append rather
-// than rewrite), the LAST "N ... obj ... endobj" block in the file is
-// used too, not the first (now-superseded) one. If no classic "trailer
-// <<...>>" keyword block exists at all, falls back to
-// findXRefStreamTrailerDict for PDFs using a PDF 1.5+ cross-reference
-// stream instead (which carries the same /Info key directly in its own
-// dictionary). Returns ok=false (caller falls back to a whole-file scan)
-// if neither a trailer nor an XRef stream trailer-equivalent, no /Info
-// reference, or no matching object is found -- preserving prior
-// best-effort behavior for atypical PDFs rather than erroring.
+// one is used -- and, for the same "most recent update wins" reason, the
+// object lookup below resolves via pdfObjIndex.lookup, which already
+// prefers the LAST literal occurrence of a given object number (see
+// buildPDFObjIndex) and additionally resolves an object compressed inside
+// a /Type /ObjStm container (common in XeTeX/LaTeX-produced PDFs, which
+// never appears as literal "N ... obj ... endobj" text in the file at
+// all). If no classic "trailer <<...>>" keyword block exists at all,
+// falls back to findXRefStreamTrailerDict for PDFs using a PDF 1.5+
+// cross-reference stream instead (which carries the same /Info key
+// directly in its own dictionary). Returns ok=false (caller falls back to
+// a whole-file scan) if neither a trailer nor an XRef stream
+// trailer-equivalent, no /Info reference, or no matching object is found
+// -- preserving prior best-effort behavior for atypical PDFs rather than
+// erroring.
 func findInfoDictBody(data []byte) ([]byte, bool) {
+	idx := buildPDFObjIndex(data)
 	var trailerDict []byte
 	trailers := pdfTrailerRe.FindAllSubmatch(data, -1)
 	if len(trailers) > 0 {
 		trailerDict = trailers[len(trailers)-1][1]
 	} else {
-		trailerDict = findXRefStreamTrailerDict(data)
+		trailerDict = findXRefStreamTrailerDict(idx)
 		if trailerDict == nil {
 			return nil, false
 		}
@@ -125,13 +129,16 @@ func findInfoDictBody(data []byte) ([]byte, bool) {
 	if infoMatch == nil {
 		return nil, false
 	}
-	objNum := string(infoMatch[1])
-	objRe := regexp.MustCompile(`(?s)\b` + objNum + `\s+\d+\s+obj(.*?)endobj`)
-	objMatches := objRe.FindAllSubmatch(data, -1)
-	if objMatches == nil {
+	objNum, err := strconv.Atoi(string(infoMatch[1]))
+	if err != nil {
 		return nil, false
 	}
-	return objMatches[len(objMatches)-1][1], true
+	body, ok := idx.lookup(objNum)
+	if !ok {
+		return nil, false
+	}
+	dict, _, _ := splitPDFObjectBody(body)
+	return dict, true
 }
 
 // findXRefStreamTrailerDict locates the trailer-equivalent dict for PDFs
@@ -141,9 +148,10 @@ func findInfoDictBody(data []byte) ([]byte, bool) {
 // the PDF spec. Returns the LAST such object's dict in file order
 // (mirroring findInfoDictBody's "most recent update wins" handling for
 // classic trailers, since a later XRef stream supersedes an earlier
-// one), or nil if no /Type /XRef object exists anywhere in data.
-func findXRefStreamTrailerDict(data []byte) []byte {
-	idx := buildPDFObjIndex(data)
+// one), or nil if no /Type /XRef object exists anywhere in idx. Takes an
+// already-built *pdfObjIndex (from findInfoDictBody, its only caller)
+// rather than building its own, avoiding a second full-file re-scan.
+func findXRefStreamTrailerDict(idx *pdfObjIndex) []byte {
 	objNums := make([]int, 0, len(idx.literal))
 	for n := range idx.literal {
 		objNums = append(objNums, n)

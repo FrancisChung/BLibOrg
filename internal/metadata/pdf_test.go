@@ -3,6 +3,7 @@ package metadata
 import (
 	"bytes"
 	"compress/zlib"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -299,6 +300,87 @@ func TestExtractPDF_UsesLastXRefStreamWhenMultiplePresent(t *testing.T) {
 	}
 	if result.Author != "New Author" {
 		t.Errorf("Author = %q, want %q", result.Author, "New Author")
+	}
+}
+
+func TestExtractPDF_FindsInfoDictCompressedInsideObjStm(t *testing.T) {
+	// Reproduces the real "Domain-Driven Design in PHP" bug's first half:
+	// the Info dictionary is compressed inside a /Type /ObjStm object
+	// (common in XeTeX/LaTeX-produced PDFs), not present anywhere as a
+	// literal "3 0 obj ... endobj" block. Fixture layout follows the same
+	// real, byte-offset-computed pattern as
+	// TestPDFObjIndex_ResolvesObjectInsideObjStm (pdf_objects_test.go).
+	infoObj := "<</Title(Compressed Book)/Author(Compressed Author)>>"
+	header := "3 0"
+	content := header + infoObj
+	first := len(header)
+
+	var compressed bytes.Buffer
+	w := zlib.NewWriter(&compressed)
+	if _, err := w.Write([]byte(content)); err != nil {
+		t.Fatalf("zlib write: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("zlib close: %v", err)
+	}
+
+	var pdf bytes.Buffer
+	pdf.WriteString("%PDF-1.5\n")
+	fmt.Fprintf(&pdf, "9 0 obj\n<< /Type /ObjStm /N 1 /First %d /Filter /FlateDecode /Length %d >>\nstream\n", first, compressed.Len())
+	pdf.Write(compressed.Bytes())
+	pdf.WriteString("\nendstream\nendobj\n")
+	pdf.WriteString("trailer\n<< /Root 1 0 R /Info 3 0 R >>\n%%EOF")
+
+	path := writePDFFixture(t, pdf.String())
+
+	result, err := extractPDF(path, 10)
+	if err != nil {
+		t.Fatalf("extractPDF returned error: %v", err)
+	}
+	if result.Title != "Compressed Book" {
+		t.Errorf("Title = %q, want %q (Info dict located even though compressed inside an ObjStm)", result.Title, "Compressed Book")
+	}
+	if result.Author != "Compressed Author" {
+		t.Errorf("Author = %q, want %q", result.Author, "Compressed Author")
+	}
+}
+
+func TestExtractPDF_FindsInfoDictCompressedInsideObjStmViaXRefStreamTrailer(t *testing.T) {
+	// Same shape as the classic-trailer version above, but via an XRef
+	// stream trailer instead -- exercises findXRefStreamTrailerDict's
+	// updated signature (now takes the shared *pdfObjIndex) end-to-end.
+	infoObj := "<</Title(XRef Compressed Book)/Author(XRef Compressed Author)>>"
+	header := "3 0"
+	content := header + infoObj
+	first := len(header)
+
+	var compressed bytes.Buffer
+	w := zlib.NewWriter(&compressed)
+	if _, err := w.Write([]byte(content)); err != nil {
+		t.Fatalf("zlib write: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("zlib close: %v", err)
+	}
+
+	var pdf bytes.Buffer
+	pdf.WriteString("%PDF-1.5\n")
+	fmt.Fprintf(&pdf, "9 0 obj\n<< /Type /ObjStm /N 1 /First %d /Filter /FlateDecode /Length %d >>\nstream\n", first, compressed.Len())
+	pdf.Write(compressed.Bytes())
+	pdf.WriteString("\nendstream\nendobj\n")
+	pdf.WriteString("20 0 obj\n<< /Type /XRef /Info 3 0 R /Root 1 0 R /Size 21 /W [1 1 1] /Length 3 >>\nstream\nabc\nendstream\nendobj\n%%EOF")
+
+	path := writePDFFixture(t, pdf.String())
+
+	result, err := extractPDF(path, 10)
+	if err != nil {
+		t.Fatalf("extractPDF returned error: %v", err)
+	}
+	if result.Title != "XRef Compressed Book" {
+		t.Errorf("Title = %q, want %q (Info dict located via XRef-stream trailer even though compressed inside an ObjStm)", result.Title, "XRef Compressed Book")
+	}
+	if result.Author != "XRef Compressed Author" {
+		t.Errorf("Author = %q, want %q", result.Author, "XRef Compressed Author")
 	}
 }
 
