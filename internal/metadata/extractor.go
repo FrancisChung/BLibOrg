@@ -48,7 +48,11 @@ const MetadataExtractorVersion = 4 // bumped: findInfoDictBody now prefers which
 // packages should call for whole-book extraction. ListPDFCoverCandidates
 // and ExtractPDFPageCover (pdf_override.go) are the two exceptions: both
 // exist specifically for the manual cover-override picker, which needs
-// page-level granularity this combined Result can't expose.
+// page-level granularity this combined Result can't expose. Safe to call
+// concurrently for different files: this package's decoders operate only
+// on their own local data, and the one piece of process-wide shared state
+// (the PDFium renderer, pdf_render.go) serializes itself internally via
+// pdfiumMu -- callers never need their own synchronization.
 func Extract(path string, hyphenExceptions []string, pdfCoverPageLimit int) (Result, error) {
 	ext := strings.ToLower(filepath.Ext(path))
 	var result Result

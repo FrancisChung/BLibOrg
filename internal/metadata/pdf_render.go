@@ -36,6 +36,18 @@ var (
 	pdfiumInstance pdfium.Pdfium
 	pdfiumInitOnce sync.Once
 	pdfiumInitErr  error
+	// pdfiumMu serializes every call into the single shared PDFium WASM
+	// instance above (webassembly.Init is configured with MaxTotal: 1 --
+	// exactly one instance for the process's whole life, reused by every
+	// render call). PDFium is not safe for concurrent use from multiple
+	// goroutines against the same instance, so renderPDFPageAsCover holds
+	// this for its entire body -- callers (metadata.Extract, and
+	// therefore internal/librarian.Scan's parallel per-book workers) can
+	// call it concurrently without knowing this constraint exists; only
+	// the minority of PDFs that actually reach this render path
+	// (composite covers, or an image filter this package's other
+	// decoders can't handle) ever contend on this lock.
+	pdfiumMu sync.Mutex
 )
 
 // getPdfiumInstance lazily starts exactly one PDFium WASM instance for the
@@ -61,8 +73,14 @@ func getPdfiumInstance() (pdfium.Pdfium, error) {
 // (never an error) on any failure -- an unopenable/corrupt PDF, an
 // out-of-range page, or a PDFium rendering failure -- matching this
 // package's pervasive "one book's failure never fails the whole scan"
-// convention.
+// convention. Safe to call concurrently from multiple goroutines: it
+// holds pdfiumMu for its entire body, serializing access to the single
+// shared PDFium instance internally, so callers never need their own
+// synchronization around it.
 func renderPDFPageAsCover(data []byte, pageNum int) (imageBytes []byte, contentType string, ok bool) {
+	pdfiumMu.Lock()
+	defer pdfiumMu.Unlock()
+
 	instance, err := getPdfiumInstance()
 	if err != nil {
 		return nil, "", false

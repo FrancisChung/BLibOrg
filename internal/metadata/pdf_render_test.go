@@ -3,7 +3,10 @@ package metadata
 import (
 	"bytes"
 	"fmt"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 // buildMinimalValidPDF constructs a syntactically complete single-page PDF
@@ -223,5 +226,38 @@ func TestPageContentSuggestsCompositeCover_DetectsArrayFormTJWithNoPrecedingSpac
 
 	if !pageContentSuggestsCompositeCover(idx, pages[0]) {
 		t.Error("pageContentSuggestsCompositeCover = false, want true -- must detect \"]TJ\" with no preceding space through the full function, not just the standalone regex helper")
+	}
+}
+
+func TestPDFiumMutex_SerializesConcurrentAccess(t *testing.T) {
+	// Directly exercises pdfiumMu itself (same package, so the unexported
+	// mutex is reachable) rather than driving real, slow PDFium render
+	// calls through renderPDFPageAsCover -- the property being verified
+	// is "the mutex actually serializes overlapping callers," which
+	// doesn't require a real PDF or a real render to prove.
+	const goroutines = 20
+	var active int32
+	var maxActive int32
+	var wg sync.WaitGroup
+	for i := 0; i < goroutines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			pdfiumMu.Lock()
+			n := atomic.AddInt32(&active, 1)
+			for {
+				m := atomic.LoadInt32(&maxActive)
+				if n <= m || atomic.CompareAndSwapInt32(&maxActive, m, n) {
+					break
+				}
+			}
+			time.Sleep(time.Millisecond)
+			atomic.AddInt32(&active, -1)
+			pdfiumMu.Unlock()
+		}()
+	}
+	wg.Wait()
+	if maxActive != 1 {
+		t.Errorf("maxActive = %d, want 1 (pdfiumMu did not serialize concurrent access)", maxActive)
 	}
 }
