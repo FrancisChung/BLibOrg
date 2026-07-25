@@ -249,3 +249,59 @@ func TestExtractEpub_FirstSpineImageGuessesMediaTypeWhenNotInManifest(t *testing
 		t.Errorf("CoverContentType = %q, want image/png (guessed from the .png extension)", result.CoverContentType)
 	}
 }
+
+func TestExtractEpub_NumericTitlePlaceholderTreatedAsUnresolved(t *testing.T) {
+	opf := `<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="2.0">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>728310488</dc:title>
+    <dc:creator>Real Author</dc:creator>
+  </metadata>
+</package>`
+	path := writeEpubFixture(t, opf)
+
+	result, err := extractEpub(path)
+	if err != nil {
+		t.Fatalf("extractEpub returned error: %v", err)
+	}
+	if result.Title != "" {
+		t.Errorf("Title = %q, want empty (a bare numeric ID is a known placeholder, not a real title)", result.Title)
+	}
+	if result.Author != "Real Author" {
+		t.Errorf("Author = %q, want %q (unaffected by the Title placeholder check)", result.Author, "Real Author")
+	}
+}
+
+func TestExtractEpub_UnknownAuthorPlaceholderTreatedAsUnresolved(t *testing.T) {
+	tests := []struct {
+		name   string
+		author string
+	}{
+		{"lowercase", "unknown"},
+		{"uppercase", "UNKNOWN"},
+		{"surrounding whitespace", "  Unknown  "},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opf := `<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="2.0">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>Real Title</dc:title>
+    <dc:creator>` + tt.author + `</dc:creator>
+  </metadata>
+</package>`
+			path := writeEpubFixture(t, opf)
+
+			result, err := extractEpub(path)
+			if err != nil {
+				t.Fatalf("extractEpub returned error: %v", err)
+			}
+			if result.Author != "" {
+				t.Errorf("Author = %q, want empty (%q is a known placeholder, not a real author)", result.Author, tt.author)
+			}
+			if result.Title != "Real Title" {
+				t.Errorf("Title = %q, want %q (unaffected by the Author placeholder check)", result.Title, "Real Title")
+			}
+		})
+	}
+}

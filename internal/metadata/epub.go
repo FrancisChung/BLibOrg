@@ -48,6 +48,12 @@ type epubPackage struct {
 
 var epubImgSrcRe = regexp.MustCompile(`(?i)<img[^>]*\ssrc=["']([^"']*)["']`)
 
+var epubPlaceholderTitleRe = regexp.MustCompile(`^[0-9]+$`)
+
+var epubPlaceholderAuthors = map[string]bool{
+	"unknown": true,
+}
+
 func findZipFile(r *zip.ReadCloser, name string) (*zip.File, bool) {
 	for _, f := range r.File {
 		if f.Name == name {
@@ -242,6 +248,12 @@ func extractEpub(path string) (Result, error) {
 		Title:   p.Metadata.Title,
 		Author:  p.Metadata.Creator,
 		Subject: p.Metadata.Subject,
+	}
+	if epubPlaceholderTitleRe.MatchString(strings.TrimSpace(result.Title)) {
+		result.Title = ""
+	}
+	if epubPlaceholderAuthors[strings.ToLower(strings.TrimSpace(result.Author))] {
+		result.Author = ""
 	}
 	if year, ok := textutil.ExtractYear(p.Metadata.Date); ok {
 		result.Year = year
