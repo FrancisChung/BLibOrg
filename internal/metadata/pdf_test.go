@@ -2,8 +2,10 @@ package metadata
 
 import (
 	"bytes"
+	"compress/zlib"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"unicode/utf16"
 	"unicode/utf8"
@@ -358,6 +360,35 @@ func TestExtractPDF_PageAwareCoverPrefersPageOrderOverByteOrder(t *testing.T) {
 	}
 	if string(result.CoverBytes) != string(page1JPEG) {
 		t.Errorf("CoverBytes = %q, want page 1's cover %q (not page 2's, even though it appears first in file byte order)", result.CoverBytes, page1JPEG)
+	}
+}
+
+func TestExtractPDF_WholeFileFallbackDecodesFlateDecodeImage(t *testing.T) {
+	// No page tree at all (no /Type /Catalog), forcing findPDFCoverPageAware
+	// to fall through to findPDFCover's whole-file scan -- which must now
+	// recognize a FlateDecode image, not just DCTDecode/JPEG.
+	var compressed bytes.Buffer
+	w := zlib.NewWriter(&compressed)
+	if _, err := w.Write([]byte{0x10, 0x20, 0x30}); err != nil { // 1x1 RGB pixel
+		t.Fatalf("zlib write: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("zlib close: %v", err)
+	}
+	pdf := "%PDF-1.4\n" +
+		"1 0 obj\n<< /Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceRGB /Filter /FlateDecode /Length " +
+		strconv.Itoa(compressed.Len()) + " >>\nstream\n" + compressed.String() + "\nendstream\nendobj\n"
+	path := writePDFFixture(t, pdf)
+
+	result, err := extractPDF(path, 10)
+	if err != nil {
+		t.Fatalf("extractPDF returned error: %v", err)
+	}
+	if len(result.CoverBytes) == 0 {
+		t.Fatal("CoverBytes is empty, want the decoded FlateDecode image")
+	}
+	if result.CoverContentType != "image/png" {
+		t.Errorf("CoverContentType = %q, want image/png (FlateDecode images are re-encoded as PNG)", result.CoverContentType)
 	}
 }
 

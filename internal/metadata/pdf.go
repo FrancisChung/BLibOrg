@@ -124,26 +124,34 @@ func findInfoDictBody(data []byte) ([]byte, bool) {
 	return objMatches[len(objMatches)-1][1], true
 }
 
-// findPDFCover scans data for the first image XObject stream (a "<<...>>
-// stream ... endstream" block whose dictionary declares both /Subtype
-// /Image and a /Filter of /DCTDecode) and returns its raw stream bytes --
-// already a complete, valid JPEG, since that's what DCTDecode means per the
-// PDF spec. See this task's plan entry for why FlateDecode-filtered images
-// are out of scope. This is a textual scan, not a real PDF parser: it does
-// not handle a dictionary containing its own nested "<<...>>" (e.g. a
-// /DecodeParms sub-dictionary), matching the rest of this file's
-// deliberately best-effort approach.
-func findPDFCover(data []byte) ([]byte, string, bool) {
+// findPDFCover scans data for the first qualifying image XObject stream
+// (a "<<...>>\nstream ... endstream" block whose dictionary declares
+// /Subtype /Image) and returns its display-ready bytes: a /Filter
+// /DCTDecode stream's raw bytes are already a complete, valid JPEG, per
+// the PDF spec; any other filter is attempted via decodeFlatePDFImage
+// (pdf_flate.go), passing resources=nil since this whole-file scan has
+// no page context to resolve a named colorspace against -- inline and
+// indirect colorspaces (the common case) still resolve fine. This is a
+// textual scan, not a real PDF parser: it does not handle a dictionary
+// containing its own nested "<<...>>" (e.g. a /DecodeParms
+// sub-dictionary), matching the rest of this file's deliberately
+// best-effort approach.
+func findPDFCover(idx *pdfObjIndex, data []byte) ([]byte, string, bool) {
 	for _, m := range pdfImageStreamRe.FindAllSubmatch(data, -1) {
 		dict := m[1]
-		if !pdfSubtypeImageRe.Match(dict) || !pdfDCTDecodeRe.Match(dict) {
+		if !pdfSubtypeImageRe.Match(dict) {
 			continue
 		}
 		stream := bytes.TrimRight(m[2], "\r\n")
 		if len(stream) == 0 {
 			continue
 		}
-		return stream, "image/jpeg", true
+		if pdfDCTDecodeRe.Match(dict) {
+			return stream, "image/jpeg", true
+		}
+		if flateBytes, contentType, ok := decodeFlatePDFImage(idx, nil, dict, stream); ok {
+			return flateBytes, contentType, true
+		}
 	}
 	return nil, "", false
 }
@@ -178,7 +186,7 @@ func findPDFCoverPageAware(data []byte, pageLimit int) ([]byte, string, bool) {
 			return img.bytes, img.contentType, true
 		}
 	}
-	return findPDFCover(data)
+	return findPDFCover(idx, data)
 }
 
 // findPageByNumber returns the page in pages whose 1-based number matches,
