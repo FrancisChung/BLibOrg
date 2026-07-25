@@ -84,8 +84,10 @@ func decodePDFHexBytes(h []byte) []byte {
 	return decoded
 }
 
-// decodePDFString interprets already-unescaped PDF literal-string bytes per
-// the spec's text-string rules: a leading 0xFE 0xFF byte-order mark means
+// decodePDFString interprets already-decoded PDF text-string bytes (from
+// either literal-string syntax via unescapePDFBytes, or hex-string syntax
+// via decodePDFHexBytes -- both produce the same raw-byte shape) per the
+// spec's text-string rules: a leading 0xFE 0xFF byte-order mark means
 // the remainder is UTF-16BE -- the encoding real-world producers (Chromium
 // print-to-PDF, calibre) use for any /Title or /Author containing non-ASCII
 // characters. Without that BOM, bytes are PDFDocEncoding/WinAnsiEncoding,
@@ -275,11 +277,13 @@ func findPageByNumber(pages []pdfPage, number int) (pdfPage, bool) {
 }
 
 // extractPDF is a best-effort, dependency-free scanner: it looks for
-// literal (not hex-encoded, not compressed-object-stream) /Title, /Author,
-// /Subject, and /CreationDate entries in the raw PDF bytes, scoped to the
-// document's real Info dictionary when it can be located (see
-// findInfoDictBody). See the plan's Global Constraints for why this is
-// deliberately not a full PDF parser.
+// /Title, /Author, /Subject, and /CreationDate entries -- written as
+// either literal strings ("(...)") or hex strings ("<...>"), and whether
+// the Info dictionary itself is a standalone object or compressed inside
+// an ObjStm -- in the raw PDF bytes, scoped to the document's real Info
+// dictionary when it can be located (see findInfoDictBody). See the
+// plan's Global Constraints for why this is deliberately not a full PDF
+// parser.
 //
 // When the real Info dictionary can't be located, Title and Author are left
 // unset rather than falling back to a whole-file scan: real books commonly

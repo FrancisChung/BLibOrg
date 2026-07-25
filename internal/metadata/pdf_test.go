@@ -426,6 +426,49 @@ func TestExtractPDF_LiteralStringTakesPrecedenceOverHexStringForSameKey(t *testi
 	}
 }
 
+func TestExtractPDF_HexStringTitleAndAuthorCompressedInsideObjStm(t *testing.T) {
+	// Reproduces the exact real "Domain-Driven Design in PHP" shape end
+	// to end: the Info dictionary is compressed inside an ObjStm (Task
+	// 1's fix) AND its /Title and /Author are hex strings (Task 2's fix)
+	// -- both problems in the same book, not just each in isolation.
+	titleHex := fmt.Sprintf("%x", utf16BEBytes("Domain-Driven Design in PHP"))
+	authorHex := fmt.Sprintf("%x", utf16BEBytes("Carlos Buenosvinos, Christian Soronellas and Keyvan Akbary"))
+
+	infoObj := "<</Title<" + titleHex + ">/Author<" + authorHex + ">>>"
+	header := "3 0"
+	content := header + infoObj
+	first := len(header)
+
+	var compressed bytes.Buffer
+	w := zlib.NewWriter(&compressed)
+	if _, err := w.Write([]byte(content)); err != nil {
+		t.Fatalf("zlib write: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("zlib close: %v", err)
+	}
+
+	var pdf bytes.Buffer
+	pdf.WriteString("%PDF-1.5\n")
+	fmt.Fprintf(&pdf, "9 0 obj\n<< /Type /ObjStm /N 1 /First %d /Filter /FlateDecode /Length %d >>\nstream\n", first, compressed.Len())
+	pdf.Write(compressed.Bytes())
+	pdf.WriteString("\nendstream\nendobj\n")
+	pdf.WriteString("trailer\n<< /Root 1 0 R /Info 3 0 R >>\n%%EOF")
+
+	path := writePDFFixture(t, pdf.String())
+
+	result, err := extractPDF(path, 10)
+	if err != nil {
+		t.Fatalf("extractPDF returned error: %v", err)
+	}
+	if result.Title != "Domain-Driven Design in PHP" {
+		t.Errorf("Title = %q, want %q (hex-string value inside an ObjStm-compressed Info dict)", result.Title, "Domain-Driven Design in PHP")
+	}
+	if result.Author != "Carlos Buenosvinos, Christian Soronellas and Keyvan Akbary" {
+		t.Errorf("Author = %q, want %q", result.Author, "Carlos Buenosvinos, Christian Soronellas and Keyvan Akbary")
+	}
+}
+
 func TestDecodePDFHexBytes_PadsOddLengthWithImplicitTrailingZero(t *testing.T) {
 	even := decodePDFHexBytes([]byte("901FA3"))
 	if string(even) != "\x90\x1F\xA3" {
