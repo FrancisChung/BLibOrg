@@ -21,7 +21,7 @@ import (
 // added in Plan A, or a new colorspace/filter becoming decodable) -- not
 // for changes that only affect Title/Author/Year, and not for changes
 // that only affect files this logic couldn't already handle.
-const CoverExtractorVersion = 4 // bumped: extractEpub can now fall back to the first spine document's first <img> when no OPF cover convention (EPUB3 properties="cover-image" or EPUB2 meta name="cover") is present, producing a cover where none existed before for the same book.
+const CoverExtractorVersion = 5 // bumped: findPDFCoverPageAware can now fall back to a full-page PDFium render when a page's only image uses an unsupported filter (e.g. JPXDecode/JPEG 2000), producing a cover where none existed before for the same book.
 
 // MetadataExtractorVersion identifies the current Title/Author/Year
 // extraction logic, parallel to CoverExtractorVersion but tracked
@@ -34,7 +34,7 @@ const CoverExtractorVersion = 4 // bumped: extractEpub can now fall back to the 
 // cached entry. Bump this whenever a change here could cause an
 // already-scanned file to yield a different Title/Author/Year than
 // before -- not for changes that only affect cover bytes.
-const MetadataExtractorVersion = 3 // bumped: extractEpub now blanks placeholder Title/Author values (a bare numeric ID, or a literal "Unknown" author) instead of returning them as-is, and internal/librarian.Scan now falls back to filename heuristics (matching internal/pipeline.Run's existing behavior) whenever Title/Author/Year comes back empty.
+const MetadataExtractorVersion = 4 // bumped: findInfoDictBody now prefers whichever classic trailer actually declares /Info, not simply the byte-order-last one -- a linearized PDF's tail trailer commonly lacks /Info entirely, which could change which Info dict object (and hence Title/Author/Subject) is used for an already-scanned file.
 
 // Extract dispatches to the appropriate format-specific extractor based on
 // path's extension, then cleans the Title/Author it returns -- embedded
