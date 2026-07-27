@@ -50,7 +50,7 @@
     concurrencyError = '';
     concurrencySuccess = '';
     try {
-      await SetScanConcurrency(concurrencyValue);
+      await SetScanConcurrency(concurrencyValue ?? 0);
       concurrencySuccess = 'Saved. Takes effect on the next Library refresh.';
     } catch (e) {
       concurrencyError = e instanceof Error ? e.message : String(e);

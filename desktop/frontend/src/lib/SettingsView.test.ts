@@ -80,6 +80,19 @@ describe('SettingsView', () => {
     await screen.findByText('Saved. Takes effect on the next Library refresh.');
   });
 
+  it('saves 0 when the concurrency field is cleared', async () => {
+    vi.mocked(GetScanConcurrency).mockResolvedValue({ configured: 3, detected: 8 });
+    vi.mocked(SetScanConcurrency).mockResolvedValue(undefined);
+    render(SettingsView);
+
+    const input = await screen.findByRole('spinbutton', { name: 'Scan concurrency' });
+    await fireEvent.input(input, { target: { value: '' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(SetScanConcurrency).toHaveBeenCalledWith(0);
+    await screen.findByText('Saved. Takes effect on the next Library refresh.');
+  });
+
   it('shows an error banner when SetScanConcurrency rejects', async () => {
     vi.mocked(GetScanConcurrency).mockResolvedValue({ configured: 0, detected: 8 });
     vi.mocked(SetScanConcurrency).mockRejectedValue(new Error('permission denied'));

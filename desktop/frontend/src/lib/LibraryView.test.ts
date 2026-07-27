@@ -151,4 +151,19 @@ describe('LibraryView', () => {
 
     vi.useRealTimers();
   });
+
+  it('formats elapsed time as minutes and seconds once loading passes 60s', async () => {
+    vi.useFakeTimers();
+
+    const pending = new Promise<{ books: LibraryBookView[]; categories: string[] }>(() => {});
+    vi.mocked(ListLibrary).mockReturnValue(pending);
+    vi.mocked(EventsOn).mockImplementation(() => () => {});
+
+    render(LibraryView, { category: '' });
+
+    await vi.advanceTimersByTimeAsync(61000);
+    expect(screen.getByText('Loading library… 1m 1s')).toBeInTheDocument();
+
+    vi.useRealTimers();
+  });
 });
