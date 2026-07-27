@@ -1,5 +1,11 @@
 <script lang="ts">
-  import { ConfirmResetCoverCache, ResetCoverCache } from '../../wailsjs/go/main/App';
+  import { onMount } from 'svelte';
+  import {
+    ConfirmResetCoverCache,
+    ResetCoverCache,
+    GetScanConcurrency,
+    SetScanConcurrency,
+  } from '../../wailsjs/go/main/App';
 
   let resetting = false;
   let resetError = '';
@@ -19,6 +25,37 @@
       resetError = e instanceof Error ? e.message : String(e);
     } finally {
       resetting = false;
+    }
+  }
+
+  let concurrencyLoaded = false;
+  let concurrencyValue = 0;
+  let concurrencySaving = false;
+  let concurrencyError = '';
+  let concurrencySuccess = '';
+
+  onMount(async () => {
+    try {
+      const view = await GetScanConcurrency();
+      concurrencyValue = view.configured > 0 ? view.configured : view.detected;
+    } catch (e) {
+      concurrencyError = e instanceof Error ? e.message : String(e);
+    } finally {
+      concurrencyLoaded = true;
+    }
+  });
+
+  async function handleSaveConcurrency() {
+    concurrencySaving = true;
+    concurrencyError = '';
+    concurrencySuccess = '';
+    try {
+      await SetScanConcurrency(concurrencyValue ?? 0);
+      concurrencySuccess = 'Saved. Takes effect on the next Library refresh.';
+    } catch (e) {
+      concurrencyError = e instanceof Error ? e.message : String(e);
+    } finally {
+      concurrencySaving = false;
     }
   }
 </script>
@@ -47,6 +84,40 @@
   >
     {resetting ? 'Resetting…' : 'Reset cover cache'}
   </button>
+</section>
+
+<section class="settings-block">
+  <h3>Library scan concurrency</h3>
+  <p>
+    How many books are processed in parallel during a Library refresh.
+    Pre-filled with your machine's detected core count; lower it if a
+    full-speed refresh competes too much with other work.
+  </p>
+  {#if concurrencyError}
+    <div class="banner error">{concurrencyError}</div>
+  {/if}
+  {#if concurrencySuccess}
+    <div class="banner success">{concurrencySuccess}</div>
+  {/if}
+  {#if concurrencyLoaded}
+    <div class="concurrency-row">
+      <input
+        type="number"
+        min="0"
+        bind:value={concurrencyValue}
+        disabled={concurrencySaving}
+        aria-label="Scan concurrency"
+      />
+      <button
+        type="button"
+        class="reset-button"
+        disabled={concurrencySaving}
+        on:click={handleSaveConcurrency}
+      >
+        {concurrencySaving ? 'Saving…' : 'Save'}
+      </button>
+    </div>
+  {/if}
 </section>
 
 <style>
@@ -105,5 +176,20 @@
   .reset-button:disabled {
     opacity: 0.6;
     cursor: default;
+  }
+  .concurrency-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .concurrency-row input {
+    width: 70px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--bf-border);
+    background: var(--bf-surface);
+    color: var(--bf-text);
+    font-family: inherit;
+    font-size: 13px;
   }
 </style>

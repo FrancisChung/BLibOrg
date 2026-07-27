@@ -50,14 +50,16 @@ func libraryBookToView(b librarian.Book) LibraryBookView {
 // job for the *working* folder; this reads back what's already organized).
 // forceRefresh bypasses librarian's scan cache for this call, re-extracting
 // every book and repopulating the cache with fresh values -- the frontend's
-// manual "Refresh" action.
-func (a *App) ListLibrary(forceRefresh bool) (LibraryView, error) {
+// manual "Refresh" action. onProgress is passed straight through to
+// librarian.Scan (nil-safe); this method has no progress-reporting logic
+// of its own -- see librarian.Scan's doc comment for the actual contract.
+func (a *App) ListLibrary(forceRefresh bool, onProgress func(done, total int)) (LibraryView, error) {
 	cfg, err := a.loadConfig()
 	if err != nil {
 		return LibraryView{}, err
 	}
 
-	books, err := librarian.Scan(cfg, forceRefresh)
+	books, err := librarian.Scan(cfg, forceRefresh, onProgress)
 	if err != nil {
 		return LibraryView{}, err
 	}

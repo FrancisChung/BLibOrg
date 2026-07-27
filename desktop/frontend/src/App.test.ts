@@ -11,6 +11,9 @@ vi.mock('../wailsjs/go/main/App', () => ({
   ListCategoryWarnings: vi.fn(),
   ListLibrary: vi.fn(),
 }));
+vi.mock('../wailsjs/runtime/runtime', () => ({
+  EventsOn: vi.fn(() => () => {}),
+}));
 
 import App from './App.svelte';
 import { ConfigStatus, ListOperationBatches, ListCategoryWarnings, ListLibrary } from '../wailsjs/go/main/App';

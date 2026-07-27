@@ -30,6 +30,10 @@ export function ConfirmUndo(arg1) {
   return window['go']['main']['App']['ConfirmUndo'](arg1);
 }
 
+export function GetScanConcurrency() {
+  return window['go']['main']['App']['GetScanConcurrency']();
+}
+
 export function ListCategoryWarnings() {
   return window['go']['main']['App']['ListCategoryWarnings']();
 }
@@ -72,6 +76,10 @@ export function SetCoverOverride(arg1, arg2) {
 
 export function SetCoverOverrideCustomFromFile(arg1, arg2) {
   return window['go']['main']['App']['SetCoverOverrideCustomFromFile'](arg1, arg2);
+}
+
+export function SetScanConcurrency(arg1) {
+  return window['go']['main']['App']['SetScanConcurrency'](arg1);
 }
 
 export function UndoBatch(arg1) {

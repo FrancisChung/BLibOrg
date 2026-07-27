@@ -16,6 +16,8 @@ export function ConfirmResetCoverCache():Promise<boolean>;
 
 export function ConfirmUndo(arg1:number):Promise<boolean>;
 
+export function GetScanConcurrency():Promise<appapi.ScanConcurrencyView>;
+
 export function ListCategoryWarnings():Promise<Array<appapi.CategoryWarningView>>;
 
 export function ListLibrary(arg1:boolean):Promise<appapi.LibraryView>;
@@ -37,5 +39,7 @@ export function Scan():Promise<Array<appapi.BookView>>;
 export function SetCoverOverride(arg1:string,arg2:number):Promise<string>;
 
 export function SetCoverOverrideCustomFromFile(arg1:string,arg2:string):Promise<string>;
+
+export function SetScanConcurrency(arg1:number):Promise<void>;
 
 export function UndoBatch(arg1:string):Promise<void>;

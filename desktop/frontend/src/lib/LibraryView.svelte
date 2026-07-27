@@ -1,8 +1,9 @@
 <script lang="ts">
   import { onMount, createEventDispatcher } from 'svelte';
   import ShelfRow from './ShelfRow.svelte';
-  import { groupIntoShelves, type LibraryBookView, type LibrarySortMode } from './types';
+  import { groupIntoShelves, type LibraryBookView, type LibrarySortMode, type ScanProgress } from './types';
   import { ListLibrary } from '../../wailsjs/go/main/App';
+  import { EventsOn } from '../../wailsjs/runtime/runtime';
 
   export let category: string = '';
 
@@ -12,12 +13,31 @@
   let loadError = '';
   let loading = false;
   let sortMode: LibrarySortMode = 'title';
+  let elapsedSeconds = 0;
+  let progress: ScanProgress | null = null;
 
   onMount(load);
+
+  function formatElapsed(seconds: number): string {
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    const remainder = seconds % 60;
+    return `${minutes}m ${remainder}s`;
+  }
 
   async function load(force: boolean = false) {
     loading = true;
     loadError = '';
+    elapsedSeconds = 0;
+    progress = null;
+
+    const tick = setInterval(() => {
+      elapsedSeconds += 1;
+    }, 1000);
+    const unsubscribe = EventsOn('library:scan-progress', (p: ScanProgress) => {
+      progress = p;
+    });
+
     try {
       const view = await ListLibrary(force);
       books = view.books ?? [];
@@ -27,10 +47,15 @@
       books = [];
     } finally {
       loading = false;
+      clearInterval(tick);
+      unsubscribe();
     }
   }
 
   $: shelves = groupIntoShelves(books, category, sortMode);
+  $: loadingMessage = progress
+    ? `Loading library… ${progress.done} / ${progress.total} books · ${formatElapsed(elapsedSeconds)}`
+    : `Loading library… ${formatElapsed(elapsedSeconds)}`;
 </script>
 
 <div class="library">
@@ -50,7 +75,7 @@
     <div class="banner error">Error: {loadError}</div>
   {/if}
   {#if loading}
-    <p>Loading library…</p>
+    <p>{loadingMessage}</p>
   {:else if shelves.length === 0}
     <p class="empty">No books found in the library folder yet.</p>
   {:else}

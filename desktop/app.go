@@ -59,8 +59,32 @@ func (a *App) UndoBatch(batchID string) error {
 	return a.api.UndoBatch(batchID)
 }
 
+// libraryScanProgress is the JSON payload of the "library:scan-progress"
+// Wails event emitted while a Library refresh is running.
+type libraryScanProgress struct {
+	Done  int `json:"done"`
+	Total int `json:"total"`
+}
+
+// newScanProgressEmitter returns a librarian.Scan-compatible onProgress
+// callback that emits a "library:scan-progress" Wails event through ctx,
+// or nil if ctx is nil. Wails' runtime.EventsEmit calls log.Fatalf (an
+// os.Exit) if given a context that was never set up by Wails' own
+// startup hook -- a.ctx is exactly such a context in any test that
+// constructs an App directly without going through Wails, and would be
+// nil there -- so nil is treated as "don't report progress" rather than
+// ever risking that call.
+func newScanProgressEmitter(ctx context.Context) func(done, total int) {
+	if ctx == nil {
+		return nil
+	}
+	return func(done, total int) {
+		runtime.EventsEmit(ctx, "library:scan-progress", libraryScanProgress{Done: done, Total: total})
+	}
+}
+
 func (a *App) ListLibrary(forceRefresh bool) (appapi.LibraryView, error) {
-	return a.api.ListLibrary(forceRefresh)
+	return a.api.ListLibrary(forceRefresh, newScanProgressEmitter(a.ctx))
 }
 
 func (a *App) ListPDFCoverCandidates(bookPath string) ([]appapi.CoverCandidateView, error) {
@@ -81,6 +105,14 @@ func (a *App) ClearCoverOverride(bookPath string) (string, error) {
 
 func (a *App) ResetCoverCache() error {
 	return a.api.ResetCoverCache()
+}
+
+func (a *App) GetScanConcurrency() (appapi.ScanConcurrencyView, error) {
+	return a.api.GetScanConcurrency()
+}
+
+func (a *App) SetScanConcurrency(n int) error {
+	return a.api.SetScanConcurrency(n)
 }
 
 // PickCoverImageFile shows a native "choose an image" file dialog and

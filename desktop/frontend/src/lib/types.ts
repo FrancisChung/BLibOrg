@@ -115,6 +115,11 @@ export interface LibraryShelf {
   books: LibraryBookView[];
 }
 
+export interface ScanProgress {
+  done: number;
+  total: number;
+}
+
 // groupIntoShelves filters books to category (or keeps all when category is
 // ""), groups the result into one shelf per subcategory (subcategories
 // sorted alphabetically; an empty subcategory groups under
