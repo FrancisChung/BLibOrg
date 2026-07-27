@@ -309,5 +309,20 @@ export namespace appapi {
 		}
 	}
 
+	export class ScanConcurrencyView {
+	    configured: number;
+	    detected: number;
+
+	    static createFrom(source: any = {}) {
+	        return new ScanConcurrencyView(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.configured = source["configured"];
+	        this.detected = source["detected"];
+	    }
+	}
+
 }
 
