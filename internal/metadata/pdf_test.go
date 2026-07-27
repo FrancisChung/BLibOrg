@@ -974,3 +974,79 @@ func TestFindPDFCoverPageAware_RendersFullPageWhenMultipleImagesFoundEvenWithout
 		t.Errorf("got %q/%q, want the rendered stand-in bytes/content-type", imageBytes, contentType)
 	}
 }
+
+func TestFindPDFCoverPageAware_RendersPage1WhenNoImageSignalFoundAtAll(t *testing.T) {
+	// Reproduces the real "Distributed Systems Principles and
+	// Paradigms"/"Effective Sprint Planning"/"Cleaner Python"/"AI Product
+	// Management"/"Build Your Own Database From Scratch" bug: these
+	// books' real cover art is entirely vector-drawn (no image XObject
+	// anywhere within the page limit, and so no undecodable-image page
+	// either), so both earlier fallback tiers find nothing. Previously
+	// this fell all the way through to findPDFCover's unbounded
+	// whole-file scan, which -- when the file has interior diagram
+	// images elsewhere, as a real technical book does -- returned an
+	// arbitrary interior image instead of a graceful best-effort
+	// rendering of the real title page.
+	orig := renderPDFPageAsCoverFunc
+	defer func() { renderPDFPageAsCoverFunc = orig }()
+
+	called := false
+	var calledWithPage int
+	renderPDFPageAsCoverFunc = func(data []byte, pageNum int) ([]byte, string, bool) {
+		called = true
+		calledWithPage = pageNum
+		return []byte("RENDERED-PNG-BYTES"), "image/png", true
+	}
+
+	// Page 1 has no /Resources /XObject entry at all -- no image,
+	// decodable or otherwise. An unrelated image exists elsewhere in the
+	// file (object 9, not referenced by any page in the tree) standing
+	// in for a real book's interior diagram, to prove the whole-file
+	// scan is NOT what produced this test's result.
+	data := []byte(
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+			"2 0 obj\n<< /Type /Pages /Kids [3 0 R] >>\nendobj\n" +
+			"3 0 obj\n<< /Type /Page /Parent 2 0 R >>\nendobj\n" +
+			"9 0 obj\n<< /Type /XObject /Subtype /Image /Filter /DCTDecode /Length 16 >>\nstream\n\xFF\xD8\xFFfakejpegbytes\nendstream\nendobj\n")
+
+	imageBytes, contentType, ok := findPDFCoverPageAware(data, 10)
+	if !ok {
+		t.Fatal("findPDFCoverPageAware ok=false, want true")
+	}
+	if !called {
+		t.Fatal("renderPDFPageAsCoverFunc was not called; want a page-1 full render when no image signal exists anywhere within the page limit")
+	}
+	if calledWithPage != 1 {
+		t.Errorf("called with page %d, want 1", calledWithPage)
+	}
+	if string(imageBytes) != "RENDERED-PNG-BYTES" || contentType != "image/png" {
+		t.Errorf("got %q/%q, want the rendered stand-in bytes/content-type", imageBytes, contentType)
+	}
+}
+
+func TestFindPDFCoverPageAware_FallsBackToWholeFileScanWhenPage1RenderFails(t *testing.T) {
+	// If PDFium itself can't render page 1 (e.g. a truly pathological
+	// page), the whole-file scan remains the final safety net -- same
+	// contract as the other two render tiers above it.
+	orig := renderPDFPageAsCoverFunc
+	defer func() { renderPDFPageAsCoverFunc = orig }()
+
+	renderPDFPageAsCoverFunc = func(data []byte, pageNum int) ([]byte, string, bool) {
+		return nil, "", false
+	}
+
+	jpegData := []byte("\xFF\xD8\xFFfallbackjpegbytes")
+	data := []byte(
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+			"2 0 obj\n<< /Type /Pages /Kids [3 0 R] >>\nendobj\n" +
+			"3 0 obj\n<< /Type /Page /Parent 2 0 R >>\nendobj\n" +
+			"9 0 obj\n<< /Type /XObject /Subtype /Image /Filter /DCTDecode /Length 20 >>\nstream\n" + string(jpegData) + "\nendstream\nendobj\n")
+
+	imageBytes, contentType, ok := findPDFCoverPageAware(data, 10)
+	if !ok {
+		t.Fatal("findPDFCoverPageAware ok=false, want true (whole-file fallback should still find the DCTDecode image)")
+	}
+	if contentType != "image/jpeg" || string(imageBytes) != string(jpegData) {
+		t.Errorf("got %q/%q, want the whole-file-scan-found DCTDecode image", imageBytes, contentType)
+	}
+}

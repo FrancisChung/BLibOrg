@@ -21,7 +21,7 @@ import (
 // added in Plan A, or a new colorspace/filter becoming decodable) -- not
 // for changes that only affect Title/Author/Year, and not for changes
 // that only affect files this logic couldn't already handle.
-const CoverExtractorVersion = 8 // bumped: composite-cover detection now recurses into a page's Form XObjects to find a text-show operator nested inside one (previously only the page's own /Contents stream was checked directly), so a page that wraps its whole visual content in a single top-level Form no longer returns just its lone embedded image instead of the full composited page.
+const CoverExtractorVersion = 9 // bumped: when no image (decodable or otherwise) is found anywhere within the page limit, findPDFCoverPageAware now renders page 1 in full before falling back to findPDFCover's unbounded whole-file scan -- recovering an entirely vector-drawn cover instead of returning an arbitrary interior image (or nothing) for books with no raster cover art at all.
 
 // MetadataExtractorVersion identifies the current Title/Author/Year
 // extraction logic, parallel to CoverExtractorVersion but tracked

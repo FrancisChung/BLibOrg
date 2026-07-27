@@ -323,6 +323,17 @@ func findPDFCoverPageAware(data []byte, pageLimit int) ([]byte, string, bool) {
 				return renderedBytes, renderedContentType, true
 			}
 		}
+		// Neither tier above found anything at all within the page
+		// limit: no image XObject on any scanned page (decodable or
+		// not). Some real covers are entirely vector-drawn (text and
+		// line art, no raster image whatsoever) -- rendering page 1 in
+		// full recovers exactly that cover, rather than falling all the
+		// way through to findPDFCover's unbounded whole-file scan, which
+		// has no notion of "page 1" and can return an arbitrary interior
+		// image (e.g. a chapter diagram) instead.
+		if renderedBytes, renderedContentType, ok := renderPDFPageAsCoverFunc(data, pages[0].number); ok {
+			return renderedBytes, renderedContentType, true
+		}
 	}
 	return findPDFCover(idx, data)
 }
