@@ -21,7 +21,7 @@ import (
 // added in Plan A, or a new colorspace/filter becoming decodable) -- not
 // for changes that only affect Title/Author/Year, and not for changes
 // that only affect files this logic couldn't already handle.
-const CoverExtractorVersion = 6 // bumped: the page-tree walker now resolves an indirect "/Kids N 0 R" reference (not just an inline "/Kids [...]" array), so PDFs using that shape no longer silently fall back to the legacy whole-file scan and pick up an unrelated small image (e.g. a publisher logo) instead of the true, page-tree-associated cover.
+const CoverExtractorVersion = 7 // bumped: a page with more than one qualifying image XObject now also triggers a full-page composite render (previously only a text-show operator did), so cover art composed from several layered/tiled images no longer returns an arbitrary single layer.
 
 // MetadataExtractorVersion identifies the current Title/Author/Year
 // extraction logic, parallel to CoverExtractorVersion but tracked

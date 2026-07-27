@@ -934,3 +934,43 @@ func TestFindPDFCoverPageAware_FallsBackToRawImageWhenRenderFails(t *testing.T) 
 		t.Errorf("got %q/%d bytes, want the raw image/jpeg fallback when rendering fails", contentType, len(imageBytes))
 	}
 }
+
+func TestFindPDFCoverPageAware_RendersFullPageWhenMultipleImagesFoundEvenWithoutText(t *testing.T) {
+	// Reproduces the real "The New Consultant's Quick Start Guide"/
+	// "Practical FP in Scala" bug: the cover page is composed from
+	// several layered/tiled images (a background texture plus separate
+	// graphic elements), with the title itself flattened into one of
+	// those images rather than drawn via a real text-show operator --
+	// pageContentSuggestsCompositeCover alone never fires, so plain
+	// image-XObject extraction previously returned whichever one of the
+	// several images happened to be found first (an arbitrary background
+	// tile or overlay layer, sometimes rendering as near-black), not the
+	// full composited page.
+	orig := renderPDFPageAsCoverFunc
+	defer func() { renderPDFPageAsCoverFunc = orig }()
+
+	called := false
+	renderPDFPageAsCoverFunc = func(data []byte, pageNum int) ([]byte, string, bool) {
+		called = true
+		return []byte("RENDERED-PNG-BYTES"), "image/png", true
+	}
+
+	jpegData := []byte("\xFF\xD8\xFFfakejpegbytes")
+	data := []byte(
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+			"2 0 obj\n<< /Type /Pages /Kids [3 0 R] >>\nendobj\n" +
+			"3 0 obj\n<< /Type /Page /Resources << /XObject << /Im0 4 0 R /Im1 5 0 R >> >> >>\nendobj\n" +
+			"4 0 obj\n<< /Type /XObject /Subtype /Image /Filter /DCTDecode /Length 16 >>\nstream\n" + string(jpegData) + "\nendstream\nendobj\n" +
+			"5 0 obj\n<< /Type /XObject /Subtype /Image /Filter /DCTDecode /Length 16 >>\nstream\n" + string(jpegData) + "\nendstream\nendobj\n")
+
+	imageBytes, contentType, ok := findPDFCoverPageAware(data, 10)
+	if !ok {
+		t.Fatal("findPDFCoverPageAware ok=false, want true")
+	}
+	if !called {
+		t.Fatal("renderPDFPageAsCoverFunc was not called despite the page having 2 images and no text-show operator")
+	}
+	if string(imageBytes) != "RENDERED-PNG-BYTES" || contentType != "image/png" {
+		t.Errorf("got %q/%q, want the rendered stand-in bytes/content-type", imageBytes, contentType)
+	}
+}

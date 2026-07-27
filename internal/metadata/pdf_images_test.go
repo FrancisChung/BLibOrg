@@ -276,3 +276,38 @@ func TestDecodePDFImageStream_DecodesFlateDecodeDeviceRGB(t *testing.T) {
 		t.Error("data is empty")
 	}
 }
+
+func TestPageHasMultipleImages_TrueWhenPageHasTwoOrMoreImages(t *testing.T) {
+	jpegData := []byte("\xFF\xD8\xFFfakejpegbytes")
+	data := []byte(
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+			"2 0 obj\n<< /Type /Pages /Kids [3 0 R] >>\nendobj\n" +
+			"3 0 obj\n<< /Type /Page /Resources << /XObject << /Im0 4 0 R /Im1 5 0 R >> >> >>\nendobj\n" +
+			"4 0 obj\n<< /Type /XObject /Subtype /Image /Filter /DCTDecode /Length 16 >>\nstream\n" + string(jpegData) + "\nendstream\nendobj\n" +
+			"5 0 obj\n<< /Type /XObject /Subtype /Image /Filter /DCTDecode /Length 16 >>\nstream\n" + string(jpegData) + "\nendstream\nendobj\n")
+	idx := buildPDFObjIndex(data)
+	pages, ok := walkPDFPageTree(idx, 10)
+	if !ok || len(pages) != 1 {
+		t.Fatalf("walkPDFPageTree ok=%v pages=%d, want ok=true pages=1", ok, len(pages))
+	}
+	if !pageHasMultipleImages(idx, pages[0]) {
+		t.Error("pageHasMultipleImages = false, want true (page has 2 image XObjects)")
+	}
+}
+
+func TestPageHasMultipleImages_FalseWhenPageHasOneImage(t *testing.T) {
+	jpegData := []byte("\xFF\xD8\xFFfakejpegbytes")
+	data := []byte(
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+			"2 0 obj\n<< /Type /Pages /Kids [3 0 R] >>\nendobj\n" +
+			"3 0 obj\n<< /Type /Page /Resources << /XObject << /Im0 4 0 R >> >> >>\nendobj\n" +
+			"4 0 obj\n<< /Type /XObject /Subtype /Image /Filter /DCTDecode /Length 16 >>\nstream\n" + string(jpegData) + "\nendstream\nendobj\n")
+	idx := buildPDFObjIndex(data)
+	pages, ok := walkPDFPageTree(idx, 10)
+	if !ok || len(pages) != 1 {
+		t.Fatalf("walkPDFPageTree ok=%v pages=%d, want ok=true pages=1", ok, len(pages))
+	}
+	if pageHasMultipleImages(idx, pages[0]) {
+		t.Error("pageHasMultipleImages = true, want false (page has only 1 image XObject)")
+	}
+}

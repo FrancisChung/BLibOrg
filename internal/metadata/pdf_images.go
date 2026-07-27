@@ -58,6 +58,20 @@ func findPDFPageImages(idx *pdfObjIndex, pages []pdfPage, stopAtFirst bool) []pd
 	return found
 }
 
+// pageHasMultipleImages reports whether page contains more than one
+// qualifying image XObject -- a second signal (independent of
+// pageContentSuggestsCompositeCover's text-operator check, pdf_render.go)
+// that the page's true visual cover can't be recovered by extracting a
+// single image alone: real-world cover art is sometimes composed from
+// several layered/tiled images (a background texture plus a separate
+// logo, or several texture tiles), with no text-show operator at all if
+// the title itself is flattened into one of those images. Either signal
+// alone is sufficient for findPDFCoverPageAware (pdf.go) to prefer a
+// full-page render over the first raw image found.
+func pageHasMultipleImages(idx *pdfObjIndex, page pdfPage) bool {
+	return len(findPDFPageImages(idx, []pdfPage{page}, false)) > 1
+}
+
 // findImagesInXObjects scans xobjects (a page's or a Form XObject's own
 // /XObject dict) for qualifying images, recursing into any /Subtype
 // /Form entries found up to maxFormXObjectDepth levels. visited guards

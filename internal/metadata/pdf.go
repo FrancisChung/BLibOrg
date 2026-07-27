@@ -311,7 +311,7 @@ func findPDFCoverPageAware(data []byte, pageLimit int) ([]byte, string, bool) {
 	if pages, ok := walkPDFPageTree(idx, pageLimit); ok {
 		if images := findPDFPageImages(idx, pages, true); len(images) > 0 {
 			img := images[0]
-			if page, found := findPageByNumber(pages, img.page); found && pageContentSuggestsCompositeCover(idx, page) {
+			if page, found := findPageByNumber(pages, img.page); found && (pageContentSuggestsCompositeCover(idx, page) || pageHasMultipleImages(idx, page)) {
 				if renderedBytes, renderedContentType, ok := renderPDFPageAsCoverFunc(data, img.page); ok {
 					return renderedBytes, renderedContentType, true
 				}
