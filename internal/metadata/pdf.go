@@ -301,11 +301,14 @@ var renderPDFPageAsCoverFunc = renderPDFPageAsCover
 // an early page has an image XObject this package's decoders don't
 // understand (e.g. JPXDecode/JPEG 2000 -- see
 // findFirstPageWithUndecodableImage, pdf_images.go), that page is
-// rendered in full the same way. If the page tree can't be resolved at
-// all, or neither of those signals turns up anything within the page
-// limit, it falls back to findPDFCover's whole-file byte-order scan --
-// so this is never worse than the pre-page-aware behavior, only better
-// when a real page tree is present.
+// rendered in full the same way. If neither of those signals turns up
+// anything at all within the page limit -- no decodable or undecodable
+// image on any scanned page -- page 1 is rendered in full as a last
+// resort, recovering entirely vector-drawn covers (covers with only text
+// and line art, no raster images). If the page tree can't be resolved at
+// all, or the page-1 render also fails, it falls back to findPDFCover's
+// whole-file byte-order scan -- so this is never worse than the
+// pre-page-aware behavior, only better when a real page tree is present.
 func findPDFCoverPageAware(data []byte, pageLimit int) ([]byte, string, bool) {
 	idx := buildPDFObjIndex(data)
 	if pages, ok := walkPDFPageTree(idx, pageLimit); ok {
