@@ -60,7 +60,7 @@ func (a *App) UndoBatch(batchID string) error {
 }
 
 func (a *App) ListLibrary(forceRefresh bool) (appapi.LibraryView, error) {
-	return a.api.ListLibrary(forceRefresh)
+	return a.api.ListLibrary(forceRefresh, nil)
 }
 
 func (a *App) ListPDFCoverCandidates(bookPath string) ([]appapi.CoverCandidateView, error) {
