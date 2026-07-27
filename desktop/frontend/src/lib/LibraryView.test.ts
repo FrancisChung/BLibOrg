@@ -7,8 +7,12 @@ vi.mock('../../wailsjs/go/main/App', () => ({
   ListLibrary: vi.fn(),
   OpenFile: vi.fn(),
 }));
+vi.mock('../../wailsjs/runtime/runtime', () => ({
+  EventsOn: vi.fn(() => () => {}),
+}));
 
 import { ListLibrary } from '../../wailsjs/go/main/App';
+import { EventsOn } from '../../wailsjs/runtime/runtime';
 
 function makeBook(overrides: Partial<LibraryBookView> = {}): LibraryBookView {
   return {
@@ -114,5 +118,37 @@ describe('LibraryView', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
 
     expect(ListLibrary).toHaveBeenLastCalledWith(true);
+  });
+
+  it('shows elapsed time immediately, then the book counter once a progress event lands, and unsubscribes when done', async () => {
+    vi.useFakeTimers();
+
+    let resolveList!: (v: { books: LibraryBookView[]; categories: string[] }) => void;
+    const pending = new Promise<{ books: LibraryBookView[]; categories: string[] }>((resolve) => {
+      resolveList = resolve;
+    });
+    vi.mocked(ListLibrary).mockReturnValue(pending);
+
+    let progressHandler: (p: { done: number; total: number }) => void = () => {};
+    const unsubscribe = vi.fn();
+    vi.mocked(EventsOn).mockImplementation((_name, cb) => {
+      progressHandler = cb;
+      return unsubscribe;
+    });
+
+    render(LibraryView, { category: '' });
+
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(screen.getByText('Loading library… 2s')).toBeInTheDocument();
+
+    progressHandler({ done: 3, total: 10 });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(screen.getByText('Loading library… 3 / 10 books · 3s')).toBeInTheDocument();
+
+    resolveList({ books: [], categories: [] });
+    await screen.findByText('No books found in the library folder yet.');
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+
+    vi.useRealTimers();
   });
 });
