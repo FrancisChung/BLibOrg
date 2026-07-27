@@ -229,6 +229,38 @@ func TestPageContentSuggestsCompositeCover_DetectsArrayFormTJWithNoPrecedingSpac
 	}
 }
 
+func TestPageContentSuggestsCompositeCover_TrueWhenTextIsInsideFormXObject(t *testing.T) {
+	// Reproduces the real "Understanding Distributed Systems" bug: the
+	// page's own /Contents stream only invokes a single top-level Form
+	// XObject ("/Fm0 Do"); the actual image draw AND the title text-show
+	// operator are both inside THAT form's own content stream, not the
+	// page's. The page-level /Contents check alone never sees the text,
+	// so pageContentSuggestsCompositeCover always returned false for this
+	// shape, and plain image-XObject extraction returned just the lone
+	// embedded image (e.g. a stock photo used partway down the real
+	// cover) instead of the full composited page.
+	pageContent := "/Fm0 Do"
+	formContent := "q 200 0 0 200 0 0 cm /Im0 Do Q BT /F1 12 Tf 10 10 Td (Title Text) Tj ET"
+	data := []byte(
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+			"2 0 obj\n<< /Type /Pages /Kids [3 0 R] >>\nendobj\n" +
+			"3 0 obj\n<< /Type /Page /Parent 2 0 R /Resources << /XObject << /Fm0 6 0 R >> >> /Contents 5 0 R >>\nendobj\n" +
+			"5 0 obj\n<< /Length 7 >>\nstream\n" + pageContent + "\nendstream\nendobj\n" +
+			"6 0 obj\n<< /Type /XObject /Subtype /Form /Resources << /XObject << /Im0 7 0 R >> /Font << /F1 8 0 R >> >> /Length 71 >>\nstream\n" + formContent + "\nendstream\nendobj\n" +
+			"7 0 obj\n<< /Type /XObject /Subtype /Image /Filter /DCTDecode /Length 16 >>\nstream\n\xFF\xD8\xFFfakejpegbytes\nendstream\nendobj\n" +
+			"8 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n")
+
+	idx := buildPDFObjIndex(data)
+	pages, ok := walkPDFPageTree(idx, 10)
+	if !ok || len(pages) != 1 {
+		t.Fatalf("walkPDFPageTree ok=%v pages=%d, want ok=true pages=1", ok, len(pages))
+	}
+
+	if !pageContentSuggestsCompositeCover(idx, pages[0]) {
+		t.Error("pageContentSuggestsCompositeCover = false, want true -- the text-show operator lives inside the page's Form XObject, not its own /Contents stream")
+	}
+}
+
 func TestPDFiumMutex_SerializesConcurrentAccess(t *testing.T) {
 	// Directly exercises pdfiumMu itself (same package, so the unexported
 	// mutex is reachable) rather than driving real, slow PDFium render

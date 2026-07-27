@@ -21,7 +21,7 @@ import (
 // added in Plan A, or a new colorspace/filter becoming decodable) -- not
 // for changes that only affect Title/Author/Year, and not for changes
 // that only affect files this logic couldn't already handle.
-const CoverExtractorVersion = 7 // bumped: a page with more than one qualifying image XObject now also triggers a full-page composite render (previously only a text-show operator did), so cover art composed from several layered/tiled images no longer returns an arbitrary single layer.
+const CoverExtractorVersion = 8 // bumped: composite-cover detection now recurses into a page's Form XObjects to find a text-show operator nested inside one (previously only the page's own /Contents stream was checked directly), so a page that wraps its whole visual content in a single top-level Form no longer returns just its lone embedded image instead of the full composited page.
 
 // MetadataExtractorVersion identifies the current Title/Author/Year
 // extraction logic, parallel to CoverExtractorVersion but tracked

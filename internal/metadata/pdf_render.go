@@ -158,28 +158,88 @@ func pageContentSuggestsCompositeCover(idx *pdfObjIndex, page pdfPage) bool {
 		if !hasStream {
 			continue
 		}
-		// Content streams aren't required to declare a /Filter -- only
-		// attempt zlib decompression when one is explicitly present
-		// (the same check decodeFlatePDFImage uses for image streams,
-		// pdf_flate.go), otherwise treat the stream as already-plain
-		// content-operator bytes. This avoids ever running the
-		// text-operator regex over corrupted/truncated compressed
-		// binary, which a blind try/fallback could do.
-		content := stream
-		if pdfFlateDecodeRe.Match(dict) {
-			r, err := zlib.NewReader(bytes.NewReader(stream))
-			if err != nil {
-				continue
-			}
-			decompressed, err := io.ReadAll(r)
-			r.Close()
-			if err != nil {
-				continue
-			}
-			content = decompressed
-		}
-		if matchesTextShowOperator(content) {
+		if matchesTextShowOperator(decodePDFContentStream(dict, stream)) {
 			return true
+		}
+	}
+
+	// The page's own /Contents stream(s) may draw nothing but "/Fm0 Do"
+	// -- a single top-level Form XObject wrapping everything (image and
+	// text alike), the shape real prepress/print-registration output
+	// commonly produces. In that case the loop above finds no text-show
+	// operator at all, even though the page visually has one, because
+	// it's nested inside the Form's own content stream instead.
+	if resources, ok := resolveDictValue(idx, page.dict, "Resources"); ok {
+		if xobjects, ok := resolveDictValue(idx, resources, "XObject"); ok {
+			return formXObjectContainsTextShowOperator(idx, xobjects, 0, map[int]bool{})
+		}
+	}
+	return false
+}
+
+// decodePDFContentStream returns stream's plain content-operator bytes,
+// inflating it first if dict declares FlateDecode -- the shared
+// decompression step pageContentSuggestsCompositeCover needs for both a
+// page's own /Contents stream(s) and a Form XObject's own stream.
+// Content streams aren't required to declare a /Filter -- only attempt
+// zlib decompression when one is explicitly present (the same check
+// decodeFlatePDFImage uses for image streams, pdf_flate.go), otherwise
+// treat the stream as already-plain bytes. This avoids ever running the
+// text-operator regex over corrupted/truncated compressed binary, which
+// a blind try/fallback could do. Returns stream unchanged if inflation
+// fails.
+func decodePDFContentStream(dict, stream []byte) []byte {
+	if !pdfFlateDecodeRe.Match(dict) {
+		return stream
+	}
+	r, err := zlib.NewReader(bytes.NewReader(stream))
+	if err != nil {
+		return stream
+	}
+	decompressed, err := io.ReadAll(r)
+	r.Close()
+	if err != nil {
+		return stream
+	}
+	return decompressed
+}
+
+// formXObjectContainsTextShowOperator recurses into xobjects (a page's or
+// nested Form's own /XObject dict) looking for a /Subtype /Form entry
+// whose own content stream contains a text-show operator -- the
+// composite-cover signal pageContentSuggestsCompositeCover's own
+// /Contents check can't see when a PDF producer wraps a whole page's
+// content inside a single top-level Form XObject invoked via "/Fm0 Do".
+// Mirrors findImagesInXObjects' traversal (pdf_images.go): same
+// maxFormXObjectDepth cap and cycle-guarding visited set, but checking
+// for a text-show operator instead of collecting images.
+func formXObjectContainsTextShowOperator(idx *pdfObjIndex, xobjects []byte, depth int, visited map[int]bool) bool {
+	if depth >= maxFormXObjectDepth {
+		return false
+	}
+	for _, ref := range pdfXObjectEntryRe.FindAllSubmatch(xobjects, -1) {
+		objNum, err := strconv.Atoi(string(ref[1]))
+		if err != nil || visited[objNum] {
+			continue
+		}
+		body, ok := idx.lookup(objNum)
+		if !ok {
+			continue
+		}
+		dict, stream, hasStream := splitPDFObjectBody(body)
+		if !hasStream || !pdfSubtypeFormRe.Match(dict) {
+			continue
+		}
+		visited[objNum] = true
+		if matchesTextShowOperator(decodePDFContentStream(dict, stream)) {
+			return true
+		}
+		if formResources, ok := resolveDictValue(idx, dict, "Resources"); ok {
+			if formXObjects, ok := resolveDictValue(idx, formResources, "XObject"); ok {
+				if formXObjectContainsTextShowOperator(idx, formXObjects, depth+1, visited) {
+					return true
+				}
+			}
 		}
 	}
 	return false
