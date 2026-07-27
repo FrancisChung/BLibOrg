@@ -186,20 +186,21 @@ func pageContentSuggestsCompositeCover(idx *pdfObjIndex, page pdfPage) bool {
 // decodeFlatePDFImage uses for image streams, pdf_flate.go), otherwise
 // treat the stream as already-plain bytes. This avoids ever running the
 // text-operator regex over corrupted/truncated compressed binary, which
-// a blind try/fallback could do. Returns stream unchanged if inflation
-// fails.
+// a blind try/fallback could do. Returns nil if inflation fails, so the
+// caller's regex check against the still-compressed bytes safely reports
+// no match instead of scanning raw compressed binary.
 func decodePDFContentStream(dict, stream []byte) []byte {
 	if !pdfFlateDecodeRe.Match(dict) {
 		return stream
 	}
 	r, err := zlib.NewReader(bytes.NewReader(stream))
 	if err != nil {
-		return stream
+		return nil
 	}
 	decompressed, err := io.ReadAll(r)
 	r.Close()
 	if err != nil {
-		return stream
+		return nil
 	}
 	return decompressed
 }

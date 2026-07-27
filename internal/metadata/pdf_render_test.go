@@ -2,6 +2,7 @@ package metadata
 
 import (
 	"bytes"
+	"compress/zlib"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -258,6 +259,78 @@ func TestPageContentSuggestsCompositeCover_TrueWhenTextIsInsideFormXObject(t *te
 
 	if !pageContentSuggestsCompositeCover(idx, pages[0]) {
 		t.Error("pageContentSuggestsCompositeCover = false, want true -- the text-show operator lives inside the page's Form XObject, not its own /Contents stream")
+	}
+}
+
+// TestPageContentSuggestsCompositeCover_TrueWhenContentStreamIsFlateDecoded
+// proves decodePDFContentStream's successful-inflation path still works:
+// a page whose /Contents object genuinely declares /Filter /FlateDecode
+// and whose stream bytes are real zlib-compressed content (an image draw
+// plus a BT/Tj text-show block) must still be detected as a composite
+// cover once inflated, not left as opaque compressed bytes.
+func TestPageContentSuggestsCompositeCover_TrueWhenContentStreamIsFlateDecoded(t *testing.T) {
+	contentOps := "q 200 0 0 200 0 0 cm /Im0 Do Q BT /F1 12 Tf 10 10 Td (Author Name) Tj ET"
+	var compressed bytes.Buffer
+	w := zlib.NewWriter(&compressed)
+	if _, err := w.Write([]byte(contentOps)); err != nil {
+		t.Fatalf("zlib write: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("zlib close: %v", err)
+	}
+
+	var data bytes.Buffer
+	data.WriteString("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n")
+	data.WriteString("2 0 obj\n<< /Type /Pages /Kids [3 0 R] >>\nendobj\n")
+	data.WriteString("3 0 obj\n<< /Type /Page /Parent 2 0 R /Resources << /XObject << /Im0 4 0 R >> /Font << /F1 6 0 R >> >> /Contents 5 0 R >>\nendobj\n")
+	data.WriteString("4 0 obj\n<< /Type /XObject /Subtype /Image /Filter /DCTDecode /Length 16 >>\nstream\n\xFF\xD8\xFFfakejpegbytes\nendstream\nendobj\n")
+	fmt.Fprintf(&data, "5 0 obj\n<< /Filter /FlateDecode /Length %d >>\nstream\n", compressed.Len())
+	data.Write(compressed.Bytes())
+	data.WriteString("\nendstream\nendobj\n")
+	data.WriteString("6 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n")
+
+	idx := buildPDFObjIndex(data.Bytes())
+	pages, ok := walkPDFPageTree(idx, 10)
+	if !ok || len(pages) != 1 {
+		t.Fatalf("walkPDFPageTree ok=%v pages=%d, want ok=true pages=1", ok, len(pages))
+	}
+
+	if !pageContentSuggestsCompositeCover(idx, pages[0]) {
+		t.Error("pageContentSuggestsCompositeCover = false, want true -- the /Contents stream is validly FlateDecode-compressed and decodePDFContentStream must inflate it before the text-show regex runs")
+	}
+}
+
+// TestPageContentSuggestsCompositeCover_FalseWhenFlateDecodeStreamIsCorrupted
+// is the regression test for the bug this task fixes: a /Contents object
+// that declares /Filter /FlateDecode but whose stream bytes are NOT valid
+// zlib (so decodePDFContentStream's inflation fails) must be skipped
+// entirely, not regex-scanned as raw compressed bytes. The garbage bytes
+// below deliberately embed the literal ASCII "Tj" -- before this task's
+// fix, decodePDFContentStream returned the still-compressed stream
+// unchanged on inflation failure, and pageContentSuggestsCompositeCover's
+// caller then ran matchesTextShowOperator directly against those raw
+// bytes, finding this planted "Tj" and reporting a false composite-cover
+// match. With the fix (return nil on inflation failure), no match is
+// found and this test correctly gets false.
+func TestPageContentSuggestsCompositeCover_FalseWhenFlateDecodeStreamIsCorrupted(t *testing.T) {
+	garbage := []byte("not valid zlib data but it happens to contain Tj right here")
+
+	var data bytes.Buffer
+	data.WriteString("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n")
+	data.WriteString("2 0 obj\n<< /Type /Pages /Kids [3 0 R] >>\nendobj\n")
+	data.WriteString("3 0 obj\n<< /Type /Page /Parent 2 0 R /Contents 5 0 R >>\nendobj\n")
+	fmt.Fprintf(&data, "5 0 obj\n<< /Filter /FlateDecode /Length %d >>\nstream\n", len(garbage))
+	data.Write(garbage)
+	data.WriteString("\nendstream\nendobj\n")
+
+	idx := buildPDFObjIndex(data.Bytes())
+	pages, ok := walkPDFPageTree(idx, 10)
+	if !ok || len(pages) != 1 {
+		t.Fatalf("walkPDFPageTree ok=%v pages=%d, want ok=true pages=1", ok, len(pages))
+	}
+
+	if pageContentSuggestsCompositeCover(idx, pages[0]) {
+		t.Error("pageContentSuggestsCompositeCover = true, want false -- the FlateDecode stream fails to inflate, so its raw compressed bytes (which happen to contain a literal \"Tj\") must NOT be regex-scanned directly")
 	}
 }
 
