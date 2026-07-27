@@ -430,32 +430,36 @@ func TestFindPDFCoverPageAware_RendersFullPageWhenOnlyImageHasUnsupportedFilter(
 	orig := renderPDFPageAsCoverFunc
 	defer func() { renderPDFPageAsCoverFunc = orig }()
 
-	called := false
-	var calledWithPage int
+	var renderedPages []int
 	renderPDFPageAsCoverFunc = func(data []byte, pageNum int) ([]byte, string, bool) {
-		called = true
-		calledWithPage = pageNum
-		return []byte("RENDERED-PNG-BYTES"), "image/png", true
+		renderedPages = append(renderedPages, pageNum)
+		// Page 1 has zero images (kept empty to skip new early tier) so render
+		// will fail; page 2 has the JPX image and should be rendered.
+		if pageNum == 1 {
+			return nil, "", false
+		}
+		if pageNum == 2 {
+			return []byte("RENDERED-PNG-BYTES"), "image/png", true
+		}
+		return nil, "", false
 	}
 
 	data := []byte(
 		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
-			"2 0 obj\n<< /Type /Pages /Kids [3 0 R] >>\nendobj\n" +
-			"3 0 obj\n<< /Type /Page /Resources << /XObject << /Im0 4 0 R >> >> >>\nendobj\n" +
-			"4 0 obj\n<< /Type /XObject /Subtype /Image /Filter /JPXDecode /Length 10 >>\nstream\njpxbytes12\nendstream\nendobj\n")
+			"2 0 obj\n<< /Type /Pages /Kids [3 0 R 4 0 R] >>\nendobj\n" +
+			"3 0 obj\n<< /Type /Page /Parent 2 0 R >>\nendobj\n" + // page 1: empty (no images)
+			"4 0 obj\n<< /Type /Page /Parent 2 0 R /Resources << /XObject << /Im0 5 0 R >> >> >>\nendobj\n" + // page 2: JPX image
+			"5 0 obj\n<< /Type /XObject /Subtype /Image /Filter /JPXDecode /Length 10 >>\nstream\njpxbytes12\nendstream\nendobj\n")
 
 	imageBytes, contentType, ok := findPDFCoverPageAware(data, 10)
 	if !ok {
 		t.Fatal("findPDFCoverPageAware ok=false, want true")
 	}
-	if !called {
-		t.Fatal("renderPDFPageAsCoverFunc was not called despite an undecodable-filter image")
-	}
-	if calledWithPage != 1 {
-		t.Errorf("called with page %d, want 1", calledWithPage)
+	if len(renderedPages) < 2 || renderedPages[1] != 2 {
+		t.Fatalf("renderedPages = %v, want page 1 to fail and then page 2 (JPX) to be rendered", renderedPages)
 	}
 	if string(imageBytes) != "RENDERED-PNG-BYTES" || contentType != "image/png" {
-		t.Errorf("got %q/%q, want the rendered stand-in bytes/content-type", imageBytes, contentType)
+		t.Errorf("got %q/%q, want the rendered page 2 bytes/content-type", imageBytes, contentType)
 	}
 }
 
@@ -463,34 +467,79 @@ func TestFindPDFCoverPageAware_FallsBackToWholeFileScanWhenUndecodableImageRende
 	orig := renderPDFPageAsCoverFunc
 	defer func() { renderPDFPageAsCoverFunc = orig }()
 
-	called := false
+	var renderedPages []int
 	renderPDFPageAsCoverFunc = func(data []byte, pageNum int) ([]byte, string, bool) {
-		called = true
-		return nil, "", false // simulate a PDFium failure
+		renderedPages = append(renderedPages, pageNum)
+		return nil, "", false // simulate a PDFium failure for both page 1 and page 2
 	}
 
 	jpegData := []byte("\xFF\xD8\xFFfallbackjpegbytes")
 	data := []byte(
 		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
-			"2 0 obj\n<< /Type /Pages /Kids [3 0 R] >>\nendobj\n" +
-			"3 0 obj\n<< /Type /Page /Resources << /XObject << /Im0 4 0 R >> >> >>\nendobj\n" +
-			"4 0 obj\n<< /Type /XObject /Subtype /Image /Filter /JPXDecode /Length 10 >>\nstream\njpxbytes12\nendstream\nendobj\n" +
-			"5 0 obj\n<< /Type /XObject /Subtype /Image /Filter /DCTDecode /Length 20 >>\nstream\n" + string(jpegData) + "\nendstream\nendobj\n")
+			"2 0 obj\n<< /Type /Pages /Kids [3 0 R 4 0 R] >>\nendobj\n" +
+			"3 0 obj\n<< /Type /Page /Parent 2 0 R >>\nendobj\n" + // page 1: empty (no images)
+			"4 0 obj\n<< /Type /Page /Parent 2 0 R /Resources << /XObject << /Im0 5 0 R >> >> >>\nendobj\n" + // page 2: JPX image
+			"5 0 obj\n<< /Type /XObject /Subtype /Image /Filter /JPXDecode /Length 10 >>\nstream\njpxbytes12\nendstream\nendobj\n" +
+			"6 0 obj\n<< /Type /XObject /Subtype /Image /Filter /DCTDecode /Length 20 >>\nstream\n" + string(jpegData) + "\nendstream\nendobj\n")
 
 	imageBytes, contentType, ok := findPDFCoverPageAware(data, 10)
-	if !called {
+	if len(renderedPages) < 2 {
 		// Without this check, deleting the undecodable-image fallback
 		// entirely would still pass this test via findPDFCover's
 		// whole-file scan alone -- this pins that the fallback chain
-		// (attempt PDFium render, then fall through on failure) is what
+		// (attempt PDFium render on both page 1 and page 2, then fall through on failure) is what
 		// actually ran, not a coincidental pass.
-		t.Fatal("renderPDFPageAsCoverFunc was not called; this test doesn't exercise the undecodable-image fallback at all")
+		t.Fatal("renderPDFPageAsCoverFunc was not called for both pages; this test doesn't exercise the undecodable-image fallback at all")
+	}
+	if renderedPages[1] != 2 {
+		t.Fatalf("expected page 2 (JPX) to be rendered, but renders were %v", renderedPages)
 	}
 	if !ok {
 		t.Fatal("findPDFCoverPageAware ok=false, want true (whole-file fallback should still find the DCTDecode image)")
 	}
 	if contentType != "image/jpeg" || string(imageBytes) != string(jpegData) {
 		t.Errorf("got %q/%q, want the whole-file-scan-found DCTDecode image", imageBytes, contentType)
+	}
+}
+
+func TestFindPDFCoverPageAware_ReturnsLaterPageImageWhenPage1RenderFailsAndLaterPageHasDecodable(t *testing.T) {
+	// Reproduces a path that must remain functional: page 1 is empty
+	// (triggering the new early tier's render attempt), that render fails,
+	// the page-order image scan finds a decodable image on page 2, and
+	// returns it raw (since page 2 has no composite-cover signal). This
+	// exercises the recovery path when the new tier's own render fails but
+	// a later page has a usable image -- old behavior fully preserved.
+	orig := renderPDFPageAsCoverFunc
+	defer func() { renderPDFPageAsCoverFunc = orig }()
+
+	var renderedPages []int
+	renderPDFPageAsCoverFunc = func(data []byte, pageNum int) ([]byte, string, bool) {
+		renderedPages = append(renderedPages, pageNum)
+		// Page 1 render fails (new tier's render attempt); page 2 render not attempted
+		// because page 2's decodable image is returned raw (no composite signal)
+		return nil, "", false
+	}
+
+	jpegData := []byte("\xFF\xD8\xFFpage2decodable")
+	data := []byte(
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+			"2 0 obj\n<< /Type /Pages /Kids [3 0 R 4 0 R] >>\nendobj\n" +
+			"3 0 obj\n<< /Type /Page /Parent 2 0 R >>\nendobj\n" + // page 1: empty (no images, triggers new tier)
+			"4 0 obj\n<< /Type /Page /Parent 2 0 R /Resources << /XObject << /Im0 5 0 R >> >> >>\nendobj\n" + // page 2: decodable image
+			"5 0 obj\n<< /Type /XObject /Subtype /Image /Filter /DCTDecode /Length 16 >>\nstream\n" + string(jpegData) + "\nendstream\nendobj\n")
+
+	imageBytes, contentType, ok := findPDFCoverPageAware(data, 10)
+	if !ok {
+		t.Fatal("findPDFCoverPageAware ok=false, want true")
+	}
+	if len(renderedPages) == 0 || renderedPages[0] != 1 {
+		t.Fatalf("renderedPages = %v, want first render attempt to be page 1 (new tier)", renderedPages)
+	}
+	if len(renderedPages) > 1 {
+		t.Fatalf("renderedPages = %v, want page 2's raw image returned without rendering (no composite signal)", renderedPages)
+	}
+	if contentType != "image/jpeg" || string(imageBytes) != string(jpegData) {
+		t.Errorf("got %q/%q, want page 2's raw decodable image returned directly", imageBytes, contentType)
 	}
 }
 
