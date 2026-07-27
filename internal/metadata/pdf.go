@@ -42,13 +42,31 @@ func unescapePDFBytes(s string) []byte {
 	for i := 0; i < len(s); i++ {
 		if s[i] == '\\' && i+1 < len(s) {
 			i++
-			switch s[i] {
-			case 'n':
+			switch {
+			case s[i] == 'n':
 				out = append(out, '\n')
-			case 'r':
+			case s[i] == 'r':
 				out = append(out, '\r')
-			case 't':
+			case s[i] == 't':
 				out = append(out, '\t')
+			case s[i] >= '0' && s[i] <= '7':
+				// PDF literal strings support a \ddd escape (1-3 octal
+				// digits) for embedding an arbitrary byte value -- the
+				// only way to write a control byte like a UTF-16BE
+				// byte-order-mark (0xFE 0xFF) or a raw NUL inside
+				// "(...)" syntax, and real producers also use it for
+				// stray ASCII punctuation (e.g. \072 for a colon).
+				// Consume up to 2 more octal digits beyond the one
+				// already at s[i]; a value over 255 (e.g. \777 = 511)
+				// truncates to its low 8 bits via the byte() conversion
+				// below, matching the spec's "high-order overflow shall
+				// be ignored" rule.
+				val := int(s[i] - '0')
+				for digits := 1; digits < 3 && i+1 < len(s) && s[i+1] >= '0' && s[i+1] <= '7'; digits++ {
+					i++
+					val = val*8 + int(s[i]-'0')
+				}
+				out = append(out, byte(val))
 			default:
 				out = append(out, s[i])
 			}

@@ -95,6 +95,76 @@ func TestExtractPDF_UTF16BEEncodedStrings(t *testing.T) {
 	}
 }
 
+func TestExtractPDF_OctalEscapedUTF16BETitle(t *testing.T) {
+	// Reproduces the real "Build Your Own Database From Scratch in
+	// Go"/"Practical FP in Scala" bug: some PDF producers write a
+	// literal string's UTF-16BE BOM and content bytes as \ddd octal
+	// escapes (the only way to embed a raw NUL or 0xFE/0xFF byte inside
+	// "(...)" syntax) rather than embedding them unescaped -- unlike
+	// TestExtractPDF_UTF16BEEncodedStrings' fixture, which writes those
+	// same byte values directly, never exercising escape parsing at all.
+	// Before this fix, unescapePDFBytes only recognized \n/\r/\t; any
+	// other character after a backslash (including an octal digit) fell
+	// through to its default case, which appended the backslash's target
+	// byte unchanged -- turning \376\377\000B... into the literal digit
+	// text "376377000B...".
+	fixture := "%PDF-1.4\n" +
+		"1 0 obj\n<< /Title (\\376\\377\\000B\\000o\\000o\\000k) /Author (Plain Author) >>\nendobj\n" +
+		"trailer\n<< /Root 1 0 R /Info 1 0 R >>\n%%EOF"
+	path := writePDFFixture(t, fixture)
+
+	result, err := extractPDF(path, 10)
+	if err != nil {
+		t.Fatalf("extractPDF returned error: %v", err)
+	}
+	if result.Title != "Book" {
+		t.Errorf("Title = %q, want %q", result.Title, "Book")
+	}
+}
+
+func TestExtractPDF_OctalEscapedASCIIPunctuation(t *testing.T) {
+	// Reproduces the real "AI Product Management" bug: a single
+	// octal-escaped ASCII punctuation character (a colon, \072 = 0x3A)
+	// mixed into an otherwise-plain-ASCII title.
+	fixture := "%PDF-1.4\n" +
+		"1 0 obj\n<< /Title (AI Product Management\\072 A Practical Guide) /Author (Plain Author) >>\nendobj\n" +
+		"trailer\n<< /Root 1 0 R /Info 1 0 R >>\n%%EOF"
+	path := writePDFFixture(t, fixture)
+
+	result, err := extractPDF(path, 10)
+	if err != nil {
+		t.Fatalf("extractPDF returned error: %v", err)
+	}
+	if result.Title != "AI Product Management: A Practical Guide" {
+		t.Errorf("Title = %q, want %q", result.Title, "AI Product Management: A Practical Guide")
+	}
+}
+
+func TestUnescapePDFBytes_OctalEscapeOverflowTruncatesToOneByte(t *testing.T) {
+	// The PDF spec requires "high-order overflow shall be ignored" for a
+	// \ddd value greater than 255 (octal \777 = decimal 511) -- Go's
+	// byte(511) conversion already truncates to the low 8 bits (255),
+	// which is exactly equivalent to mod 256, so this pins that the
+	// straightforward implementation has the spec-correct behavior
+	// without needing an explicit modulo.
+	got := unescapePDFBytes(`\777`)
+	if len(got) != 1 || got[0] != 255 {
+		t.Errorf("unescapePDFBytes(`\\777`) = %v, want a single byte 255", got)
+	}
+}
+
+func TestUnescapePDFBytes_PreservesExistingEscapes(t *testing.T) {
+	// Regression check: \n, \r, \t, and a backslash-escaped literal
+	// character (e.g. "\(" for a literal paren) must keep working
+	// exactly as before -- this fix only adds a new case (octal digits),
+	// it must not change the existing ones.
+	got := unescapePDFBytes(`a\nb\rc\td\(e\)f`)
+	want := "a\nb\rc\td(e)f"
+	if string(got) != want {
+		t.Errorf("unescapePDFBytes(...) = %q, want %q", got, want)
+	}
+}
+
 func TestExtractPDF_Latin1EncodedAuthor(t *testing.T) {
 	// No UTF-16BE BOM here -- this is how a single non-ASCII character
 	// (e.g. "Jörg") shows up in real PDFs as a raw PDFDocEncoding/Latin-1

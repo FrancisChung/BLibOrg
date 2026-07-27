@@ -34,7 +34,7 @@ const CoverExtractorVersion = 6 // bumped: the page-tree walker now resolves an 
 // cached entry. Bump this whenever a change here could cause an
 // already-scanned file to yield a different Title/Author/Year than
 // before -- not for changes that only affect cover bytes.
-const MetadataExtractorVersion = 4 // bumped: findInfoDictBody now prefers whichever classic trailer actually declares /Info, not simply the byte-order-last one -- a linearized PDF's tail trailer commonly lacks /Info entirely, which could change which Info dict object (and hence Title/Author/Subject) is used for an already-scanned file.
+const MetadataExtractorVersion = 5 // bumped: unescapePDFBytes now decodes \ddd octal-escape sequences in literal strings (previously only \n/\r/\t were recognized; any other escaped character, including an octal digit, passed through as literal text) -- a Title/Author using this escape shape now decodes correctly instead of showing garbled digit text.
 
 // Extract dispatches to the appropriate format-specific extractor based on
 // path's extension, then cleans the Title/Author it returns -- embedded
