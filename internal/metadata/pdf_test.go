@@ -1050,3 +1050,80 @@ func TestFindPDFCoverPageAware_FallsBackToWholeFileScanWhenPage1RenderFails(t *t
 		t.Errorf("got %q/%q, want the whole-file-scan-found DCTDecode image", imageBytes, contentType)
 	}
 }
+
+func TestFindPDFCoverPageAware_PrefersPage1RenderOverALaterPagesIncidentalImage(t *testing.T) {
+	// Reproduces the real "Atomic Kotlin"/"Auth Considerations for
+	// Kubernetes"/"Team Guide to Metrics for Business Decisions" (and 9
+	// other real books') bug: page 1 is the real, entirely vector-drawn
+	// cover (no raster image at all), but a LATER page -- here, a
+	// publisher's standard boilerplate title page -- has a small,
+	// unrelated image plus real title text. Before this fix,
+	// findPDFPageImages's page-order scan walked right past page 1 (it
+	// has zero images) and found that later page's icon instead, then
+	// rendered THAT page in full (since it also has a text-show
+	// operator) -- the wrong page. This test pins that page 1 wins.
+	orig := renderPDFPageAsCoverFunc
+	defer func() { renderPDFPageAsCoverFunc = orig }()
+
+	var renderedPages []int
+	renderPDFPageAsCoverFunc = func(data []byte, pageNum int) ([]byte, string, bool) {
+		renderedPages = append(renderedPages, pageNum)
+		if pageNum == 1 {
+			return []byte("PAGE-1-REAL-COVER"), "image/png", true
+		}
+		return []byte("WRONG-PAGE-RENDERED"), "image/png", true
+	}
+
+	logoData := []byte("\xFF\xD8\xFFtinylogo12")
+	textOps := "BT /F1 12 Tf 10 10 Td (Boilerplate Title Page) Tj ET"
+	data := []byte(
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+			"2 0 obj\n<< /Type /Pages /Kids [3 0 R 4 0 R] >>\nendobj\n" +
+			"3 0 obj\n<< /Type /Page /Parent 2 0 R >>\nendobj\n" + // page 1: no images, no text -- the real vector cover
+			"4 0 obj\n<< /Type /Page /Parent 2 0 R /Resources << /XObject << /Im0 5 0 R >> /Font << /F1 6 0 R >> >> /Contents 7 0 R >>\nendobj\n" + // page 2: has a small image + real text
+			"5 0 obj\n<< /Type /XObject /Subtype /Image /Filter /DCTDecode /Length 13 >>\nstream\n" + string(logoData) + "\nendstream\nendobj\n" +
+			"6 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n" +
+			"7 0 obj\n<< /Length 53 >>\nstream\n" + textOps + "\nendstream\nendobj\n")
+
+	imageBytes, contentType, ok := findPDFCoverPageAware(data, 10)
+	if !ok {
+		t.Fatal("findPDFCoverPageAware ok=false, want true")
+	}
+	if len(renderedPages) == 0 || renderedPages[0] != 1 {
+		t.Fatalf("renderedPages = %v, want the first render attempt to be page 1", renderedPages)
+	}
+	if string(imageBytes) != "PAGE-1-REAL-COVER" || contentType != "image/png" {
+		t.Errorf("got %q/%q, want page 1's rendered cover, not page 2's incidental image", imageBytes, contentType)
+	}
+}
+
+func TestFindPDFCoverPageAware_SkipsPage1PriorityCheckWhenPage1HasItsOwnImage(t *testing.T) {
+	// Regression guard: when page 1 already has a qualifying image (the
+	// common, already-correct case -- e.g. a real designer's cover with
+	// a raster background), the new page-1-priority check must not
+	// intervene at all. This is exactly the shape of the real "How to
+	// use OAuth to add Authentication to your React App" book, which
+	// already worked correctly before this fix.
+	orig := renderPDFPageAsCoverFunc
+	defer func() { renderPDFPageAsCoverFunc = orig }()
+
+	renderPDFPageAsCoverFunc = func(data []byte, pageNum int) ([]byte, string, bool) {
+		t.Fatal("renderPDFPageAsCoverFunc should not be called: page 1 has its own decodable image and no composite-cover signal, so the raw image should be returned directly")
+		return nil, "", false
+	}
+
+	jpegData := []byte("\xFF\xD8\xFFrealcoverbytes")
+	data := []byte(
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+			"2 0 obj\n<< /Type /Pages /Kids [3 0 R] >>\nendobj\n" +
+			"3 0 obj\n<< /Type /Page /Parent 2 0 R /Resources << /XObject << /Im0 4 0 R >> >> >>\nendobj\n" +
+			"4 0 obj\n<< /Type /XObject /Subtype /Image /Filter /DCTDecode /Length 17 >>\nstream\n" + string(jpegData) + "\nendstream\nendobj\n")
+
+	imageBytes, contentType, ok := findPDFCoverPageAware(data, 10)
+	if !ok {
+		t.Fatal("findPDFCoverPageAware ok=false, want true")
+	}
+	if contentType != "image/jpeg" || string(imageBytes) != string(jpegData) {
+		t.Errorf("got %q/%q, want page 1's own raw image returned directly, unrendered", imageBytes, contentType)
+	}
+}

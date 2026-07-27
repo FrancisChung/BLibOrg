@@ -21,7 +21,7 @@ import (
 // added in Plan A, or a new colorspace/filter becoming decodable) -- not
 // for changes that only affect Title/Author/Year, and not for changes
 // that only affect files this logic couldn't already handle.
-const CoverExtractorVersion = 9 // bumped: when no image (decodable or otherwise) is found anywhere within the page limit, findPDFCoverPageAware now renders page 1 in full before falling back to findPDFCover's unbounded whole-file scan -- recovering an entirely vector-drawn cover instead of returning an arbitrary interior image (or nothing) for books with no raster cover art at all.
+const CoverExtractorVersion = 10 // bumped: findPDFCoverPageAware now checks page 1 specifically, first -- if page 1 has zero qualifying images, it's rendered in full immediately, before the page-order image scan ever gets a chance to wander off to a later page's small, unrelated image (e.g. a publisher's boilerplate title page or an interior icon) and wrongly treat that page as the cover instead.
 
 // MetadataExtractorVersion identifies the current Title/Author/Year
 // extraction logic, parallel to CoverExtractorVersion but tracked

@@ -291,27 +291,42 @@ func findPDFCover(idx *pdfObjIndex, data []byte) ([]byte, string, bool) {
 var renderPDFPageAsCoverFunc = renderPDFPageAsCover
 
 // findPDFCoverPageAware is the primary cover-selection entry point: it
-// walks the page tree (walkPDFPageTree, pdf_pages.go) and returns the
-// first qualifying image found within the first pageLimit pages, in page
-// order. If that image's page also shows signs of being a composite
-// cover -- a text-show operator alongside the image, per
-// pageContentSuggestsCompositeCover -- the whole page is rendered in
-// full instead (renderPDFPageAsCover, pdf_render.go), falling back to the
-// raw image if rendering fails. If no image could be decoded at all but
-// an early page has an image XObject this package's decoders don't
+// walks the page tree (walkPDFPageTree, pdf_pages.go), and first checks
+// page 1 specifically -- if page 1 itself has zero qualifying images, it
+// is rendered in full immediately (renderPDFPageAsCover, pdf_render.go),
+// before any other page is ever considered. This matters because some
+// real covers are entirely vector-drawn (text and line art, no raster
+// image whatsoever), while the page-order image scan below, left
+// unchecked, would keep walking past such a page-1 to whatever LATER
+// page happens to have any image at all -- a publisher's standard
+// boilerplate title page with a small logo, or an interior page with an
+// incidental icon -- and wrongly treat that as "the cover" instead.
+//
+// If page 1 does have its own qualifying image (the common, already-
+// correct case), this check is skipped entirely and the function falls
+// through to its original behavior: return the first qualifying image
+// found within the first pageLimit pages, in page order. If that image's
+// page also shows signs of being a composite cover -- a text-show
+// operator alongside the image, or more than one qualifying image on the
+// page, per pageContentSuggestsCompositeCover/pageHasMultipleImages --
+// the whole page is rendered in full instead, falling back to the raw
+// image if rendering fails. If no image could be decoded at all but an
+// early page has an image XObject this package's decoders don't
 // understand (e.g. JPXDecode/JPEG 2000 -- see
 // findFirstPageWithUndecodableImage, pdf_images.go), that page is
-// rendered in full the same way. If neither of those signals turns up
-// anything at all within the page limit -- no decodable or undecodable
-// image on any scanned page -- page 1 is rendered in full as a last
-// resort, recovering entirely vector-drawn covers (covers with only text
-// and line art, no raster images). If the page tree can't be resolved at
-// all, or the page-1 render also fails, it falls back to findPDFCover's
+// rendered in full the same way. If the page tree can't be resolved at
+// all, or every render attempt fails, it falls back to findPDFCover's
 // whole-file byte-order scan -- so this is never worse than the
 // pre-page-aware behavior, only better when a real page tree is present.
 func findPDFCoverPageAware(data []byte, pageLimit int) ([]byte, string, bool) {
 	idx := buildPDFObjIndex(data)
 	if pages, ok := walkPDFPageTree(idx, pageLimit); ok {
+		firstPage := pages[0]
+		if len(findPDFPageImages(idx, []pdfPage{firstPage}, true)) == 0 {
+			if renderedBytes, renderedContentType, ok := renderPDFPageAsCoverFunc(data, firstPage.number); ok {
+				return renderedBytes, renderedContentType, true
+			}
+		}
 		if images := findPDFPageImages(idx, pages, true); len(images) > 0 {
 			img := images[0]
 			if page, found := findPageByNumber(pages, img.page); found && (pageContentSuggestsCompositeCover(idx, page) || pageHasMultipleImages(idx, page)) {
@@ -325,17 +340,6 @@ func findPDFCoverPageAware(data []byte, pageLimit int) ([]byte, string, bool) {
 			if renderedBytes, renderedContentType, ok := renderPDFPageAsCoverFunc(data, pageNum); ok {
 				return renderedBytes, renderedContentType, true
 			}
-		}
-		// Neither tier above found anything at all within the page
-		// limit: no image XObject on any scanned page (decodable or
-		// not). Some real covers are entirely vector-drawn (text and
-		// line art, no raster image whatsoever) -- rendering page 1 in
-		// full recovers exactly that cover, rather than falling all the
-		// way through to findPDFCover's unbounded whole-file scan, which
-		// has no notion of "page 1" and can return an arbitrary interior
-		// image (e.g. a chapter diagram) instead.
-		if renderedBytes, renderedContentType, ok := renderPDFPageAsCoverFunc(data, pages[0].number); ok {
-			return renderedBytes, renderedContentType, true
 		}
 	}
 	return findPDFCover(idx, data)
