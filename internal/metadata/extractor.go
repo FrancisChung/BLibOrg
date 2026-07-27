@@ -21,7 +21,7 @@ import (
 // added in Plan A, or a new colorspace/filter becoming decodable) -- not
 // for changes that only affect Title/Author/Year, and not for changes
 // that only affect files this logic couldn't already handle.
-const CoverExtractorVersion = 10 // bumped: findPDFCoverPageAware now checks page 1 specifically, first -- if page 1 has zero qualifying images, it's rendered in full immediately, before the page-order image scan ever gets a chance to wander off to a later page's small, unrelated image (e.g. a publisher's boilerplate title page or an interior icon) and wrongly treat that page as the cover instead.
+const CoverExtractorVersion = 11 // bumped: the page-1-first tier now excludes a genuinely blank page 1 (e.g. an intentional blank leading page, with the real cover on a later page) via pageContentIsEmpty, instead of rendering it as if it were an all-vector cover.
 
 // MetadataExtractorVersion identifies the current Title/Author/Year
 // extraction logic, parallel to CoverExtractorVersion but tracked
