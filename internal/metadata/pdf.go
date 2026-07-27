@@ -322,7 +322,7 @@ func findPDFCoverPageAware(data []byte, pageLimit int) ([]byte, string, bool) {
 	idx := buildPDFObjIndex(data)
 	if pages, ok := walkPDFPageTree(idx, pageLimit); ok {
 		firstPage := pages[0]
-		if len(findPDFPageImages(idx, []pdfPage{firstPage}, true)) == 0 {
+		if len(findPDFPageImages(idx, []pdfPage{firstPage}, true)) == 0 && !pageContentIsEmpty(idx, firstPage) {
 			if renderedBytes, renderedContentType, ok := renderPDFPageAsCoverFunc(data, firstPage.number); ok {
 				return renderedBytes, renderedContentType, true
 			}

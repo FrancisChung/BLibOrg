@@ -334,6 +334,100 @@ func TestPageContentSuggestsCompositeCover_FalseWhenFlateDecodeStreamIsCorrupted
 	}
 }
 
+func TestPageContentIsEmpty_TrueWhenNoContentsKeyAtAll(t *testing.T) {
+	// Reproduces the real "Mastering Large Language Models" bug: page 1
+	// declares no /Contents key at all -- a genuinely blank leading page
+	// (some real books have one intentionally, e.g. for print-binding
+	// reasons), with the actual cover on a later page.
+	data := []byte(
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+			"2 0 obj\n<< /Type /Pages /Kids [3 0 R] >>\nendobj\n" +
+			"3 0 obj\n<< /Type /Page /Parent 2 0 R >>\nendobj\n")
+	idx := buildPDFObjIndex(data)
+	pages, ok := walkPDFPageTree(idx, 10)
+	if !ok || len(pages) != 1 {
+		t.Fatalf("walkPDFPageTree ok=%v pages=%d, want ok=true pages=1", ok, len(pages))
+	}
+	if !pageContentIsEmpty(idx, pages[0]) {
+		t.Error("pageContentIsEmpty = false, want true (page declares no /Contents key at all)")
+	}
+}
+
+func TestPageContentIsEmpty_TrueWhenContentsStreamDecodesToZeroBytes(t *testing.T) {
+	// The exact real-world shape: /Contents references a real object with
+	// a real (FlateDecode) stream, but that stream inflates to zero bytes
+	// -- a page that exists and declares content, but that content is
+	// empty.
+	var buf bytes.Buffer
+	w := zlib.NewWriter(&buf)
+	w.Close() // write nothing -- an empty, but validly-compressed, stream
+	compressed := buf.Bytes()
+
+	data := []byte(
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+			"2 0 obj\n<< /Type /Pages /Kids [3 0 R] >>\nendobj\n" +
+			"3 0 obj\n<< /Type /Page /Parent 2 0 R /Contents 4 0 R >>\nendobj\n" +
+			"4 0 obj\n<< /Filter /FlateDecode /Length " + fmt.Sprint(len(compressed)) + " >>\nstream\n")
+	data = append(data, compressed...)
+	data = append(data, []byte("\nendstream\nendobj\n")...)
+
+	idx := buildPDFObjIndex(data)
+	pages, ok := walkPDFPageTree(idx, 10)
+	if !ok || len(pages) != 1 {
+		t.Fatalf("walkPDFPageTree ok=%v pages=%d, want ok=true pages=1", ok, len(pages))
+	}
+	if !pageContentIsEmpty(idx, pages[0]) {
+		t.Error("pageContentIsEmpty = false, want true (the FlateDecode stream inflates to zero bytes)")
+	}
+}
+
+func TestPageContentIsEmpty_FalseWhenContentsStreamHasRealContent(t *testing.T) {
+	content := "0 0 1 1 re f"
+	data := []byte(
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+			"2 0 obj\n<< /Type /Pages /Kids [3 0 R] >>\nendobj\n" +
+			"3 0 obj\n<< /Type /Page /Parent 2 0 R /Contents 4 0 R >>\nendobj\n" +
+			"4 0 obj\n<< /Length 12 >>\nstream\n" + content + "\nendstream\nendobj\n")
+	idx := buildPDFObjIndex(data)
+	pages, ok := walkPDFPageTree(idx, 10)
+	if !ok || len(pages) != 1 {
+		t.Fatalf("walkPDFPageTree ok=%v pages=%d, want ok=true pages=1", ok, len(pages))
+	}
+	if pageContentIsEmpty(idx, pages[0]) {
+		t.Error("pageContentIsEmpty = true, want false (the page's /Contents stream has real, non-empty content)")
+	}
+}
+
+func TestPageContentIsEmpty_FalseWhenFilterIsAChainDecodePDFContentStreamCantInvert(t *testing.T) {
+	// Reproduces the real "AI Product Management" regression: /Filter is
+	// an array chaining ASCII85Decode then FlateDecode
+	// ("[/ASCII85Decode /FlateDecode]"), common in Distiller/InDesign
+	// output. pdfFlateDecodeRe deliberately matches FlateDecode anywhere
+	// in a filter array (so image decoding doesn't miss it), so
+	// decodePDFContentStream attempts a plain zlib inflate on the raw
+	// (still ASCII85-armored) bytes -- which fails, and
+	// decodePDFContentStream correctly returns nil for that failure. But
+	// this page's content is very much NOT empty: naively reading "decode
+	// failed, got zero bytes" as "confirmed blank" would wrongly skip
+	// page 1's real cover in favor of findPDFCoverPageAware's later
+	// tiers. pageContentIsEmpty must recognize it can't decode this
+	// filter chain and default to "assume non-empty" instead.
+	garbage := "not valid ASCII85-then-zlib data, but real bytes nonetheless"
+	data := []byte(
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+			"2 0 obj\n<< /Type /Pages /Kids [3 0 R] >>\nendobj\n" +
+			"3 0 obj\n<< /Type /Page /Parent 2 0 R /Contents 4 0 R >>\nendobj\n" +
+			"4 0 obj\n<< /Filter [ /ASCII85Decode /FlateDecode ] /Length " + fmt.Sprint(len(garbage)) + " >>\nstream\n" + garbage + "\nendstream\nendobj\n")
+	idx := buildPDFObjIndex(data)
+	pages, ok := walkPDFPageTree(idx, 10)
+	if !ok || len(pages) != 1 {
+		t.Fatalf("walkPDFPageTree ok=%v pages=%d, want ok=true pages=1", ok, len(pages))
+	}
+	if pageContentIsEmpty(idx, pages[0]) {
+		t.Error("pageContentIsEmpty = true, want false -- an ASCII85Decode+FlateDecode filter chain can't be decoded by this package's plain zlib attempt, so a failed decode must NOT be read as confirmed-empty")
+	}
+}
+
 func TestPDFiumMutex_SerializesConcurrentAccess(t *testing.T) {
 	// Directly exercises pdfiumMu itself (same package, so the unexported
 	// mutex is reachable) rather than driving real, slow PDFium render

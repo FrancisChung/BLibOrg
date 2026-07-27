@@ -136,20 +136,7 @@ func matchesTextShowOperator(stream []byte) bool {
 // array of them (multiple content-stream objects concatenated in order,
 // as PDF producers commonly emit); every one of them is checked.
 func pageContentSuggestsCompositeCover(idx *pdfObjIndex, page pdfPage) bool {
-	var objNums []int
-	if m := pdfContentsArrayRe.FindSubmatch(page.dict); m != nil {
-		for _, ref := range pdfKidRefRe.FindAllSubmatch(m[1], -1) {
-			if n, err := strconv.Atoi(string(ref[1])); err == nil {
-				objNums = append(objNums, n)
-			}
-		}
-	} else if m := pdfContentsRefRe.FindSubmatch(page.dict); m != nil {
-		if n, err := strconv.Atoi(string(m[1])); err == nil {
-			objNums = append(objNums, n)
-		}
-	}
-
-	for _, n := range objNums {
+	for _, n := range pageContentObjNums(page.dict) {
 		body, ok := idx.lookup(n)
 		if !ok {
 			continue
@@ -175,6 +162,87 @@ func pageContentSuggestsCompositeCover(idx *pdfObjIndex, page pdfPage) bool {
 		}
 	}
 	return false
+}
+
+// pageContentObjNums returns the object numbers of page's own /Contents
+// stream(s) -- a single indirect reference, or an array of them (multiple
+// content-stream objects concatenated in order, as PDF producers commonly
+// emit). Shared by pageContentSuggestsCompositeCover and pageContentIsEmpty, both
+// of which need every /Contents object a page declares, in order, before
+// deciding whether to decode any of them.
+func pageContentObjNums(dict []byte) []int {
+	var objNums []int
+	if m := pdfContentsArrayRe.FindSubmatch(dict); m != nil {
+		for _, ref := range pdfKidRefRe.FindAllSubmatch(m[1], -1) {
+			if n, err := strconv.Atoi(string(ref[1])); err == nil {
+				objNums = append(objNums, n)
+			}
+		}
+	} else if m := pdfContentsRefRe.FindSubmatch(dict); m != nil {
+		if n, err := strconv.Atoi(string(m[1])); err == nil {
+			objNums = append(objNums, n)
+		}
+	}
+	return objNums
+}
+
+// pdfSoleFlateFilterRe matches a /Filter entry that is FlateDecode ALONE
+// -- either the bare literal form ("/Filter/FlateDecode") or an array
+// containing exactly that one name ("/Filter[/FlateDecode]") -- as
+// opposed to a filter chain that also includes another filter (e.g.
+// "/Filter[/ASCII85Decode/FlateDecode]", common in Distiller/InDesign
+// output). decodePDFContentStream's plain zlib attempt can only correctly
+// invert the former: pdfFlateDecodeRe (pdf_flate.go) deliberately matches
+// FlateDecode anywhere in a filter array so image decoding doesn't miss
+// it, but that means a chained filter's raw (still-ASCII85-armored) bytes
+// fail zlib decompression the same way genuinely corrupt data does --
+// decodePDFContentStream already treats that failure as "return nil,"
+// which is the right call for its existing callers (a missed text-show
+// operator is a minor degradation), but pageContentIsEmpty needs to tell
+// the two apart: "confirmed zero bytes" from "couldn't decode this at
+// all," since only the former is real evidence of a blank page.
+var pdfSoleFlateFilterRe = regexp.MustCompile(`/Filter\s*/FlateDecode\b|/Filter\s*\[\s*/FlateDecode\s*\]`)
+
+// pageContentIsEmpty reports whether page's own /Contents stream(s), once
+// decoded, contain zero bytes total -- a genuinely blank page (some real
+// books have an intentional blank leading page before their actual cover,
+// e.g. for print-binding reasons), as opposed to a page that merely has
+// no raster image but still draws real vector content (text, gradients,
+// icons as vector paths). findPDFCoverPageAware (pdf.go) uses this to
+// avoid treating a truly blank page 1 as if it were an all-vector cover:
+// without this check, a blank leading page would be rendered and returned
+// as "the cover" instead of falling through to the real cover on a later
+// page. Returns true (blank) if page declares no /Contents at all.
+//
+// A stream whose filter isn't either "no filter" or FlateDecode alone
+// (see pdfSoleFlateFilterRe) is treated as "assume non-empty" rather than
+// blank: this package's best-effort decoder can't decode it with
+// confidence, and getting that uncertainty wrong in the "assume
+// non-empty" direction only costs one extra, harmless PDFium render
+// attempt, while getting it wrong the other way would silently discard a
+// real cover -- exactly the regression this function exists to prevent.
+func pageContentIsEmpty(idx *pdfObjIndex, page pdfPage) bool {
+	objNums := pageContentObjNums(page.dict)
+	if len(objNums) == 0 {
+		return true
+	}
+	for _, n := range objNums {
+		body, ok := idx.lookup(n)
+		if !ok {
+			return false
+		}
+		dict, stream, hasStream := splitPDFObjectBody(body)
+		if !hasStream {
+			return false
+		}
+		if pdfFlateDecodeRe.Match(dict) && !pdfSoleFlateFilterRe.Match(dict) {
+			return false
+		}
+		if len(decodePDFContentStream(dict, stream)) > 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // decodePDFContentStream returns stream's plain content-operator bytes,
