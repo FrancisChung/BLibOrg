@@ -90,7 +90,14 @@ var extractFunc = metadata.Extract
 // the in-memory cache, is guarded by its own mutex (see scanOneBook).
 // The returned slice preserves paths' original order regardless of which
 // goroutine finishes first, matching the pre-parallel behavior exactly.
-func Scan(cfg config.Config, forceRefresh bool) ([]Book, error) {
+//
+// onProgress, if non-nil, is called once per path as it finishes --
+// cache hit or fresh extraction both count -- under a dedicated mutex so
+// done is strictly increasing in call order even though the workers
+// producing those calls run concurrently; total is always len(paths).
+// Passing nil (every caller that doesn't report progress) skips this
+// entirely.
+func Scan(cfg config.Config, forceRefresh bool, onProgress func(done, total int)) ([]Book, error) {
 	paths, err := scanner.Scan(cfg.General.LibraryFolder)
 	if err != nil {
 		return nil, err
@@ -110,6 +117,8 @@ func Scan(cfg config.Config, forceRefresh bool) ([]Book, error) {
 	results := make([]Book, len(paths))
 	included := make([]bool, len(paths))
 	var cacheMu sync.Mutex
+	var progressMu sync.Mutex
+	done := 0
 	sem := make(chan struct{}, concurrency)
 	var wg sync.WaitGroup
 
@@ -120,6 +129,12 @@ func Scan(cfg config.Config, forceRefresh bool) ([]Book, error) {
 			defer wg.Done()
 			defer func() { <-sem }()
 			results[i], included[i] = scanOneBook(cfg, forceRefresh, &cache, &cacheMu, path)
+			if onProgress != nil {
+				progressMu.Lock()
+				done++
+				onProgress(done, len(paths))
+				progressMu.Unlock()
+			}
 		}(i, path)
 	}
 	wg.Wait()

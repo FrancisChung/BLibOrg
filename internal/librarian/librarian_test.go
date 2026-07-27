@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -43,7 +44,7 @@ func TestScan_GroupsByCategoryAndSubcategory(t *testing.T) {
 
 	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: t.TempDir()}}
 
-	books, err := Scan(cfg, false)
+	books, err := Scan(cfg, false, nil)
 	if err != nil {
 		t.Fatalf("Scan returned error: %v", err)
 	}
@@ -72,7 +73,7 @@ func TestScan_FileDirectlyInLibraryRootHasNoCategory(t *testing.T) {
 
 	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: t.TempDir()}}
 
-	books, err := Scan(cfg, false)
+	books, err := Scan(cfg, false, nil)
 	if err != nil {
 		t.Fatalf("Scan returned error: %v", err)
 	}
@@ -87,7 +88,7 @@ func TestScan_FileDirectlyInLibraryRootHasNoCategory(t *testing.T) {
 func TestScan_EmptyLibraryReturnsEmptySlice(t *testing.T) {
 	cfg := config.Config{General: config.General{LibraryFolder: t.TempDir(), LogFolder: t.TempDir()}}
 
-	books, err := Scan(cfg, false)
+	books, err := Scan(cfg, false, nil)
 	if err != nil {
 		t.Fatalf("Scan returned error: %v", err)
 	}
@@ -139,7 +140,7 @@ func TestScan_PopulatesCoverPathAndMetadataWhenCoverExists(t *testing.T) {
 
 	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: t.TempDir()}}
 
-	books, err := Scan(cfg, false)
+	books, err := Scan(cfg, false, nil)
 	if err != nil {
 		t.Fatalf("Scan returned error: %v", err)
 	}
@@ -178,7 +179,7 @@ func TestScan_NoOverrideUsesAutoDetectedCover(t *testing.T) {
 	writeRealPDFFixture(t, path)
 
 	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: t.TempDir()}}
-	books, err := Scan(cfg, false)
+	books, err := Scan(cfg, false, nil)
 	if err != nil {
 		t.Fatalf("Scan returned error: %v", err)
 	}
@@ -207,7 +208,7 @@ func TestScan_EmbeddedOverridePinsSpecificPage(t *testing.T) {
 	}
 
 	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logFolder}}
-	books, err := Scan(cfg, false)
+	books, err := Scan(cfg, false, nil)
 	if err != nil {
 		t.Fatalf("Scan returned error: %v", err)
 	}
@@ -233,7 +234,7 @@ func TestScan_CustomOverrideUsesStoredImagePath(t *testing.T) {
 	}
 
 	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logFolder}}
-	books, err := Scan(cfg, false)
+	books, err := Scan(cfg, false, nil)
 	if err != nil {
 		t.Fatalf("Scan returned error: %v", err)
 	}
@@ -258,7 +259,7 @@ func TestScan_OverrideDoesNotBlankTitleAuthorYear(t *testing.T) {
 	}
 
 	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logFolder}}
-	books, err := Scan(cfg, false)
+	books, err := Scan(cfg, false, nil)
 	if err != nil {
 		t.Fatalf("Scan returned error: %v", err)
 	}
@@ -300,7 +301,7 @@ func TestScan_UsesCachedFieldsAndSkipsExtractOnCacheHit(t *testing.T) {
 	}
 
 	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logDir}}
-	books, err := Scan(cfg, false)
+	books, err := Scan(cfg, false, nil)
 	if err != nil {
 		t.Fatalf("Scan returned error: %v", err)
 	}
@@ -336,7 +337,7 @@ func TestScan_CachedCoverOverriddenIsServedWithoutRecheckingOverrideStore(t *tes
 	}
 
 	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logDir}}
-	books, err := Scan(cfg, false)
+	books, err := Scan(cfg, false, nil)
 	if err != nil {
 		t.Fatalf("Scan returned error: %v", err)
 	}
@@ -362,7 +363,7 @@ func TestScan_ExtractsAndCachesANewFile(t *testing.T) {
 	writeEpubWithCover(t, filepath.Join(libDir, "Fiction", "Sci-Fi", "Foundation.epub"), []byte{0xFF, 0xD8, 0xFF, 0xE0})
 
 	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logDir}}
-	if _, err := Scan(cfg, false); err != nil {
+	if _, err := Scan(cfg, false, nil); err != nil {
 		t.Fatalf("first Scan returned error: %v", err)
 	}
 
@@ -384,7 +385,7 @@ func TestScan_FallsBackToFilenameHeuristicsWhenMetadataFieldsAreEmpty(t *testing
 	}
 
 	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logDir}}
-	books, err := Scan(cfg, false)
+	books, err := Scan(cfg, false, nil)
 	if err != nil {
 		t.Fatalf("Scan returned error: %v", err)
 	}
@@ -415,7 +416,7 @@ func TestScan_MetadataFieldsTakePrecedenceOverFilenameHeuristics(t *testing.T) {
 	}
 
 	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logDir}}
-	books, err := Scan(cfg, false)
+	books, err := Scan(cfg, false, nil)
 	if err != nil {
 		t.Fatalf("Scan returned error: %v", err)
 	}
@@ -449,7 +450,7 @@ func TestScan_ReExtractsAnEditedFile(t *testing.T) {
 	}
 
 	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logDir}}
-	books, err := Scan(cfg, false)
+	books, err := Scan(cfg, false, nil)
 	if err != nil {
 		t.Fatalf("Scan returned error: %v", err)
 	}
@@ -475,7 +476,7 @@ func TestScan_DropsRemovedFileFromCache(t *testing.T) {
 	}
 
 	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logDir}}
-	if _, err := Scan(cfg, false); err != nil {
+	if _, err := Scan(cfg, false, nil); err != nil {
 		t.Fatalf("Scan returned error: %v", err)
 	}
 
@@ -514,7 +515,7 @@ func TestScan_StaleCoverVersionForcesReExtractionDespiteMatchingModTimeAndSize(t
 	}
 
 	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logDir}}
-	books, err := Scan(cfg, false)
+	books, err := Scan(cfg, false, nil)
 	if err != nil {
 		t.Fatalf("Scan returned error: %v", err)
 	}
@@ -533,7 +534,7 @@ func TestScan_ReExtractedEntryIsCachedWithCurrentCoverVersion(t *testing.T) {
 	writeEpubWithCover(t, epubPath, []byte{0xFF, 0xD8, 0xFF, 0xE0})
 
 	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logDir}}
-	if _, err := Scan(cfg, false); err != nil {
+	if _, err := Scan(cfg, false, nil); err != nil {
 		t.Fatalf("Scan returned error: %v", err)
 	}
 
@@ -581,7 +582,7 @@ func TestScan_StaleMetadataVersionForcesReExtractionDespiteMatchingCoverVersion(
 	}
 
 	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logDir}}
-	books, err := Scan(cfg, false)
+	books, err := Scan(cfg, false, nil)
 	if err != nil {
 		t.Fatalf("Scan returned error: %v", err)
 	}
@@ -600,7 +601,7 @@ func TestScan_ReExtractedEntryIsCachedWithCurrentMetadataVersion(t *testing.T) {
 	writeEpubWithCover(t, epubPath, []byte{0xFF, 0xD8, 0xFF, 0xE0})
 
 	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logDir}}
-	if _, err := Scan(cfg, false); err != nil {
+	if _, err := Scan(cfg, false, nil); err != nil {
 		t.Fatalf("Scan returned error: %v", err)
 	}
 
@@ -649,7 +650,7 @@ func TestScan_OverwritesStaleCoverFileEvenWhenCacheFileHasNewerMtime(t *testing.
 	// forceRefresh=true: a real re-scan of an unchanged file, the same
 	// situation a user hitting "Refresh" produces.
 	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logDir}}
-	books, err := Scan(cfg, true)
+	books, err := Scan(cfg, true, nil)
 	if err != nil {
 		t.Fatalf("Scan returned error: %v", err)
 	}
@@ -695,7 +696,7 @@ func TestScan_ProcessesAllBooksCorrectlyUnderConcurrency(t *testing.T) {
 	}
 
 	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logDir, ScanConcurrency: 3}}
-	books, err := Scan(cfg, false)
+	books, err := Scan(cfg, false, nil)
 	if err != nil {
 		t.Fatalf("Scan returned error: %v", err)
 	}
@@ -724,7 +725,7 @@ func TestScan_AllBooksCachedCorrectlyAfterConcurrentScan(t *testing.T) {
 	}
 
 	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logDir, ScanConcurrency: 4}}
-	if _, err := Scan(cfg, false); err != nil {
+	if _, err := Scan(cfg, false, nil); err != nil {
 		t.Fatalf("Scan returned error: %v", err)
 	}
 
@@ -757,12 +758,75 @@ func TestScan_ZeroScanConcurrencyStillWorks(t *testing.T) {
 	// must default to a working concurrency (runtime.NumCPU()), not zero
 	// goroutines / a deadlock on the semaphore channel.
 	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logDir}}
-	books, err := Scan(cfg, false)
+	books, err := Scan(cfg, false, nil)
 	if err != nil {
 		t.Fatalf("Scan returned error: %v", err)
 	}
 	if len(books) != 1 || books[0].Title != "Foundation" {
 		t.Errorf("books = %+v, want one book titled Foundation", books)
+	}
+}
+
+func TestScan_ReportsProgressForEveryBookInStrictOrder(t *testing.T) {
+	orig := extractFunc
+	defer func() { extractFunc = orig }()
+
+	libDir := t.TempDir()
+	logDir := t.TempDir()
+	for i := 0; i < 8; i++ {
+		writeFixtureFile(t, libDir, filepath.Join("Fiction", "Book"+strconv.Itoa(i)+".epub"))
+	}
+
+	extractFunc = func(path string, hyphenExceptions []string, pdfCoverPageLimit int) (metadata.Result, error) {
+		return metadata.Result{Title: "Title"}, nil
+	}
+
+	var mu sync.Mutex
+	var doneValues []int
+	var totalValues []int
+
+	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logDir, ScanConcurrency: 3}}
+	onProgress := func(done, total int) {
+		mu.Lock()
+		defer mu.Unlock()
+		doneValues = append(doneValues, done)
+		totalValues = append(totalValues, total)
+	}
+
+	if _, err := Scan(cfg, false, onProgress); err != nil {
+		t.Fatalf("Scan returned error: %v", err)
+	}
+
+	if len(doneValues) != 8 {
+		t.Fatalf("onProgress was called %d times, want 8", len(doneValues))
+	}
+	for i, done := range doneValues {
+		if done != i+1 {
+			t.Errorf("doneValues[%d] = %d, want %d (done must be strictly increasing, one call at a time)", i, done, i+1)
+		}
+	}
+	for i, total := range totalValues {
+		if total != 8 {
+			t.Errorf("totalValues[%d] = %d, want 8 (total must stay constant)", i, total)
+		}
+	}
+}
+
+func TestScan_NilProgressCallbackIsSafe(t *testing.T) {
+	orig := extractFunc
+	defer func() { extractFunc = orig }()
+
+	libDir := t.TempDir()
+	logDir := t.TempDir()
+	writeFixtureFile(t, libDir, filepath.Join("Fiction", "Foundation.epub"))
+
+	extractFunc = func(path string, hyphenExceptions []string, pdfCoverPageLimit int) (metadata.Result, error) {
+		return metadata.Result{Title: "Foundation"}, nil
+	}
+
+	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logDir}}
+	if _, err := Scan(cfg, false, nil); err != nil {
+		t.Fatalf("Scan with a nil onProgress returned error: %v", err)
 	}
 }
 
@@ -788,7 +852,7 @@ func TestScan_ForceRefreshBypassesFreshCache(t *testing.T) {
 	}
 
 	cfg := config.Config{General: config.General{LibraryFolder: libDir, LogFolder: logDir}}
-	books, err := Scan(cfg, true)
+	books, err := Scan(cfg, true, nil)
 	if err != nil {
 		t.Fatalf("Scan returned error: %v", err)
 	}
