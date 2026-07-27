@@ -67,6 +67,30 @@ func TestWalkPDFPageTree_NestedKids(t *testing.T) {
 	}
 }
 
+func TestWalkPDFPageTree_ResolvesIndirectKidsReference(t *testing.T) {
+	// Reproduces the real "Designing for AI"/"Grokking Software
+	// Architecture"/"Grokking Streaming Systems" bug: /Kids is an
+	// indirect reference to a separate object holding the array ("/Kids
+	// 6 0 R"), not inlined ("/Kids [...]") -- pdfKidsRe alone never
+	// matches this shape, which previously made the whole page-tree walk
+	// fail (ok=false), forcing cover selection all the way back to
+	// findPDFCover's unbounded whole-file scan.
+	data := []byte(
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+			"2 0 obj\n<< /Type /Pages /Kids 6 0 R /Count 2 >>\nendobj\n" +
+			"6 0 obj\n[3 0 R 4 0 R]\nendobj\n" +
+			"3 0 obj\n<< /Type /Page /Parent 2 0 R >>\nendobj\n" +
+			"4 0 obj\n<< /Type /Page /Parent 2 0 R >>\nendobj\n")
+	idx := buildPDFObjIndex(data)
+	pages, ok := walkPDFPageTree(idx, 10)
+	if !ok {
+		t.Fatal("walkPDFPageTree not ok, want true (indirect /Kids reference should resolve)")
+	}
+	if len(pages) != 2 {
+		t.Fatalf("len(pages) = %d, want 2", len(pages))
+	}
+}
+
 func TestWalkPDFPageTree_NoCatalogReturnsNotOK(t *testing.T) {
 	idx := buildPDFObjIndex([]byte("1 0 obj\n<< /Title (No page tree here) >>\nendobj\n"))
 	if _, ok := walkPDFPageTree(idx, 10); ok {

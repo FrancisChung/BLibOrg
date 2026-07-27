@@ -424,6 +424,32 @@ func TestFindPDFCoverPageAware_FallsBackToWholeFileScanWhenUndecodableImageRende
 	}
 }
 
+func TestFindPDFCoverPageAware_ResolvesCoverWhenKidsIsIndirectReference(t *testing.T) {
+	// Without this fix, this page tree fails to resolve entirely
+	// (ok=false from walkPDFPageTree), so findPDFCoverPageAware falls
+	// all the way back to findPDFCover's unbounded whole-file scan --
+	// which, in the real bug, returned a small unrelated logo image
+	// (object 1 here) that happened to have a lower object number than
+	// the true cover (object 5, correctly reached via the page tree).
+	jpegData := []byte("\xFF\xD8\xFFrealcoverbytes")
+	logoData := []byte("\xFF\xD8\xFFlogobytes12")
+	data := []byte(
+		"1 0 obj\n<< /Type /XObject /Subtype /Image /Filter /DCTDecode /Length 14 >>\nstream\n" + string(logoData) + "\nendstream\nendobj\n" +
+			"2 0 obj\n<< /Type /Catalog /Pages 3 0 R >>\nendobj\n" +
+			"3 0 obj\n<< /Type /Pages /Kids 6 0 R /Count 1 >>\nendobj\n" +
+			"6 0 obj\n[4 0 R]\nendobj\n" +
+			"4 0 obj\n<< /Type /Page /Parent 3 0 R /Resources << /XObject << /Im0 5 0 R >> >> >>\nendobj\n" +
+			"5 0 obj\n<< /Type /XObject /Subtype /Image /Filter /DCTDecode /Length 17 >>\nstream\n" + string(jpegData) + "\nendstream\nendobj\n")
+
+	imageBytes, contentType, ok := findPDFCoverPageAware(data, 10)
+	if !ok {
+		t.Fatal("findPDFCoverPageAware ok=false, want true")
+	}
+	if contentType != "image/jpeg" || string(imageBytes) != string(jpegData) {
+		t.Errorf("got %q (%d bytes), want the page's own cover image %q, not object 1's unrelated logo", imageBytes, len(imageBytes), jpegData)
+	}
+}
+
 func TestExtractPDF_FindsInfoDictCompressedInsideObjStm(t *testing.T) {
 	// Reproduces the real "Domain-Driven Design in PHP" bug's first half:
 	// the Info dictionary is compressed inside a /Type /ObjStm object

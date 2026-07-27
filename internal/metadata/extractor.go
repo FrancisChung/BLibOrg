@@ -21,7 +21,7 @@ import (
 // added in Plan A, or a new colorspace/filter becoming decodable) -- not
 // for changes that only affect Title/Author/Year, and not for changes
 // that only affect files this logic couldn't already handle.
-const CoverExtractorVersion = 5 // bumped: findPDFCoverPageAware can now fall back to a full-page PDFium render when a page's only image uses an unsupported filter (e.g. JPXDecode/JPEG 2000), producing a cover where none existed before for the same book.
+const CoverExtractorVersion = 6 // bumped: the page-tree walker now resolves an indirect "/Kids N 0 R" reference (not just an inline "/Kids [...]" array), so PDFs using that shape no longer silently fall back to the legacy whole-file scan and pick up an unrelated small image (e.g. a publisher logo) instead of the true, page-tree-associated cover.
 
 // MetadataExtractorVersion identifies the current Title/Author/Year
 // extraction logic, parallel to CoverExtractorVersion but tracked

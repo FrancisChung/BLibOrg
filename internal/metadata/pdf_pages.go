@@ -17,6 +17,7 @@ var pdfCatalogTypeRe = regexp.MustCompile(`/Type\s*/Catalog\b`)
 var pdfPagesRefRe = regexp.MustCompile(`/Pages\s+(\d+)\s+\d+\s+R`)
 var pdfTypePageLeafRe = regexp.MustCompile(`/Type\s*/Page\b`)
 var pdfKidsRe = regexp.MustCompile(`/Kids\s*\[([^\]]*)\]`)
+var pdfKidsIndirectRe = regexp.MustCompile(`/Kids\s+(\d+)\s+\d+\s+R`)
 var pdfKidRefRe = regexp.MustCompile(`(\d+)\s+\d+\s+R`)
 
 // pdfPage is one page's resolved dict, plus its 1-based position in
@@ -77,11 +78,11 @@ func collectPDFPages(idx *pdfObjIndex, objNum int, pages *[]pdfPage, visited map
 		return
 	}
 
-	kidsMatch := pdfKidsRe.FindSubmatch(dict)
-	if kidsMatch == nil {
+	kidsContent, ok := resolvePDFKidsContent(idx, dict)
+	if !ok {
 		return
 	}
-	for _, ref := range pdfKidRefRe.FindAllSubmatch(kidsMatch[1], -1) {
+	for _, ref := range pdfKidRefRe.FindAllSubmatch(kidsContent, -1) {
 		if len(*pages) >= limit {
 			return
 		}
@@ -91,4 +92,31 @@ func collectPDFPages(idx *pdfObjIndex, objNum int, pages *[]pdfPage, visited map
 		}
 		collectPDFPages(idx, kidNum, pages, visited, limit)
 	}
+}
+
+// resolvePDFKidsContent returns the byte range holding a Pages node's
+// Kids array entries -- either the inline "[...]" array's own content
+// (pdfKidsRe's usual case), or, when /Kids is instead an indirect
+// reference to a separate object holding the array (e.g. "/Kids 6 0 R",
+// rather than "/Kids [...]" inlined in this dict -- a pattern some PDF
+// producers use, apparently to keep large Pages dicts smaller), that
+// object's own body resolved via idx.lookup. Either shape's result feeds
+// pdfKidRefRe.FindAllSubmatch the same way: pdfKidRefRe matches "N G R"
+// patterns anywhere in its input, so the resolved object's raw body --
+// brackets and all -- works without needing to re-extract just the
+// bracketed interior. ok is false if neither shape matches, or the
+// indirect object can't be resolved.
+func resolvePDFKidsContent(idx *pdfObjIndex, dict []byte) ([]byte, bool) {
+	if m := pdfKidsRe.FindSubmatch(dict); m != nil {
+		return m[1], true
+	}
+	m := pdfKidsIndirectRe.FindSubmatch(dict)
+	if m == nil {
+		return nil, false
+	}
+	objNum, err := strconv.Atoi(string(m[1]))
+	if err != nil {
+		return nil, false
+	}
+	return idx.lookup(objNum)
 }
