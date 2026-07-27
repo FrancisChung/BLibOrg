@@ -107,6 +107,14 @@ func (a *App) ResetCoverCache() error {
 	return a.api.ResetCoverCache()
 }
 
+func (a *App) GetScanConcurrency() (appapi.ScanConcurrencyView, error) {
+	return a.api.GetScanConcurrency()
+}
+
+func (a *App) SetScanConcurrency(n int) error {
+	return a.api.SetScanConcurrency(n)
+}
+
 // PickCoverImageFile shows a native "choose an image" file dialog and
 // returns the chosen path, or "" (not an error) if the user cancels --
 // matching runtime.OpenFileDialog's own cancel behavior. The frontend

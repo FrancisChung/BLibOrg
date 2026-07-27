@@ -2,7 +2,10 @@ package main
 
 import (
 	"context"
+	"os"
 	"path/filepath"
+	"reflect"
+	"regexp"
 	"runtime"
 	"testing"
 )
@@ -72,5 +75,44 @@ func TestNewScanProgressEmitter_NilContextReturnsNil(t *testing.T) {
 func TestNewScanProgressEmitter_NonNilContextReturnsCallback(t *testing.T) {
 	if got := newScanProgressEmitter(context.Background()); got == nil {
 		t.Error("newScanProgressEmitter(context.Background()) should return a non-nil callback")
+	}
+}
+
+// TestAppDTS_AllDeclaredFunctionsHaveExportedMethods guards against the
+// hand-maintained desktop/frontend/wailsjs/go/main/App.d.ts drifting out of
+// sync with *App: every JS binding it declares must have a matching
+// exported method on *App, or the frontend call is `undefined` at runtime
+// (window['go']['main']['App']['Foo'] doesn't exist) even though it
+// type-checks in TypeScript and everything else in the stack looks wired
+// up. This exact bug shipped for GetScanConcurrency/SetScanConcurrency:
+// appapi.App had the methods, App.d.ts had the JS declarations, but
+// desktop/app.go had no forwarders, so Wails never bound them.
+func TestAppDTS_AllDeclaredFunctionsHaveExportedMethods(t *testing.T) {
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("could not determine this test file's own path via runtime.Caller")
+	}
+	dtsPath := filepath.Join(filepath.Dir(thisFile), "frontend", "wailsjs", "go", "main", "App.d.ts")
+
+	data, err := os.ReadFile(dtsPath)
+	if err != nil {
+		t.Fatalf("reading %s: %v", dtsPath, err)
+	}
+
+	re := regexp.MustCompile(`(?m)^export function (\w+)\(`)
+	matches := re.FindAllStringSubmatch(string(data), -1)
+	if len(matches) == 0 {
+		t.Fatalf("found no `export function` declarations in %s -- regex may be broken, or the generated file's format changed", dtsPath)
+	}
+
+	appType := reflect.TypeOf(&App{})
+	for _, m := range matches {
+		name := m[1]
+		t.Run(name, func(t *testing.T) {
+			if _, ok := appType.MethodByName(name); !ok {
+				t.Errorf("App.d.ts declares %s(), but *App has no exported method of that name -- "+
+					"add a forwarder in desktop/app.go or the frontend call will be undefined at runtime", name)
+			}
+		})
 	}
 }
