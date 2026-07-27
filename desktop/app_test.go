@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -59,5 +60,17 @@ func TestOpenFile_NonExistentFileReturnsError(t *testing.T) {
 	err := app.OpenFile(filepath.Join(t.TempDir(), "does-not-exist.epub"))
 	if err == nil {
 		t.Fatal("expected an error for a nonexistent file, got nil")
+	}
+}
+
+func TestNewScanProgressEmitter_NilContextReturnsNil(t *testing.T) {
+	if got := newScanProgressEmitter(nil); got != nil {
+		t.Error("newScanProgressEmitter(nil) should return nil")
+	}
+}
+
+func TestNewScanProgressEmitter_NonNilContextReturnsCallback(t *testing.T) {
+	if got := newScanProgressEmitter(context.Background()); got == nil {
+		t.Error("newScanProgressEmitter(context.Background()) should return a non-nil callback")
 	}
 }
