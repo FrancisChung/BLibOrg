@@ -1,6 +1,8 @@
-# book-organiser
+# BLibOrg
 
-A personal tool for organising a messy ebook library: it scans a folder of
+BLibOrg or Book Library and Organiser, is my personal Book Library and Organiser.  
+
+It is a tool for organising a messy ebook library: it scans a folder of
 `.epub` / `.pdf` / `.mobi` / `.azw3` files, works out each book's title,
 author, and year (from embedded metadata, or filename heuristics when
 metadata is missing), and renames/moves them into a consistent
@@ -9,13 +11,11 @@ review step before anything on disk changes.
 
 ## Problem
 
-Ebooks pile up with wildly inconsistent filenames — site-tag junk
-(`_OceanofPDF.com_`, `libgen.li`), `+`/`_` used instead of spaces, and
+Ebooks pile up with wildly inconsistent filenames — site-tag junk, `+`/`_` used instead of spaces, and
 garbage bracketed text mixed in with real metadata, e.g.:
 
 - `Build+Your+API+with+Spring.pdf`
-- `Building Resilient Distributed Systems (for dagfhhhhh dfafaf){Sam Newman}(2024, O&_039_Reilly Media, Inc.){115667237} libgen.li.pdf`
-- `_OceanofPDF.com_Dissecting_the_Dark_Web_-_Lindsay_Kaye.pdf`
+- `Building Resilient Distributed Systems (2024, O&_039_Reilly Media, Inc.).pdf`
 
 No single regex parses all of these reliably, so the tool combines embedded
 metadata, best-effort filename heuristics, and a mandatory review/edit step
