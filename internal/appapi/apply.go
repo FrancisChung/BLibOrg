@@ -21,7 +21,7 @@ type ApplyResult struct {
 
 // Apply moves every non-Unresolved book to its (already-computed, as last
 // returned by Scan/Recompute) DestPath via the existing operation log, so
-// undo/redo data is recorded even though there's no UI for it yet.
+// the move can be undone from the Operations view.
 // ExecuteBatch is all-or-nothing (it rolls back the whole batch on any
 // failure), so on error every attempted row is reported as failed with the
 // same error message -- there is no partial-success case within one Apply

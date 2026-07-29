@@ -163,17 +163,17 @@ func openCommand(path string) (string, []string) {
 	}
 }
 
-// ConfirmApply shows a native Yes/No dialog before Apply runs, since
-// moving files is the one hard-to-reverse action in this flow. Returns
-// true if the user confirmed.
+// ConfirmApply shows a native Yes/No dialog before Apply runs, since moving
+// files is a consequential action even though it can be undone from the
+// Operations view. Returns true if the user confirmed.
 func (a *App) ConfirmApply(fileCount int, libraryFolder string) bool {
 	message := fmt.Sprintf(
-		"Move %d file(s) into %s? This can be undone later from the command line, but there is no in-app Undo yet.",
+		"Move %d file(s) into %s? You can undo this later from the Operations view.",
 		fileCount, libraryFolder,
 	)
 	if libraryFolder == "" {
 		message = fmt.Sprintf(
-			"Move %d file(s) into the library folder? This can be undone later from the command line, but there is no in-app Undo yet.",
+			"Move %d file(s) into the library folder? You can undo this later from the Operations view.",
 			fileCount,
 		)
 	}
