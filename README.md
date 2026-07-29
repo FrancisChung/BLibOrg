@@ -1,6 +1,7 @@
 # BLibOrg
 
-BLibOrg or Book Library and Organiser, is my personal Book Library and Organiser.  
+BLibOrg or Book Library and Organiser, is my personal Book Library and Organiser.
+I hope this tool could be useful for you, and become a BLibOr like I am one day (Pun intended).
 
 It is a tool for organising a messy ebook library: it scans a folder of
 `.epub` / `.pdf` / `.mobi` / `.azw3` files, works out each book's title,
