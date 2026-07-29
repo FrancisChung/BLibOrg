@@ -826,6 +826,24 @@ func TestExtractPDF_PlaceholderTitleTreatedAsUnresolved(t *testing.T) {
 	}
 }
 
+func TestExtractPDF_NumericTitleAndUnknownAuthorTreatedAsUnresolved(t *testing.T) {
+	fixture := "%PDF-1.4\n" +
+		"1 0 obj\n<< /Title (718907159) /Author (Unknown) /CreationDate (D:20240101000000) >>\nendobj\n" +
+		"trailer\n<< /Root 1 0 R /Info 1 0 R >>\n%%EOF"
+	path := writePDFFixture(t, fixture)
+
+	result, err := extractPDF(path, 10)
+	if err != nil {
+		t.Fatalf("extractPDF returned error: %v", err)
+	}
+	if result.Title != "" || result.Author != "" {
+		t.Errorf("Title/Author = %q/%q, want both empty for placeholders", result.Title, result.Author)
+	}
+	if result.Year != "2024" {
+		t.Errorf("Year = %q, want 2024", result.Year)
+	}
+}
+
 func TestExtractPDF_FindsCoverImage(t *testing.T) {
 	jpegData := []byte("\xFF\xD8\xFFfakejpegbytes")
 	pdf := "%PDF-1.4\n" +

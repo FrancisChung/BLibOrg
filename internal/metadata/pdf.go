@@ -10,7 +10,7 @@ import (
 	"strings"
 	"unicode/utf16"
 
-	"github.com/FrancisChung/book-organiser/internal/textutil"
+	"github.com/FrancisChung/BLibOrg/internal/textutil"
 )
 
 var pdfLiteralStringRe = regexp.MustCompile(`/(Title|Author|Subject|CreationDate)\s*\(((?:[^()\\]|\\.)*)\)`)
@@ -23,14 +23,19 @@ var pdfImageStreamRe = regexp.MustCompile(`(?s)<<([^>]*?)>>\s*stream\r?\n(.*?)en
 var pdfSubtypeImageRe = regexp.MustCompile(`/Subtype\s*/Image`)
 var pdfDCTDecodeRe = regexp.MustCompile(`/Filter\s*/DCTDecode|/Filter\s*\[[^\]]*/DCTDecode`)
 
-// placeholderTitles are literal /Title values some PDF-generation tools
-// leave behind as a default when the real author never set a document
-// title. Reporting one of these as resolved SourceMetadata would silently
-// block the filename heuristic parser from ever running for Title (it
-// only runs for fields that come back empty), so they're treated the same
-// as "not found."
+// placeholderTitleRe and placeholderTitles are literal /Title values some
+// PDF-generation tools leave behind as defaults. Reporting one of these as
+// resolved SourceMetadata would silently block the filename heuristic parser
+// from ever running for Title (it only runs for fields that come back empty),
+// so they're treated the same as "not found."
+var placeholderTitleRe = regexp.MustCompile(`^[0-9]+$`)
+
 var placeholderTitles = map[string]bool{
 	"untitled": true,
+}
+
+var placeholderAuthors = map[string]bool{
+	"unknown": true,
 }
 
 // unescapePDFBytes resolves PDF literal-string backslash escapes on the raw
@@ -413,13 +418,17 @@ func extractPDF(path string, pageLimit int) (Result, error) {
 	}
 
 	title := fields["Title"]
-	if placeholderTitles[strings.ToLower(strings.TrimSpace(title))] {
+	if placeholderTitleRe.MatchString(strings.TrimSpace(title)) || placeholderTitles[strings.ToLower(strings.TrimSpace(title))] {
 		title = ""
+	}
+	author := fields["Author"]
+	if placeholderAuthors[strings.ToLower(strings.TrimSpace(author))] {
+		author = ""
 	}
 
 	result := Result{
 		Title:   title,
-		Author:  fields["Author"],
+		Author:  author,
 		Subject: fields["Subject"],
 	}
 	if m := pdfDateYearRe.FindStringSubmatch(fields["CreationDate"]); m != nil {

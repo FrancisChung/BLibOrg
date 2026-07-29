@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/FrancisChung/book-organiser/internal/textutil"
+	"github.com/FrancisChung/BLibOrg/internal/textutil"
 )
 
 // CoverExtractorVersion identifies the current cover-selection/extraction
@@ -34,7 +34,7 @@ const CoverExtractorVersion = 11 // bumped: the page-1-first tier now excludes a
 // cached entry. Bump this whenever a change here could cause an
 // already-scanned file to yield a different Title/Author/Year than
 // before -- not for changes that only affect cover bytes.
-const MetadataExtractorVersion = 5 // bumped: unescapePDFBytes now decodes \ddd octal-escape sequences in literal strings (previously only \n/\r/\t were recognized; any other escaped character, including an octal digit, passed through as literal text) -- a Title/Author using this escape shape now decodes correctly instead of showing garbled digit text.
+const MetadataExtractorVersion = 6 // bumped: PDF numeric Title and "Unknown" Author placeholders are now treated as unresolved so filename heuristics can recover the edited destination name.
 
 // Extract dispatches to the appropriate format-specific extractor based on
 // path's extension, then cleans the Title/Author it returns -- embedded
