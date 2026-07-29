@@ -149,7 +149,7 @@ import (
 	"io"
 	"path"
 
-	"github.com/FrancisChung/book-organiser/internal/textutil"
+	"github.com/FrancisChung/BLibOrg/internal/textutil"
 )
 
 type epubContainer struct {
@@ -474,7 +474,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/FrancisChung/book-organiser/internal/textutil"
+	"github.com/FrancisChung/BLibOrg/internal/textutil"
 )
 
 var (
@@ -961,7 +961,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/FrancisChung/book-organiser/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/config"
 )
 
 func writeFixtureFile(t *testing.T, dir, relPath string) string {
@@ -1120,10 +1120,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/FrancisChung/book-organiser/internal/config"
-	"github.com/FrancisChung/book-organiser/internal/covercache"
-	"github.com/FrancisChung/book-organiser/internal/metadata"
-	"github.com/FrancisChung/book-organiser/internal/scanner"
+	"github.com/FrancisChung/BLibOrg/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/covercache"
+	"github.com/FrancisChung/BLibOrg/internal/metadata"
+	"github.com/FrancisChung/BLibOrg/internal/scanner"
 )
 
 // Book is one already-organized library file, with Category/Subcategory
@@ -1236,7 +1236,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/FrancisChung/book-organiser/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/config"
 )
 
 func writeTestConfigForLibrary(t *testing.T, libraryFolder, logFolder string) string {
@@ -1314,7 +1314,7 @@ package appapi
 import (
 	"sort"
 
-	"github.com/FrancisChung/book-organiser/internal/librarian"
+	"github.com/FrancisChung/BLibOrg/internal/librarian"
 )
 
 // LibraryBookView is the JSON view of a librarian.Book -- one
@@ -1430,7 +1430,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/FrancisChung/book-organiser/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/config"
 )
 
 func writeTestConfigForCovers(t *testing.T, logFolder string) string {
@@ -1511,8 +1511,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/FrancisChung/book-organiser/internal/config"
-	"github.com/FrancisChung/book-organiser/internal/covercache"
+	"github.com/FrancisChung/BLibOrg/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/covercache"
 )
 
 // coverHandler serves cached cover images at /covers/<file> for the Library
@@ -1555,7 +1555,7 @@ package main
 import (
 	"embed"
 
-	"github.com/FrancisChung/book-organiser/internal/appapi"
+	"github.com/FrancisChung/BLibOrg/internal/appapi"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"

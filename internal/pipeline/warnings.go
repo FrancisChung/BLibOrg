@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/FrancisChung/book-organiser/internal/book"
-	"github.com/FrancisChung/book-organiser/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/book"
+	"github.com/FrancisChung/BLibOrg/internal/config"
 )
 
 // ErrLogFolderNotConfigured is returned by LogCategoryWarnings when there are

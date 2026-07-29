@@ -1,6 +1,6 @@
 package appapi
 
-import "github.com/FrancisChung/book-organiser/internal/pipeline"
+import "github.com/FrancisChung/BLibOrg/internal/pipeline"
 
 // Scan loads the config, validates/creates the configured folders, runs
 // the backend pipeline against the working folder, and returns every

@@ -9,14 +9,14 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/FrancisChung/book-organiser/internal/book"
-	"github.com/FrancisChung/book-organiser/internal/categorizer"
-	"github.com/FrancisChung/book-organiser/internal/config"
-	"github.com/FrancisChung/book-organiser/internal/duplicates"
-	"github.com/FrancisChung/book-organiser/internal/heuristics"
-	"github.com/FrancisChung/book-organiser/internal/metadata"
-	"github.com/FrancisChung/book-organiser/internal/rename"
-	"github.com/FrancisChung/book-organiser/internal/scanner"
+	"github.com/FrancisChung/BLibOrg/internal/book"
+	"github.com/FrancisChung/BLibOrg/internal/categorizer"
+	"github.com/FrancisChung/BLibOrg/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/duplicates"
+	"github.com/FrancisChung/BLibOrg/internal/heuristics"
+	"github.com/FrancisChung/BLibOrg/internal/metadata"
+	"github.com/FrancisChung/BLibOrg/internal/rename"
+	"github.com/FrancisChung/BLibOrg/internal/scanner"
 )
 
 // Run scans cfg.General.WorkingFolder, resolves metadata (embedded first,

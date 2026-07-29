@@ -3,8 +3,8 @@ package appapi
 import (
 	"path/filepath"
 
-	"github.com/FrancisChung/book-organiser/internal/book"
-	"github.com/FrancisChung/book-organiser/internal/operations"
+	"github.com/FrancisChung/BLibOrg/internal/book"
+	"github.com/FrancisChung/BLibOrg/internal/operations"
 )
 
 type ApplyResultEntry struct {

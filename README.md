@@ -134,8 +134,8 @@ wails dev
 ```
 
 This starts the app with hot reload for the Svelte frontend. Scan reads its
-config from a fixed, OS-standard path — `<user config dir>/book-organiser/config.yaml`
-(e.g. `~/.config/book-organiser/config.yaml` on Linux, `%AppData%\book-organiser\config.yaml`
+config from a fixed, OS-standard path — `<user config dir>/BLibOrg/config.yaml`
+(e.g. `~/.config/BLibOrg/config.yaml` on Linux, `%AppData%\BLibOrg\config.yaml`
 on Windows) — see [Configuration](#configuration) for its contents.
 
 ### Build a production binary
@@ -170,13 +170,13 @@ itself is valid). Desktop environments resolve a window's icon primarily
 through its `.desktop` file, so ship one:
 
 ```bash
-cp desktop/build/linux/book-organiser.desktop ~/.local/share/applications/
+cp desktop/build/linux/bliborg.desktop ~/.local/share/applications/
 # edit Exec= and Icon= in that copy to the absolute paths of your checkout,
-# e.g. Exec=/home/you/book-organiser/desktop/build/bin/desktop
+# e.g. Exec=/home/you/BLibOrg/desktop/build/bin/bliborg
 update-desktop-database ~/.local/share/applications   # optional, refreshes the menu cache
 ```
 
-`StartupWMClass=desktop` matches the `WM_CLASS` the built binary reports
+`StartupWMClass=bliborg` matches the `WM_CLASS` the built binary reports
 (derived from `wails.json`'s `outputfilename`). If that filename ever
 changes, update `StartupWMClass` to match, or the desktop environment won't
 associate the running window with this launcher.
@@ -185,7 +185,7 @@ associate the running window with this launcher.
 generic/broken-looking icon** — there's no error, it just looks wrong,
 and it's easy to lose track of having installed it (e.g. after a
 `~/.local/share/applications` cleanup). If the icon looks off again,
-check `ls ~/.local/share/applications/book-organiser.desktop` first
+check `ls ~/.local/share/applications/bliborg.desktop` first
 before assuming something in the app itself regressed.
 
 **Two separate icon files, two separate renderers, don't conflate them:**
@@ -255,11 +255,11 @@ build-time copy step, not something the app does itself at runtime.)
 
 | OS      | Path                                             |
 |---------|---------------------------------------------------|
-| Linux   | `~/.config/book-organiser/config.yaml`             |
-| Windows | `%AppData%\book-organiser\config.yaml`             |
-| macOS   | `~/Library/Application Support/book-organiser/config.yaml` |
+| Linux   | `~/.config/BLibOrg/config.yaml`             |
+| Windows | `%AppData%\BLibOrg\config.yaml`             |
+| macOS   | `~/Library/Application Support/BLibOrg/config.yaml` |
 
-(Exactly `os.UserConfigDir()/book-organiser/config.yaml` —
+(Exactly `os.UserConfigDir()/BLibOrg/config.yaml` —
 see `internal/appapi.DefaultConfigPath`.) The file must be created by hand;
 nothing generates a default one yet. If it's missing or invalid, both the
 app's startup check and the Scan button surface a "no usable config at

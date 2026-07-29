@@ -48,9 +48,9 @@ undo/redo data is recorded even though there's no UI for it yet.
   (heavier dependency tree) — Svelte compiles away at build time, keeping the
   shipped bundle close to vanilla's size while giving component/state ergonomics.
 - **Config: fixed path, hand-edited YAML.** No config UI, no first-run picker.
-  `os.UserConfigDir()/book-organiser/config.yaml` (Windows:
-  `%AppData%\book-organiser\config.yaml`; Linux:
-  `~/.config/book-organiser/config.yaml`). If absent, the app shows the resolved
+  `os.UserConfigDir()/BLibOrg/config.yaml` (Windows:
+  `%AppData%\BLibOrg\config.yaml`; Linux:
+  `~/.config/BLibOrg/config.yaml`). If absent, the app shows the resolved
   path in an error banner rather than scaffolding a default (a default config
   without real folder/category input isn't meaningful).
 - **Scan is button-triggered**, not automatic on launch — opening the app never

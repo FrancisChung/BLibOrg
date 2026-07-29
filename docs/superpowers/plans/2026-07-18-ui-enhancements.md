@@ -62,7 +62,7 @@ Add to the end of the `describe('BookCard', ...)` block in `desktop/frontend/src
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /media/francis/Data2/Source/Organisers/book-organiser/desktop/frontend && npx vitest run src/lib/BookCard.test.ts`
+Run: `cd /media/francis/Data2/Source/Organisers/BLibOrg/desktop/frontend && npx vitest run src/lib/BookCard.test.ts`
 Expected: the 3 pre-existing tests PASS; the 3 new tests FAIL (no checkbox with an accessible name "Select book.epub" exists yet).
 
 - [ ] **Step 3: Implement the checkbox in BookCard**
@@ -218,7 +218,7 @@ Replace `desktop/frontend/src/lib/BookCard.svelte` in full:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd /media/francis/Data2/Source/Organisers/book-organiser/desktop/frontend && npx vitest run src/lib/BookCard.test.ts`
+Run: `cd /media/francis/Data2/Source/Organisers/BLibOrg/desktop/frontend && npx vitest run src/lib/BookCard.test.ts`
 Expected: PASS (all 6 tests)
 
 - [ ] **Step 5: Write the failing ScanReviewView checkbox tests**
@@ -307,7 +307,7 @@ Add to the end of the `describe('ScanReviewView', ...)` block in `desktop/fronte
 
 - [ ] **Step 6: Run tests to verify they fail**
 
-Run: `cd /media/francis/Data2/Source/Organisers/book-organiser/desktop/frontend && npx vitest run src/lib/ScanReviewView.test.ts`
+Run: `cd /media/francis/Data2/Source/Organisers/BLibOrg/desktop/frontend && npx vitest run src/lib/ScanReviewView.test.ts`
 Expected: the 2 pre-existing tests PASS; the 3 new tests FAIL (no "Select all"/"Select a.epub" checkboxes exist yet, and `Apply` isn't narrowed by any checked state).
 
 - [ ] **Step 7: Wire checkbox selection into ScanReviewView**
@@ -532,18 +532,18 @@ Replace `desktop/frontend/src/lib/ScanReviewView.svelte` in full:
 
 - [ ] **Step 8: Run tests to verify they pass**
 
-Run: `cd /media/francis/Data2/Source/Organisers/book-organiser/desktop/frontend && npx vitest run src/lib/ScanReviewView.test.ts src/lib/BookCard.test.ts`
+Run: `cd /media/francis/Data2/Source/Organisers/BLibOrg/desktop/frontend && npx vitest run src/lib/ScanReviewView.test.ts src/lib/BookCard.test.ts`
 Expected: PASS (11 tests total: 5 pre-existing + 6 new)
 
 - [ ] **Step 9: Run the full frontend test suite to check for regressions**
 
-Run: `cd /media/francis/Data2/Source/Organisers/book-organiser/desktop/frontend && npm test -- --run`
+Run: `cd /media/francis/Data2/Source/Organisers/BLibOrg/desktop/frontend && npm test -- --run`
 Expected: all test files pass (was 7 files / 26 tests before this plan; now 7 files / 32 tests)
 
 - [ ] **Step 10: Commit**
 
 ```bash
-cd /media/francis/Data2/Source/Organisers/book-organiser
+cd /media/francis/Data2/Source/Organisers/BLibOrg
 git add desktop/frontend/src/lib/BookCard.svelte desktop/frontend/src/lib/BookCard.test.ts desktop/frontend/src/lib/ScanReviewView.svelte desktop/frontend/src/lib/ScanReviewView.test.ts
 git commit -m "$(cat <<'EOF'
 Add per-item checkbox selection to Scan & Review
@@ -597,7 +597,7 @@ Add to the end of the `describe('BookCard', ...)` block in `desktop/frontend/src
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /media/francis/Data2/Source/Organisers/book-organiser/desktop/frontend && npx vitest run src/lib/BookCard.test.ts`
+Run: `cd /media/francis/Data2/Source/Organisers/BLibOrg/desktop/frontend && npx vitest run src/lib/BookCard.test.ts`
 Expected: the 6 pre-existing tests PASS; the new test FAILS (no button named "Swap title and author" exists yet).
 
 - [ ] **Step 3: Add the swap button**
@@ -660,18 +660,18 @@ Add `.swap` styling to the `<style>` block, after the existing `.fields input` r
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /media/francis/Data2/Source/Organisers/book-organiser/desktop/frontend && npx vitest run src/lib/BookCard.test.ts`
+Run: `cd /media/francis/Data2/Source/Organisers/BLibOrg/desktop/frontend && npx vitest run src/lib/BookCard.test.ts`
 Expected: PASS (all 7 tests)
 
 - [ ] **Step 5: Run the full frontend test suite to check for regressions**
 
-Run: `cd /media/francis/Data2/Source/Organisers/book-organiser/desktop/frontend && npm test -- --run`
+Run: `cd /media/francis/Data2/Source/Organisers/BLibOrg/desktop/frontend && npm test -- --run`
 Expected: all test files pass (was 7 files / 32 tests after Task 1; now 7 files / 33 tests)
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /media/francis/Data2/Source/Organisers/book-organiser
+cd /media/francis/Data2/Source/Organisers/BLibOrg
 git add desktop/frontend/src/lib/BookCard.svelte desktop/frontend/src/lib/BookCard.test.ts
 git commit -m "$(cat <<'EOF'
 Add a title/author swap button to BookCard
@@ -785,7 +785,7 @@ func TestOpenFile_ExistingFilePathIsAccepted(t *testing.T) {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /media/francis/Data2/Source/Organisers/book-organiser && go test ./desktop/... -v`
+Run: `cd /media/francis/Data2/Source/Organisers/BLibOrg && go test ./desktop/... -v`
 Expected: `TestIsAffirmative` passes; `TestFileURI_EscapesSpacesAndParens`, `TestOpenFile_NonExistentFileReturnsError`, `TestOpenFile_ExistingFilePathIsAccepted` all FAIL to compile with `undefined: fileURI` / `app.OpenFile undefined (type *App has no field or method OpenFile)`.
 
 - [ ] **Step 3: Implement `fileURI` and `OpenFile`**
@@ -799,7 +799,7 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/FrancisChung/book-organiser/internal/appapi"
+	"github.com/FrancisChung/BLibOrg/internal/appapi"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 ```
@@ -836,19 +836,19 @@ func fileURI(path string) string {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd /media/francis/Data2/Source/Organisers/book-organiser && go test ./desktop/... -v`
+Run: `cd /media/francis/Data2/Source/Organisers/BLibOrg && go test ./desktop/... -v`
 Expected: PASS — `TestIsAffirmative`'s 7 subtests, plus `TestFileURI_EscapesSpacesAndParens`, `TestOpenFile_NonExistentFileReturnsError`, and `TestOpenFile_ExistingFilePathIsAccepted`.
 
 - [ ] **Step 5: Build and vet**
 
-Run: `cd /media/francis/Data2/Source/Organisers/book-organiser && go build ./... && go vet ./...`
+Run: `cd /media/francis/Data2/Source/Organisers/BLibOrg && go build ./... && go vet ./...`
 Expected: no output, exit code 0
 
 - [ ] **Step 6: Regenerate Wails bindings**
 
 Run:
 ```bash
-cd /media/francis/Data2/Source/Organisers/book-organiser/desktop
+cd /media/francis/Data2/Source/Organisers/BLibOrg/desktop
 wails build -tags webkit2_41
 ```
 Expected: build succeeds; `desktop/frontend/wailsjs/go/main/App.js` and `App.d.ts` now include an `OpenFile` export (`export function OpenFile(arg1:string):Promise<void>;` in the `.d.ts`, and the matching `window['go']['main']['App']['OpenFile']` wrapper in the `.js`). Diff both files to confirm only the `OpenFile` addition appears — no unrelated churn.
@@ -900,7 +900,7 @@ Add to the end of the `describe('BookCard', ...)` block:
 
 - [ ] **Step 8: Run tests to verify the new ones fail**
 
-Run: `cd /media/francis/Data2/Source/Organisers/book-organiser/desktop/frontend && npx vitest run src/lib/BookCard.test.ts`
+Run: `cd /media/francis/Data2/Source/Organisers/BLibOrg/desktop/frontend && npx vitest run src/lib/BookCard.test.ts`
 Expected: the 7 pre-existing tests PASS; the 2 new tests FAIL (double-clicking the filename doesn't call `OpenFile` yet).
 
 - [ ] **Step 9: Wire up open-file in BookCard**
@@ -1107,18 +1107,18 @@ Replace `desktop/frontend/src/lib/BookCard.svelte` in full:
 
 - [ ] **Step 10: Run tests to verify they pass**
 
-Run: `cd /media/francis/Data2/Source/Organisers/book-organiser/desktop/frontend && npx vitest run src/lib/BookCard.test.ts`
+Run: `cd /media/francis/Data2/Source/Organisers/BLibOrg/desktop/frontend && npx vitest run src/lib/BookCard.test.ts`
 Expected: PASS (all 9 tests)
 
 - [ ] **Step 11: Run the full frontend test suite to check for regressions**
 
-Run: `cd /media/francis/Data2/Source/Organisers/book-organiser/desktop/frontend && npm test -- --run`
+Run: `cd /media/francis/Data2/Source/Organisers/BLibOrg/desktop/frontend && npm test -- --run`
 Expected: all test files pass (was 7 files / 33 tests after Task 2; now 7 files / 35 tests)
 
 - [ ] **Step 12: Commit**
 
 ```bash
-cd /media/francis/Data2/Source/Organisers/book-organiser
+cd /media/francis/Data2/Source/Organisers/BLibOrg
 git add desktop/app.go desktop/app_test.go desktop/frontend/src/lib/BookCard.svelte desktop/frontend/src/lib/BookCard.test.ts desktop/frontend/wailsjs/go/main/App.js desktop/frontend/wailsjs/go/main/App.d.ts
 git commit -m "$(cat <<'EOF'
 Double-click the original filename to open it in the OS default app
@@ -1151,7 +1151,7 @@ EOF
 
 Run:
 ```bash
-cd /media/francis/Data2/Source/Organisers/book-organiser/desktop
+cd /media/francis/Data2/Source/Organisers/BLibOrg/desktop
 ./build.sh -tags webkit2_41
 ```
 Expected: build succeeds (this also syncs the repo-root `config.yaml` into the real config location, per `desktop/build.sh`).
@@ -1160,7 +1160,7 @@ Expected: build succeeds (this also syncs the repo-root `config.yaml` into the r
 
 Run:
 ```bash
-cd /media/francis/Data2/Source/Organisers/book-organiser
+cd /media/francis/Data2/Source/Organisers/BLibOrg
 go build ./... && go vet ./... && go test ./...
 cd desktop/frontend && npm test -- --run
 ```

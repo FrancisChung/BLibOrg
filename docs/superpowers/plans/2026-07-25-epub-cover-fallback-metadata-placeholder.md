@@ -156,7 +156,7 @@ import (
 	"io"
 	"path"
 
-	"github.com/FrancisChung/book-organiser/internal/textutil"
+	"github.com/FrancisChung/BLibOrg/internal/textutil"
 )
 ```
 
@@ -172,7 +172,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/FrancisChung/book-organiser/internal/textutil"
+	"github.com/FrancisChung/BLibOrg/internal/textutil"
 )
 ```
 
@@ -607,7 +607,7 @@ Expected: FAIL with `Title = "", want "Cloud Native Microservices Cookbook"` (no
 
 - [ ] **Step 3: Implement the heuristic fallback**
 
-In `internal/librarian/librarian.go`, add `"github.com/FrancisChung/book-organiser/internal/heuristics"` to the import block, changing:
+In `internal/librarian/librarian.go`, add `"github.com/FrancisChung/BLibOrg/internal/heuristics"` to the import block, changing:
 
 ```go
 import (
@@ -615,11 +615,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/FrancisChung/book-organiser/internal/config"
-	"github.com/FrancisChung/book-organiser/internal/covercache"
-	"github.com/FrancisChung/book-organiser/internal/librarycache"
-	"github.com/FrancisChung/book-organiser/internal/metadata"
-	"github.com/FrancisChung/book-organiser/internal/scanner"
+	"github.com/FrancisChung/BLibOrg/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/covercache"
+	"github.com/FrancisChung/BLibOrg/internal/librarycache"
+	"github.com/FrancisChung/BLibOrg/internal/metadata"
+	"github.com/FrancisChung/BLibOrg/internal/scanner"
 )
 ```
 
@@ -631,12 +631,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/FrancisChung/book-organiser/internal/config"
-	"github.com/FrancisChung/book-organiser/internal/covercache"
-	"github.com/FrancisChung/book-organiser/internal/heuristics"
-	"github.com/FrancisChung/book-organiser/internal/librarycache"
-	"github.com/FrancisChung/book-organiser/internal/metadata"
-	"github.com/FrancisChung/book-organiser/internal/scanner"
+	"github.com/FrancisChung/BLibOrg/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/covercache"
+	"github.com/FrancisChung/BLibOrg/internal/heuristics"
+	"github.com/FrancisChung/BLibOrg/internal/librarycache"
+	"github.com/FrancisChung/BLibOrg/internal/metadata"
+	"github.com/FrancisChung/BLibOrg/internal/scanner"
 )
 ```
 

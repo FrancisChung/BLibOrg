@@ -6,12 +6,12 @@
 
 **Architecture:** A new pure-Go `internal/appapi` package (no Wails dependency, fully unit-testable) adapts the existing `internal/pipeline`/`internal/categorizer`/`internal/rename`/`internal/operations` packages into four JSON-friendly methods (`Scan`, `Recompute`, `Apply`, `ConfigStatus`). A thin `desktop/app.go` (Wails-bound struct) forwards to it and adds one Wails-runtime-only method (`ConfirmApply`, a native dialog). The Svelte+TypeScript frontend (`desktop/frontend/`) renders the scanned books as cards and calls these four methods through Wails' generated JS bindings.
 
-**Tech Stack:** Go 1.22 (existing module `github.com/FrancisChung/book-organiser`), Wails v2, Svelte + TypeScript (Wails' `svelte-ts` template), Vite, Vitest + @testing-library/svelte for frontend tests.
+**Tech Stack:** Go 1.22 (existing module `github.com/FrancisChung/BLibOrg`), Wails v2, Svelte + TypeScript (Wails' `svelte-ts` template), Vite, Vitest + @testing-library/svelte for frontend tests.
 
 ## Global Constraints
 
 - No changes to existing `internal/book`, `internal/config`, `internal/pipeline`, `internal/categorizer`, `internal/rename`, `internal/operations`, `internal/metadata`, `internal/heuristics`, `internal/scanner`, `internal/duplicates`, or `internal/textutil` packages — this plan only adds new code (`internal/appapi`, `desktop/`).
-- Config is loaded from a fixed OS-standard path: `os.UserConfigDir() + "/book-organiser/config.yaml"` (Windows: `%AppData%\book-organiser\config.yaml`; Linux: `~/.config/book-organiser/config.yaml`). No config-editing UI, no first-run picker.
+- Config is loaded from a fixed OS-standard path: `os.UserConfigDir() + "/BLibOrg/config.yaml"` (Windows: `%AppData%\BLibOrg\config.yaml`; Linux: `~/.config/BLibOrg/config.yaml`). No config-editing UI, no first-run picker.
 - Every book card shows: struck-through original filename, always-editable Title/Author/Year text inputs, computed destination path, and a status pill. One "Apply" button for the whole visible batch.
 - Scan is triggered by an explicit button, never automatically on app launch.
 - Field edits debounce ~300ms before calling `Recompute`, so the destination path updates live without a server round-trip per keystroke.
@@ -47,7 +47,7 @@ Expected: a report of installed/missing dependencies (webview library, npm, etc.
 
 - [ ] **Step 3: Scaffold the app**
 
-Run (from the repo root, `/media/francis/Data2/Source/Organisers/book-organiser`):
+Run (from the repo root, `/media/francis/Data2/Source/Organisers/BLibOrg`):
 ```bash
 wails init -n desktop -t svelte-ts
 ```
@@ -120,7 +120,7 @@ Expected: Vitest starts, reports "No test files found" (or similar) and exits 0 
 - [ ] **Step 11: Commit**
 
 ```bash
-cd /media/francis/Data2/Source/Organisers/book-organiser/.worktrees/backend-pipeline
+cd /media/francis/Data2/Source/Organisers/BLibOrg/.worktrees/backend-pipeline
 git add go.mod go.sum desktop
 git commit -m "chore: scaffold Wails + Svelte-TS desktop app shell"
 ```
@@ -146,7 +146,7 @@ package appapi
 import (
 	"testing"
 
-	"github.com/FrancisChung/book-organiser/internal/book"
+	"github.com/FrancisChung/BLibOrg/internal/book"
 )
 
 func TestBookToView_FullyResolvedBook(t *testing.T) {
@@ -250,7 +250,7 @@ package appapi
 import (
 	"path/filepath"
 
-	"github.com/FrancisChung/book-organiser/internal/book"
+	"github.com/FrancisChung/BLibOrg/internal/book"
 )
 
 // Field mirrors book.Field with Source rendered as its display string
@@ -356,7 +356,7 @@ package appapi
 import (
 	"testing"
 
-	"github.com/FrancisChung/book-organiser/internal/book"
+	"github.com/FrancisChung/BLibOrg/internal/book"
 )
 
 func TestViewToBook_RoundTripsInputFields(t *testing.T) {
@@ -472,7 +472,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/FrancisChung/book-organiser/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/config"
 )
 
 func writeTestConfig(t *testing.T, working, library, logDir string) string {
@@ -529,8 +529,8 @@ func TestDefaultConfigPath_EndsWithExpectedSuffix(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultConfigPath returned error: %v", err)
 	}
-	want := filepath.Join("book-organiser", "config.yaml")
-	if filepath.Base(filepath.Dir(path)) != "book-organiser" || filepath.Base(path) != "config.yaml" {
+	want := filepath.Join("BLibOrg", "config.yaml")
+	if filepath.Base(filepath.Dir(path)) != "BLibOrg" || filepath.Base(path) != "config.yaml" {
 		t.Errorf("DefaultConfigPath() = %q, want a path ending in %q", path, want)
 	}
 }
@@ -553,17 +553,17 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/FrancisChung/book-organiser/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/config"
 )
 
 // DefaultConfigPath returns the fixed, OS-standard location config.yaml is
-// read from: <user config dir>/book-organiser/config.yaml.
+// read from: <user config dir>/BLibOrg/config.yaml.
 func DefaultConfigPath() (string, error) {
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "book-organiser", "config.yaml"), nil
+	return filepath.Join(dir, "BLibOrg", "config.yaml"), nil
 }
 
 // App is the pure-Go adapter the desktop app's Wails-bound struct
@@ -714,7 +714,7 @@ Expected: build failure — `undefined: (*App).Scan`.
 ```go
 package appapi
 
-import "github.com/FrancisChung/book-organiser/internal/pipeline"
+import "github.com/FrancisChung/BLibOrg/internal/pipeline"
 
 // Scan loads the config, validates/creates the configured folders, runs
 // the backend pipeline against the working folder, and returns every
@@ -777,7 +777,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/FrancisChung/book-organiser/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/config"
 )
 
 func writeTestConfigWithRules(t *testing.T, working, library, logDir string, rules []config.Rule, categories map[string]config.Category) string {
@@ -871,8 +871,8 @@ Expected: build failure — `undefined: (*App).Recompute`.
 package appapi
 
 import (
-	"github.com/FrancisChung/book-organiser/internal/categorizer"
-	"github.com/FrancisChung/book-organiser/internal/rename"
+	"github.com/FrancisChung/BLibOrg/internal/categorizer"
+	"github.com/FrancisChung/BLibOrg/internal/rename"
 )
 
 // Recompute takes a book with its Title/Author/Year fields as edited by
@@ -1029,8 +1029,8 @@ package appapi
 import (
 	"path/filepath"
 
-	"github.com/FrancisChung/book-organiser/internal/book"
-	"github.com/FrancisChung/book-organiser/internal/operations"
+	"github.com/FrancisChung/BLibOrg/internal/book"
+	"github.com/FrancisChung/BLibOrg/internal/operations"
 )
 
 type ApplyResultEntry struct {
@@ -1138,7 +1138,7 @@ package main
 import (
 	"context"
 
-	"github.com/FrancisChung/book-organiser/internal/appapi"
+	"github.com/FrancisChung/BLibOrg/internal/appapi"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -1852,7 +1852,7 @@ Expected: builds cleanly; every package reports `ok`.
 Set up a config pointing at the existing manual-test fixtures:
 ```bash
 mkdir -p "$(go env GOPATH 2>/dev/null; echo)" # no-op if already set, just ensuring go env works
-CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/book-organiser"
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/BLibOrg"
 mkdir -p "$CONFIG_DIR"
 cp .manual-test/config.yaml "$CONFIG_DIR/config.yaml"
 ```

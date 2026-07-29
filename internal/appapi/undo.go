@@ -3,7 +3,7 @@ package appapi
 import (
 	"path/filepath"
 
-	"github.com/FrancisChung/book-organiser/internal/operations"
+	"github.com/FrancisChung/BLibOrg/internal/operations"
 )
 
 // UndoBatch reverses every not-yet-undone entry in batchID via the existing

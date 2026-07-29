@@ -149,7 +149,7 @@ import (
 	"strings"
 	"unicode/utf16"
 
-	"github.com/FrancisChung/book-organiser/internal/textutil"
+	"github.com/FrancisChung/BLibOrg/internal/textutil"
 )
 ```
 
@@ -165,7 +165,7 @@ import (
 	"strings"
 	"unicode/utf16"
 
-	"github.com/FrancisChung/book-organiser/internal/textutil"
+	"github.com/FrancisChung/BLibOrg/internal/textutil"
 )
 ```
 
@@ -368,7 +368,7 @@ import (
 	"strings"
 	"unicode/utf16"
 
-	"github.com/FrancisChung/book-organiser/internal/textutil"
+	"github.com/FrancisChung/BLibOrg/internal/textutil"
 )
 ```
 
@@ -385,7 +385,7 @@ import (
 	"strings"
 	"unicode/utf16"
 
-	"github.com/FrancisChung/book-organiser/internal/textutil"
+	"github.com/FrancisChung/BLibOrg/internal/textutil"
 )
 ```
 

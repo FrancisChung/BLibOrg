@@ -1,4 +1,4 @@
-module github.com/FrancisChung/book-organiser
+module github.com/FrancisChung/BLibOrg
 
 go 1.25.0
 

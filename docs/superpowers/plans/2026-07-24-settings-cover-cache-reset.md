@@ -124,8 +124,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/FrancisChung/book-organiser/internal/config"
-	"github.com/FrancisChung/book-organiser/internal/covercache"
+	"github.com/FrancisChung/BLibOrg/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/covercache"
 )
 
 func writeTestConfigForSettings(t *testing.T, logFolder string) string {
@@ -227,8 +227,8 @@ package appapi
 import (
 	"os"
 
-	"github.com/FrancisChung/book-organiser/internal/covercache"
-	"github.com/FrancisChung/book-organiser/internal/librarycache"
+	"github.com/FrancisChung/BLibOrg/internal/covercache"
+	"github.com/FrancisChung/BLibOrg/internal/librarycache"
 )
 
 // ResetCoverCache deletes every cached cover image and the persisted

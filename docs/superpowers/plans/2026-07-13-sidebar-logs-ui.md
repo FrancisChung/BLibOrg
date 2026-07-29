@@ -77,7 +77,7 @@ func TestReadCategoryWarnings_ReadsBackWhatWasWritten(t *testing.T) {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /media/francis/Data2/Source/Organisers/book-organiser && go test ./internal/pipeline/... -run TestReadCategoryWarnings -v`
+Run: `cd /media/francis/Data2/Source/Organisers/BLibOrg && go test ./internal/pipeline/... -run TestReadCategoryWarnings -v`
 Expected: FAIL with `undefined: ReadCategoryWarnings`
 
 - [ ] **Step 3: Implement `ReadCategoryWarnings`**
@@ -148,8 +148,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/FrancisChung/book-organiser/internal/book"
-	"github.com/FrancisChung/book-organiser/internal/pipeline"
+	"github.com/FrancisChung/BLibOrg/internal/book"
+	"github.com/FrancisChung/BLibOrg/internal/pipeline"
 )
 
 func TestListCategoryWarnings_EmptyFileReturnsEmptySlice(t *testing.T) {
@@ -223,7 +223,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/FrancisChung/book-organiser/internal/pipeline"
+	"github.com/FrancisChung/BLibOrg/internal/pipeline"
 )
 
 // CategoryWarningView is the JSON-serializable view of a
@@ -293,7 +293,7 @@ git commit -m "Add appapi.ListCategoryWarnings"
 
 - [ ] **Step 1: Write the failing tests**
 
-Add to `internal/appapi/logs_test.go` (add `"time"` and `"github.com/FrancisChung/book-organiser/internal/operations"` to the import block):
+Add to `internal/appapi/logs_test.go` (add `"time"` and `"github.com/FrancisChung/BLibOrg/internal/operations"` to the import block):
 
 ```go
 func TestListOperationBatches_EmptyLogReturnsEmptySlice(t *testing.T) {
@@ -382,8 +382,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/FrancisChung/book-organiser/internal/operations"
-	"github.com/FrancisChung/book-organiser/internal/pipeline"
+	"github.com/FrancisChung/BLibOrg/internal/operations"
+	"github.com/FrancisChung/BLibOrg/internal/pipeline"
 )
 ```
 
@@ -501,7 +501,7 @@ func (a *App) ListCategoryWarnings() ([]appapi.CategoryWarningView, error) {
 
 - [ ] **Step 2: Verify the whole module still builds**
 
-Run: `cd /media/francis/Data2/Source/Organisers/book-organiser && go build ./... && go vet ./...`
+Run: `cd /media/francis/Data2/Source/Organisers/BLibOrg && go build ./... && go vet ./...`
 Expected: both commands exit 0 with no output
 
 - [ ] **Step 3: Commit**
@@ -1710,11 +1710,11 @@ cd desktop && wails build -tags webkit2_41
 
 - [ ] **Step 3: Exercise the Scan & Review → Operations Log path**
 
-In the running app: click **Scan** (uses whatever `working_folder` is in `~/.config/book-organiser/config.yaml`), then **Apply**. Click **Operations** in the sidebar — confirm the batch you just applied appears with the correct file count, and clicking it expands to show the individual old→new path entries.
+In the running app: click **Scan** (uses whatever `working_folder` is in `~/.config/BLibOrg/config.yaml`), then **Apply**. Click **Operations** in the sidebar — confirm the batch you just applied appears with the correct file count, and clicking it expands to show the individual old→new path entries.
 
 - [ ] **Step 4: Exercise the Warnings path**
 
-Temporarily add a rule to `~/.config/book-organiser/config.yaml` that points at a category not listed under `categories:` (e.g. add a rule with `category: TestUndeclared`), re-run Scan, then click **Warnings** in the sidebar — confirm the mismatch appears with the source file, category/subcategory, and warning message. Revert the temporary config change afterward.
+Temporarily add a rule to `~/.config/BLibOrg/config.yaml` that points at a category not listed under `categories:` (e.g. add a rule with `category: TestUndeclared`), re-run Scan, then click **Warnings** in the sidebar — confirm the mismatch appears with the source file, category/subcategory, and warning message. Revert the temporary config change afterward.
 
 - [ ] **Step 5: Confirm the empty states**
 

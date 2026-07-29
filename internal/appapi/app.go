@@ -5,18 +5,18 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/FrancisChung/book-organiser/internal/categorizer"
-	"github.com/FrancisChung/book-organiser/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/categorizer"
+	"github.com/FrancisChung/BLibOrg/internal/config"
 )
 
 // DefaultConfigPath returns the fixed, OS-standard location config.yaml is
-// read from: <user config dir>/book-organiser/config.yaml.
+// read from: <user config dir>/BLibOrg/config.yaml.
 func DefaultConfigPath() (string, error) {
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "book-organiser", "config.yaml"), nil
+	return filepath.Join(dir, "BLibOrg", "config.yaml"), nil
 }
 
 // App is the pure-Go adapter the desktop app's Wails-bound struct

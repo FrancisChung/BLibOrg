@@ -3,7 +3,7 @@ package duplicates
 import (
 	"testing"
 
-	"github.com/FrancisChung/book-organiser/internal/book"
+	"github.com/FrancisChung/BLibOrg/internal/book"
 )
 
 func TestDetect_LikelyDuplicateSameFormatAndSize(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	osruntime "runtime"
 
-	"github.com/FrancisChung/book-organiser/internal/appapi"
+	"github.com/FrancisChung/BLibOrg/internal/appapi"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 

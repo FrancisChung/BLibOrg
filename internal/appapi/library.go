@@ -3,7 +3,7 @@ package appapi
 import (
 	"sort"
 
-	"github.com/FrancisChung/book-organiser/internal/librarian"
+	"github.com/FrancisChung/BLibOrg/internal/librarian"
 )
 
 // LibraryBookView is the JSON view of a librarian.Book -- one

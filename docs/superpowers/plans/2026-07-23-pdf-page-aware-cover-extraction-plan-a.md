@@ -1252,7 +1252,7 @@ git commit -m "Add pdf_cover_page_limit config option and thread it through Extr
 
 ## Manual verification (after all tasks)
 
-- [ ] Set `pdf_cover_page_limit: 10` (or leave unset to confirm the default) in the real `~/.config/book-organiser/config.yaml`.
+- [ ] Set `pdf_cover_page_limit: 10` (or leave unset to confirm the default) in the real `~/.config/BLibOrg/config.yaml`.
 - [ ] Run the desktop app, open the Library view, and spot-check a handful of the books identified during this feature's design as previously mis-covered or cover-less due to the nested-`/DecodeParms` blind spot (e.g. `Residues - Time, Uncertainty, and Change in Software Architecture`, `Atomic Kotlin`) — confirm they still show no cover (their real cover images are `FlateDecode`, out of scope until Plan B) but no longer error or regress anything else.
 - [ ] Spot-check a few JPEG-covered books whose first-in-file-byte-order image previously happened to differ from their true page-1 image, if any are known, to confirm the displayed cover is now the actual front cover.
 - [ ] Confirm `go vet ./...` is clean.

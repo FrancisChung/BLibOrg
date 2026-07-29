@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/FrancisChung/book-organiser/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/config"
 )
 
 func checkFoldersTestConfig(working, library, log string) config.Config {

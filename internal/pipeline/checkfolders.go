@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/FrancisChung/book-organiser/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/config"
 )
 
 // CheckFolders validates cfg.General's configured folders at initialization,

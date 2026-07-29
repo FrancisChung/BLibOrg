@@ -3,8 +3,8 @@ package categorizer
 import (
 	"testing"
 
-	"github.com/FrancisChung/book-organiser/internal/book"
-	"github.com/FrancisChung/book-organiser/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/book"
+	"github.com/FrancisChung/BLibOrg/internal/config"
 )
 
 func testConfig() config.Config {

@@ -3,7 +3,7 @@ package appapi
 import (
 	"testing"
 
-	"github.com/FrancisChung/book-organiser/internal/book"
+	"github.com/FrancisChung/BLibOrg/internal/book"
 )
 
 func TestBookToView_FullyResolvedBook(t *testing.T) {

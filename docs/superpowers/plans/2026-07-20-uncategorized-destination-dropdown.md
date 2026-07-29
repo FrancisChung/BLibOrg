@@ -446,8 +446,8 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/FrancisChung/book-organiser/internal/categorizer"
-	"github.com/FrancisChung/book-organiser/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/categorizer"
+	"github.com/FrancisChung/BLibOrg/internal/config"
 )
 ```
 

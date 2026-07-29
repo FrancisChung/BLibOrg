@@ -7,7 +7,7 @@ package appapi
 import (
 	"path/filepath"
 
-	"github.com/FrancisChung/book-organiser/internal/book"
+	"github.com/FrancisChung/BLibOrg/internal/book"
 )
 
 // Field mirrors book.Field with Source rendered as its display string

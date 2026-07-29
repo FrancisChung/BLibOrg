@@ -43,7 +43,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/FrancisChung/book-organiser/internal/operations"
+	"github.com/FrancisChung/BLibOrg/internal/operations"
 )
 
 func TestUndoBatch_RestoresFileToOriginalLocation(t *testing.T) {
@@ -149,7 +149,7 @@ func TestUndoBatch_PropagatesManagerError(t *testing.T) {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /media/francis/Data2/Source/Organisers/book-organiser && go test ./internal/appapi/... -run TestUndoBatch -v`
+Run: `cd /media/francis/Data2/Source/Organisers/BLibOrg && go test ./internal/appapi/... -run TestUndoBatch -v`
 Expected: FAIL with `app.UndoBatch undefined (type *App has no field or method UndoBatch)`
 
 - [ ] **Step 3: Write minimal implementation**
@@ -162,7 +162,7 @@ package appapi
 import (
 	"path/filepath"
 
-	"github.com/FrancisChung/book-organiser/internal/operations"
+	"github.com/FrancisChung/BLibOrg/internal/operations"
 )
 
 // UndoBatch reverses every not-yet-undone entry in batchID via the existing
@@ -185,18 +185,18 @@ func (a *App) UndoBatch(batchID string) error {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd /media/francis/Data2/Source/Organisers/book-organiser && go test ./internal/appapi/... -run TestUndoBatch -v`
+Run: `cd /media/francis/Data2/Source/Organisers/BLibOrg && go test ./internal/appapi/... -run TestUndoBatch -v`
 Expected: PASS (all 3 subtests)
 
 - [ ] **Step 5: Run the full appapi package test suite to check for regressions**
 
-Run: `cd /media/francis/Data2/Source/Organisers/book-organiser && go test ./internal/appapi/...`
+Run: `cd /media/francis/Data2/Source/Organisers/BLibOrg && go test ./internal/appapi/...`
 Expected: `ok`
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /media/francis/Data2/Source/Organisers/book-organiser
+cd /media/francis/Data2/Source/Organisers/BLibOrg
 git add internal/appapi/undo.go internal/appapi/undo_test.go
 git commit -m "$(cat <<'EOF'
 Add appapi.App.UndoBatch, wrapping operations.Manager.UndoBatch
@@ -253,7 +253,7 @@ func TestIsAffirmative(t *testing.T) {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /media/francis/Data2/Source/Organisers/book-organiser && go test ./desktop/... -run TestIsAffirmative -v`
+Run: `cd /media/francis/Data2/Source/Organisers/BLibOrg && go test ./desktop/... -run TestIsAffirmative -v`
 Expected: FAIL on the `"macOS custom undo button label"` subtest: `isAffirmative("Undo") = false, want true`
 
 - [ ] **Step 3: Write minimal implementation**
@@ -273,7 +273,7 @@ func isAffirmative(result string) bool {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /media/francis/Data2/Source/Organisers/book-organiser && go test ./desktop/... -run TestIsAffirmative -v`
+Run: `cd /media/francis/Data2/Source/Organisers/BLibOrg && go test ./desktop/... -run TestIsAffirmative -v`
 Expected: PASS (all subtests)
 
 - [ ] **Step 5: Add the UndoBatch delegate and ConfirmUndo dialog**
@@ -319,18 +319,18 @@ func (a *App) ConfirmUndo(fileCount int) bool {
 
 - [ ] **Step 6: Build to verify it compiles**
 
-Run: `cd /media/francis/Data2/Source/Organisers/book-organiser && go build ./... && go vet ./...`
+Run: `cd /media/francis/Data2/Source/Organisers/BLibOrg && go build ./... && go vet ./...`
 Expected: no output, exit code 0
 
 - [ ] **Step 7: Run the full desktop package test suite to check for regressions**
 
-Run: `cd /media/francis/Data2/Source/Organisers/book-organiser && go test ./desktop/...`
+Run: `cd /media/francis/Data2/Source/Organisers/BLibOrg && go test ./desktop/...`
 Expected: `ok`
 
 - [ ] **Step 8: Commit**
 
 ```bash
-cd /media/francis/Data2/Source/Organisers/book-organiser
+cd /media/francis/Data2/Source/Organisers/BLibOrg
 git add desktop/app.go desktop/app_test.go
 git commit -m "$(cat <<'EOF'
 Bind UndoBatch and add a ConfirmUndo dialog to the desktop app
@@ -364,14 +364,14 @@ EOF
 
 Run:
 ```bash
-cd /media/francis/Data2/Source/Organisers/book-organiser/desktop
+cd /media/francis/Data2/Source/Organisers/BLibOrg/desktop
 wails build -tags webkit2_41
 ```
 Expected: build succeeds (this also produces `desktop/build/bin/desktop`, which is gitignored and not part of this commit).
 
 - [ ] **Step 2: Verify the new bindings were generated**
 
-Run: `grep -n "UndoBatch\|ConfirmUndo" /media/francis/Data2/Source/Organisers/book-organiser/desktop/frontend/wailsjs/go/main/App.js /media/francis/Data2/Source/Organisers/book-organiser/desktop/frontend/wailsjs/go/main/App.d.ts`
+Run: `grep -n "UndoBatch\|ConfirmUndo" /media/francis/Data2/Source/Organisers/BLibOrg/desktop/frontend/wailsjs/go/main/App.js /media/francis/Data2/Source/Organisers/BLibOrg/desktop/frontend/wailsjs/go/main/App.d.ts`
 Expected: both files list `UndoBatch` and `ConfirmUndo`, e.g. `App.d.ts` containing:
 ```
 export function ConfirmUndo(arg1:number):Promise<boolean>;
@@ -380,13 +380,13 @@ export function UndoBatch(arg1:string):Promise<void>;
 
 - [ ] **Step 3: Check what changed**
 
-Run: `cd /media/francis/Data2/Source/Organisers/book-organiser && git status --porcelain desktop/frontend/wailsjs`
+Run: `cd /media/francis/Data2/Source/Organisers/BLibOrg && git status --porcelain desktop/frontend/wailsjs`
 Expected: `App.js` and `App.d.ts` modified; `models.ts` modified only if it changed (it may not, since neither new method introduces a new named type).
 
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /media/francis/Data2/Source/Organisers/book-organiser
+cd /media/francis/Data2/Source/Organisers/BLibOrg
 git add desktop/frontend/wailsjs
 git commit -m "$(cat <<'EOF'
 Regenerate Wails bindings for UndoBatch/ConfirmUndo
@@ -556,7 +556,7 @@ describe('OperationsLogView', () => {
 
 - [ ] **Step 2: Run tests to verify the new ones fail**
 
-Run: `cd /media/francis/Data2/Source/Organisers/book-organiser/desktop/frontend && npx vitest run src/lib/OperationsLogView.test.ts`
+Run: `cd /media/francis/Data2/Source/Organisers/BLibOrg/desktop/frontend && npx vitest run src/lib/OperationsLogView.test.ts`
 Expected: the 3 pre-existing tests still PASS; the 5 new tests FAIL (no "Undo" button exists yet, `ConfirmUndo`/`UndoBatch` never called).
 
 - [ ] **Step 3: Write minimal implementation**
@@ -767,18 +767,18 @@ Replace `desktop/frontend/src/lib/OperationsLogView.svelte` in full:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd /media/francis/Data2/Source/Organisers/book-organiser/desktop/frontend && npx vitest run src/lib/OperationsLogView.test.ts`
+Run: `cd /media/francis/Data2/Source/Organisers/BLibOrg/desktop/frontend && npx vitest run src/lib/OperationsLogView.test.ts`
 Expected: PASS (all 8 tests)
 
 - [ ] **Step 5: Run the full frontend test suite to check for regressions**
 
-Run: `cd /media/francis/Data2/Source/Organisers/book-organiser/desktop/frontend && npm test -- --run`
+Run: `cd /media/francis/Data2/Source/Organisers/BLibOrg/desktop/frontend && npm test -- --run`
 Expected: all test files pass (was 7 files / 21 tests before this plan; now 7 files / 26 tests)
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /media/francis/Data2/Source/Organisers/book-organiser
+cd /media/francis/Data2/Source/Organisers/BLibOrg
 git add desktop/frontend/src/lib/OperationsLogView.svelte desktop/frontend/src/lib/OperationsLogView.test.ts
 git commit -m "$(cat <<'EOF'
 Add an Undo button per batch to the Operations Log view
@@ -809,7 +809,7 @@ EOF
 
 Run:
 ```bash
-cd /media/francis/Data2/Source/Organisers/book-organiser/desktop
+cd /media/francis/Data2/Source/Organisers/BLibOrg/desktop
 wails build -tags webkit2_41
 ```
 Expected: build succeeds.
@@ -818,7 +818,7 @@ Expected: build succeeds.
 
 Run:
 ```bash
-cd /media/francis/Data2/Source/Organisers/book-organiser
+cd /media/francis/Data2/Source/Organisers/BLibOrg
 go build ./... && go vet ./... && go test ./...
 cd desktop/frontend && npm test -- --run
 ```
@@ -826,7 +826,7 @@ Expected: everything passes, matching Tasks 1, 2, and 4's individual results.
 
 - [ ] **Step 3: Manually exercise the feature**
 
-Launch `desktop/build/bin/desktop` against a config pointed at scratch/test folders (not real library data — see the earlier session precedent for setting up an isolated sandbox via `XDG_CONFIG_HOME` if the default `~/.config/book-organiser/config.yaml` still points at real data). Scan, Apply a batch, go to the Operations tab, click Undo, confirm the dialog, and verify:
+Launch `desktop/build/bin/desktop` against a config pointed at scratch/test folders (not real library data — see the earlier session precedent for setting up an isolated sandbox via `XDG_CONFIG_HOME` if the default `~/.config/BLibOrg/config.yaml` still points at real data). Scan, Apply a batch, go to the Operations tab, click Undo, confirm the dialog, and verify:
 - the files actually move back to their original location on disk
 - the batch row's file count updates to show fully undone
 - the Undo button disappears for that row

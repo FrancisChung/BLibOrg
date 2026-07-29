@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/FrancisChung/book-organiser/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/config"
 )
 
 func writeTestConfigForLibrary(t *testing.T, libraryFolder, logFolder string) string {

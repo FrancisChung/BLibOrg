@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/FrancisChung/book-organiser/internal/book"
-	"github.com/FrancisChung/book-organiser/internal/config"
-	"github.com/FrancisChung/book-organiser/internal/operations"
+	"github.com/FrancisChung/BLibOrg/internal/book"
+	"github.com/FrancisChung/BLibOrg/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/operations"
 )
 
 func baseConfig(workingFolder, libraryFolder string) config.Config {

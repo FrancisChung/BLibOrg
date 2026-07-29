@@ -418,11 +418,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/FrancisChung/book-organiser/internal/config"
-	"github.com/FrancisChung/book-organiser/internal/covercache"
-	"github.com/FrancisChung/book-organiser/internal/librarycache"
-	"github.com/FrancisChung/book-organiser/internal/metadata"
-	"github.com/FrancisChung/book-organiser/internal/scanner"
+	"github.com/FrancisChung/BLibOrg/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/covercache"
+	"github.com/FrancisChung/BLibOrg/internal/librarycache"
+	"github.com/FrancisChung/BLibOrg/internal/metadata"
+	"github.com/FrancisChung/BLibOrg/internal/scanner"
 )
 
 // Book is one already-organized library file, with Category/Subcategory
@@ -573,7 +573,7 @@ Every existing `Scan(cfg)` call becomes `Scan(cfg, false)`. There are 8 call sit
 
 - [ ] **Step 3: Add the import for `librarycache` and new cache-behavior tests**
 
-Add `"github.com/FrancisChung/book-organiser/internal/librarycache"` and `"time"` to the existing `import` block in `internal/librarian/librarian_test.go`, then append these tests to the end of the file:
+Add `"github.com/FrancisChung/BLibOrg/internal/librarycache"` and `"time"` to the existing `import` block in `internal/librarian/librarian_test.go`, then append these tests to the end of the file:
 
 ```go
 func TestScan_UsesCachedFieldsAndSkipsExtractOnCacheHit(t *testing.T) {
@@ -798,7 +798,7 @@ git commit -m "Make librarian.Scan cache-aware with a forceRefresh escape hatch"
 
 - [ ] **Step 1: Add the invalidation calls to `internal/appapi/cover_override.go`**
 
-Add `"github.com/FrancisChung/book-organiser/internal/librarycache"` to the import block. Then update the three functions:
+Add `"github.com/FrancisChung/BLibOrg/internal/librarycache"` to the import block. Then update the three functions:
 
 ```go
 func (a *App) SetCoverOverride(bookPath string, page int) (string, error) {
@@ -873,7 +873,7 @@ func (a *App) ClearCoverOverride(bookPath string) (string, error) {
 
 - [ ] **Step 2: Write the failing tests first, in `internal/appapi/cover_override_test.go`**
 
-Add `"github.com/FrancisChung/book-organiser/internal/librarycache"` to the import block, then append:
+Add `"github.com/FrancisChung/BLibOrg/internal/librarycache"` to the import block, then append:
 
 ```go
 func TestSetCoverOverride_InvalidatesExistingLibraryCacheEntry(t *testing.T) {
@@ -1469,7 +1469,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/FrancisChung/book-organiser/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/config"
 )
 
 // Manual verification for the library-scan-cache plan — not part of the

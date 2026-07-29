@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/FrancisChung/book-organiser/internal/textutil"
+	"github.com/FrancisChung/BLibOrg/internal/textutil"
 )
 
 var (

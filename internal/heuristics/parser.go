@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/FrancisChung/book-organiser/internal/textutil"
+	"github.com/FrancisChung/BLibOrg/internal/textutil"
 )
 
 type Result struct {

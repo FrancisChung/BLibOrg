@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/FrancisChung/book-organiser/internal/book"
-	"github.com/FrancisChung/book-organiser/internal/operations"
-	"github.com/FrancisChung/book-organiser/internal/pipeline"
+	"github.com/FrancisChung/BLibOrg/internal/book"
+	"github.com/FrancisChung/BLibOrg/internal/operations"
+	"github.com/FrancisChung/BLibOrg/internal/pipeline"
 )
 
 func TestListCategoryWarnings_EmptyFileReturnsEmptySlice(t *testing.T) {

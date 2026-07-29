@@ -454,7 +454,7 @@ func TestScan_ForceRefreshBypassesFreshCache(t *testing.T) {
 }
 ```
 
-Add `"github.com/FrancisChung/book-organiser/internal/librarycache"` and `"github.com/FrancisChung/book-organiser/internal/metadata"` (if not already imported by name in the test file — it isn't yet) to `librarian_test.go`'s import block.
+Add `"github.com/FrancisChung/BLibOrg/internal/librarycache"` and `"github.com/FrancisChung/BLibOrg/internal/metadata"` (if not already imported by name in the test file — it isn't yet) to `librarian_test.go`'s import block.
 
 - [ ] **Step 2: Run tests to verify they fail**
 
@@ -482,11 +482,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/FrancisChung/book-organiser/internal/config"
-	"github.com/FrancisChung/book-organiser/internal/covercache"
-	"github.com/FrancisChung/book-organiser/internal/librarycache"
-	"github.com/FrancisChung/book-organiser/internal/metadata"
-	"github.com/FrancisChung/book-organiser/internal/scanner"
+	"github.com/FrancisChung/BLibOrg/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/covercache"
+	"github.com/FrancisChung/BLibOrg/internal/librarycache"
+	"github.com/FrancisChung/BLibOrg/internal/metadata"
+	"github.com/FrancisChung/BLibOrg/internal/scanner"
 )
 
 // Book is one already-organized library file, with Category/Subcategory

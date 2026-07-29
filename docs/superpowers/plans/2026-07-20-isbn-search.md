@@ -642,7 +642,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/FrancisChung/book-organiser/internal/textutil"
+	"github.com/FrancisChung/BLibOrg/internal/textutil"
 )
 
 // ErrNotFound is returned when the API responds successfully but has no
@@ -881,9 +881,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/FrancisChung/book-organiser/internal/book"
-	"github.com/FrancisChung/book-organiser/internal/config"
-	"github.com/FrancisChung/book-organiser/internal/googlebooks"
+	"github.com/FrancisChung/BLibOrg/internal/book"
+	"github.com/FrancisChung/BLibOrg/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/googlebooks"
 )
 
 func writeUnresolvedFixture(t *testing.T, dir, filename string) *book.Book {
@@ -1032,14 +1032,14 @@ package pipeline
 import (
 	"path/filepath"
 
-	"github.com/FrancisChung/book-organiser/internal/book"
-	"github.com/FrancisChung/book-organiser/internal/categorizer"
-	"github.com/FrancisChung/book-organiser/internal/config"
-	"github.com/FrancisChung/book-organiser/internal/duplicates"
-	"github.com/FrancisChung/book-organiser/internal/googlebooks"
-	"github.com/FrancisChung/book-organiser/internal/metadata"
-	"github.com/FrancisChung/book-organiser/internal/rename"
-	"github.com/FrancisChung/book-organiser/internal/textutil"
+	"github.com/FrancisChung/BLibOrg/internal/book"
+	"github.com/FrancisChung/BLibOrg/internal/categorizer"
+	"github.com/FrancisChung/BLibOrg/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/duplicates"
+	"github.com/FrancisChung/BLibOrg/internal/googlebooks"
+	"github.com/FrancisChung/BLibOrg/internal/metadata"
+	"github.com/FrancisChung/BLibOrg/internal/rename"
+	"github.com/FrancisChung/BLibOrg/internal/textutil"
 )
 
 // lookupFunc is a seam so tests can stub the network call without hitting
@@ -1170,7 +1170,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/FrancisChung/book-organiser/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/config"
 )
 
 func writeTestConfigWithISBNLookup(t *testing.T, working, library, logDir string, isbnLookup config.ISBNLookup) string {
@@ -1249,8 +1249,8 @@ package appapi
 import (
 	"errors"
 
-	"github.com/FrancisChung/book-organiser/internal/book"
-	"github.com/FrancisChung/book-organiser/internal/pipeline"
+	"github.com/FrancisChung/BLibOrg/internal/book"
+	"github.com/FrancisChung/BLibOrg/internal/pipeline"
 )
 
 // ErrISBNLookupDisabled is returned by ResolveViaISBN when

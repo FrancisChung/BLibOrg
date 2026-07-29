@@ -12,7 +12,7 @@ Spec: `docs/superpowers/specs/2026-07-08-book-organiser-design.md`
 
 ## Global Constraints
 
-- Go module path: `github.com/FrancisChung/book-organiser`, Go version 1.22.
+- Go module path: `github.com/FrancisChung/BLibOrg`, Go version 1.22.
 - v1 supported formats only: `.epub`, `.pdf`, `.mobi`, `.azw3`. No other extensions are scanned.
 - Metadata is **local only** — embedded file metadata plus filename heuristics. No network calls anywhere in this backend. No ISBN lookups.
 - All path/filename handling must use `path/filepath` (not `path`) and must apply Windows/NTFS-safe sanitization **unconditionally, regardless of host OS** — a Linux-built binary may still write to an NTFS-mounted path, per the spec's "must work equally well on Linux and Windows (NTFS)" constraint.
@@ -94,8 +94,8 @@ book-organiser/
 - [ ] **Step 1: Initialize the Go module and add the YAML dependency**
 
 ```bash
-cd /media/francis/Data2/Source/Organisers/book-organiser
-go mod init github.com/FrancisChung/book-organiser
+cd /media/francis/Data2/Source/Organisers/BLibOrg
+go mod init github.com/FrancisChung/BLibOrg
 go get gopkg.in/yaml.v3
 mkdir -p internal/config
 ```
@@ -833,7 +833,7 @@ import (
 	"encoding/xml"
 	"fmt"
 
-	"github.com/FrancisChung/book-organiser/internal/textutil"
+	"github.com/FrancisChung/BLibOrg/internal/textutil"
 )
 
 type epubContainer struct {
@@ -1107,7 +1107,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/FrancisChung/book-organiser/internal/textutil"
+	"github.com/FrancisChung/BLibOrg/internal/textutil"
 )
 
 // extractMobi parses the PalmDB + MOBI header + EXTH structure shared by
@@ -1299,7 +1299,7 @@ import (
 	"os"
 	"regexp"
 
-	"github.com/FrancisChung/book-organiser/internal/textutil"
+	"github.com/FrancisChung/BLibOrg/internal/textutil"
 )
 
 var pdfLiteralStringRe = regexp.MustCompile(`/(Title|Author|Subject|CreationDate)\s*\(((?:[^()\\]|\\.)*)\)`)
@@ -1583,7 +1583,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/FrancisChung/book-organiser/internal/textutil"
+	"github.com/FrancisChung/BLibOrg/internal/textutil"
 )
 
 type Result struct {
@@ -1670,8 +1670,8 @@ package categorizer
 import (
 	"testing"
 
-	"github.com/FrancisChung/book-organiser/internal/book"
-	"github.com/FrancisChung/book-organiser/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/book"
+	"github.com/FrancisChung/BLibOrg/internal/config"
 )
 
 func testConfig() config.Config {
@@ -1753,8 +1753,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/FrancisChung/book-organiser/internal/book"
-	"github.com/FrancisChung/book-organiser/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/book"
+	"github.com/FrancisChung/BLibOrg/internal/config"
 )
 
 const UncategorizedName = "Uncategorized"
@@ -1841,7 +1841,7 @@ package duplicates
 import (
 	"testing"
 
-	"github.com/FrancisChung/book-organiser/internal/book"
+	"github.com/FrancisChung/BLibOrg/internal/book"
 )
 
 func TestDetect_LikelyDuplicateSameFormatAndSize(t *testing.T) {
@@ -1916,7 +1916,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/FrancisChung/book-organiser/internal/book"
+	"github.com/FrancisChung/BLibOrg/internal/book"
 )
 
 var normalizeRe = regexp.MustCompile(`[^a-z0-9]+`)
@@ -2028,8 +2028,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/FrancisChung/book-organiser/internal/book"
-	"github.com/FrancisChung/book-organiser/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/book"
+	"github.com/FrancisChung/BLibOrg/internal/config"
 )
 
 func testConfig(libraryFolder string) config.Config {
@@ -2132,8 +2132,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/FrancisChung/book-organiser/internal/book"
-	"github.com/FrancisChung/book-organiser/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/book"
+	"github.com/FrancisChung/BLibOrg/internal/config"
 )
 
 var illegalCharsRe = regexp.MustCompile(`[<>:"/\\|?*\x00-\x1f]`)
@@ -2805,9 +2805,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/FrancisChung/book-organiser/internal/book"
-	"github.com/FrancisChung/book-organiser/internal/config"
-	"github.com/FrancisChung/book-organiser/internal/operations"
+	"github.com/FrancisChung/BLibOrg/internal/book"
+	"github.com/FrancisChung/BLibOrg/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/operations"
 )
 
 func baseConfig(workingFolder, libraryFolder string) config.Config {
@@ -2935,14 +2935,14 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/FrancisChung/book-organiser/internal/book"
-	"github.com/FrancisChung/book-organiser/internal/categorizer"
-	"github.com/FrancisChung/book-organiser/internal/config"
-	"github.com/FrancisChung/book-organiser/internal/duplicates"
-	"github.com/FrancisChung/book-organiser/internal/heuristics"
-	"github.com/FrancisChung/book-organiser/internal/metadata"
-	"github.com/FrancisChung/book-organiser/internal/rename"
-	"github.com/FrancisChung/book-organiser/internal/scanner"
+	"github.com/FrancisChung/BLibOrg/internal/book"
+	"github.com/FrancisChung/BLibOrg/internal/categorizer"
+	"github.com/FrancisChung/BLibOrg/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/duplicates"
+	"github.com/FrancisChung/BLibOrg/internal/heuristics"
+	"github.com/FrancisChung/BLibOrg/internal/metadata"
+	"github.com/FrancisChung/BLibOrg/internal/rename"
+	"github.com/FrancisChung/BLibOrg/internal/scanner"
 )
 
 // Run scans cfg.General.WorkingFolder, resolves metadata (embedded first,

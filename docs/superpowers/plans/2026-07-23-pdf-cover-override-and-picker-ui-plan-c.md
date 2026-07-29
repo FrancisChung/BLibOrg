@@ -816,7 +816,7 @@ func TestScan_OverrideDoesNotBlankTitleAuthorYear(t *testing.T) {
 }
 ```
 
-Add `"github.com/FrancisChung/book-organiser/internal/covercache"` to `librarian_test.go`'s imports.
+Add `"github.com/FrancisChung/BLibOrg/internal/covercache"` to `librarian_test.go`'s imports.
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
@@ -917,8 +917,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/FrancisChung/book-organiser/internal/config"
-	"github.com/FrancisChung/book-organiser/internal/covercache"
+	"github.com/FrancisChung/BLibOrg/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/covercache"
 )
 
 func twoPagePDFFixture() []byte {
@@ -1129,8 +1129,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/FrancisChung/book-organiser/internal/covercache"
-	"github.com/FrancisChung/book-organiser/internal/metadata"
+	"github.com/FrancisChung/BLibOrg/internal/covercache"
+	"github.com/FrancisChung/BLibOrg/internal/metadata"
 )
 
 // CoverCandidateView is one selectable page/image for the cover-picker's
@@ -1318,7 +1318,7 @@ func (a *App) PickCoverImageFile() (string, error) {
 }
 ```
 
-Add `"github.com/FrancisChung/book-organiser/internal/appapi"` to `desktop/app.go`'s imports if not already present (it already is, for `appapi.BookView` etc.).
+Add `"github.com/FrancisChung/BLibOrg/internal/appapi"` to `desktop/app.go`'s imports if not already present (it already is, for `appapi.BookView` etc.).
 
 - [ ] **Step 2: Run the existing desktop package tests to confirm no regressions**
 

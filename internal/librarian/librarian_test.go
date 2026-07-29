@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/FrancisChung/book-organiser/internal/config"
-	"github.com/FrancisChung/book-organiser/internal/covercache"
-	"github.com/FrancisChung/book-organiser/internal/librarycache"
-	"github.com/FrancisChung/book-organiser/internal/metadata"
+	"github.com/FrancisChung/BLibOrg/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/covercache"
+	"github.com/FrancisChung/BLibOrg/internal/librarycache"
+	"github.com/FrancisChung/BLibOrg/internal/metadata"
 )
 
 // urlPath strips covercache's cache-busting "?v=" query, if present, so

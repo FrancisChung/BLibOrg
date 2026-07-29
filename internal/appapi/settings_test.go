@@ -6,8 +6,8 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/FrancisChung/book-organiser/internal/config"
-	"github.com/FrancisChung/book-organiser/internal/covercache"
+	"github.com/FrancisChung/BLibOrg/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/covercache"
 )
 
 func writeTestConfigForSettings(t *testing.T, logFolder string) string {

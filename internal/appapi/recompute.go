@@ -1,10 +1,10 @@
 package appapi
 
 import (
-	"github.com/FrancisChung/book-organiser/internal/book"
-	"github.com/FrancisChung/book-organiser/internal/categorizer"
-	"github.com/FrancisChung/book-organiser/internal/rename"
-	"github.com/FrancisChung/book-organiser/internal/textutil"
+	"github.com/FrancisChung/BLibOrg/internal/book"
+	"github.com/FrancisChung/BLibOrg/internal/categorizer"
+	"github.com/FrancisChung/BLibOrg/internal/rename"
+	"github.com/FrancisChung/BLibOrg/internal/textutil"
 )
 
 // Recompute takes a book with its Title/Author/Year fields as edited by

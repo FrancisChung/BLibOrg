@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/FrancisChung/book-organiser/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/config"
 )
 
 func writeTestConfigWithRules(t *testing.T, working, library, logDir string, rules []config.Rule, categories map[string]config.Category) string {

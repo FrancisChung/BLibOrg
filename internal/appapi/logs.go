@@ -4,8 +4,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/FrancisChung/book-organiser/internal/operations"
-	"github.com/FrancisChung/book-organiser/internal/pipeline"
+	"github.com/FrancisChung/BLibOrg/internal/operations"
+	"github.com/FrancisChung/BLibOrg/internal/pipeline"
 )
 
 // CategoryWarningView is the JSON-serializable view of a

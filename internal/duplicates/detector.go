@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/FrancisChung/book-organiser/internal/book"
+	"github.com/FrancisChung/BLibOrg/internal/book"
 )
 
 // normalize lowercases s and collapses any run of characters that are not

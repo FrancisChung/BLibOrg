@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/FrancisChung/book-organiser/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/config"
 )
 
 func writeTestConfig(t *testing.T, working, library, logDir string) string {
@@ -93,8 +93,8 @@ func TestDefaultConfigPath_EndsWithExpectedSuffix(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultConfigPath returned error: %v", err)
 	}
-	want := filepath.Join("book-organiser", "config.yaml")
-	if filepath.Base(filepath.Dir(path)) != "book-organiser" || filepath.Base(path) != "config.yaml" {
+	want := filepath.Join("BLibOrg", "config.yaml")
+	if filepath.Base(filepath.Dir(path)) != "BLibOrg" || filepath.Base(path) != "config.yaml" {
 		t.Errorf("DefaultConfigPath() = %q, want a path ending in %q", path, want)
 	}
 }

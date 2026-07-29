@@ -18,7 +18,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 REPO_CONFIG="$REPO_ROOT/config.yaml"
-REAL_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/book-organiser"
+REAL_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/BLibOrg"
 REAL_CONFIG="$REAL_CONFIG_DIR/config.yaml"
 
 if [ -f "$REPO_CONFIG" ]; then

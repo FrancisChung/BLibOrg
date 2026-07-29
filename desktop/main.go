@@ -3,7 +3,7 @@ package main
 import (
 	"embed"
 
-	"github.com/FrancisChung/book-organiser/internal/appapi"
+	"github.com/FrancisChung/BLibOrg/internal/appapi"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -22,7 +22,7 @@ func main() {
 
 	// Create application with options
 	err := wails.Run(&options.App{
-		Title:  "Book Organiser",
+		Title:  "BLibOrg",
 		Width:  1024,
 		Height: 768,
 		AssetServer: &assetserver.Options{

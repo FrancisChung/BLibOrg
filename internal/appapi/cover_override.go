@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/FrancisChung/book-organiser/internal/covercache"
-	"github.com/FrancisChung/book-organiser/internal/librarycache"
-	"github.com/FrancisChung/book-organiser/internal/metadata"
+	"github.com/FrancisChung/BLibOrg/internal/covercache"
+	"github.com/FrancisChung/BLibOrg/internal/librarycache"
+	"github.com/FrancisChung/BLibOrg/internal/metadata"
 )
 
 // CoverCandidateView is one selectable page/image for the cover-picker's

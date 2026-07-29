@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/FrancisChung/book-organiser/internal/operations"
+	"github.com/FrancisChung/BLibOrg/internal/operations"
 )
 
 func TestUndoBatch_RestoresFileToOriginalLocation(t *testing.T) {

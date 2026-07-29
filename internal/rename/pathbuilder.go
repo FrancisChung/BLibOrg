@@ -7,8 +7,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/FrancisChung/book-organiser/internal/book"
-	"github.com/FrancisChung/book-organiser/internal/config"
+	"github.com/FrancisChung/BLibOrg/internal/book"
+	"github.com/FrancisChung/BLibOrg/internal/config"
 )
 
 var illegalCharsRe = regexp.MustCompile(`[<>:"/\\|?*\x00-\x1f]`)
