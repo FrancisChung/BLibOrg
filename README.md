@@ -10,6 +10,8 @@ metadata is missing), and renames/moves them into a consistent
 `Category/Subcategory/Title (Year) - Author.ext` structure — with a manual
 review step before anything on disk changes.
 
+![BLibOrgScreenshot.png](docs/BLibOrgScreenshot.png)
+
 ## Problem
 
 Ebooks pile up with wildly inconsistent filenames — site-tag junk, `+`/`_` used instead of spaces, and
