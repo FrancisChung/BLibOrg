@@ -29,7 +29,12 @@
 </script>
 
 <div class="shelf-section">
-  <div class="shelf-heading">{subcategory}</div>
+  <div class="shelf-heading">
+    <div>
+      <h3>{subcategory}</h3>
+      <span>{books.length} {books.length === 1 ? 'book' : 'books'}</span>
+    </div>
+  </div>
   <div class="shelf-wrap">
     <button
       type="button"
@@ -58,26 +63,29 @@
 </div>
 
 <style>
-  .shelf-section {
-    margin-bottom: 4px;
-  }
+  .shelf-section { margin-bottom: 8px; }
   .shelf-heading {
-    font-size: 13px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--bf-text-muted);
-    margin-bottom: 8px;
-  }
-  .shelf-wrap {
     display: flex;
-    align-items: center;
-    gap: 6px;
+    align-items: end;
+    justify-content: space-between;
+    margin-bottom: 10px;
   }
+  .shelf-heading > div { display: flex; align-items: baseline; gap: 10px; }
+  h3 {
+    margin: 0;
+    color: #203653;
+    font-family: Georgia, serif;
+    font-size: 21px;
+    letter-spacing: -0.02em;
+  }
+  .shelf-heading span { color: var(--bf-text-muted); font-size: 12px; }
+  .shelf-wrap { position: relative; }
   .shelf-row {
     display: flex;
-    gap: 12px;
-    padding-bottom: 14px;
-    border-bottom: 8px solid var(--bf-border);
+    gap: 14px;
+    padding: 2px 2px 18px;
+    border-bottom: 7px solid #D6A665;
+    box-shadow: 0 5px 7px rgba(139, 95, 42, 0.14);
     overflow-x: auto;
     flex: 1;
     min-width: 0;
@@ -87,16 +95,22 @@
     border: 1px solid var(--bf-border);
     background: var(--bf-surface);
     color: var(--bf-text);
-    border-radius: 6px;
-    width: 28px;
-    height: 28px;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
     font-size: 16px;
     line-height: 1;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
+    position: absolute;
+    top: 40%;
+    z-index: 1;
+    box-shadow: var(--bf-shadow-sm);
   }
+  .shelf-nav.prev { left: -12px; }
+  .shelf-nav.next { right: -12px; }
   .shelf-nav:disabled {
     opacity: 0.35;
     cursor: default;

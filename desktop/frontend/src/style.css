@@ -1,15 +1,29 @@
 :root {
-    --bf-bg: #F6F8FB;
+    --bf-bg: #F5F7FA;
     --bf-surface: #FFFFFF;
-    --bf-border: #EDF0F5;
+    --bf-surface-raised: #FFFFFF;
+    --bf-sidebar: #12243B;
+    --bf-sidebar-muted: #9EADC1;
+    --bf-border: #E4E9F0;
     --bf-text: #1F2937;
-    --bf-text-muted: #8A93A3;
-    --bf-blue: #2F63E0;
-    --bf-blue-soft: #EEF3FF;
+    --bf-text-muted: #7C8798;
+    --bf-blue: #356AE6;
+    --bf-blue-dark: #2458C8;
+    --bf-blue-soft: #EAF0FF;
+    --bf-gold: #C99552;
+    --bf-gold-soft: #FBF3E7;
     --bf-green: #22A35A;
     --bf-green-soft: #E9F9EF;
     --bf-amber: #C77A1F;
     --bf-amber-soft: #FFF3E0;
+    --bf-shadow-sm: 0 2px 8px rgba(24, 43, 70, 0.06);
+    --bf-shadow-md: 0 10px 24px rgba(24, 43, 70, 0.10);
+    --bf-radius-sm: 8px;
+    --bf-radius-md: 12px;
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
 }
 
 html {
@@ -24,6 +38,21 @@ body {
     font-family: "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
     "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
     sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+button, input, select {
+    font: inherit;
+}
+
+button:focus-visible, input:focus-visible, select:focus-visible {
+    outline: 3px solid rgba(53, 106, 230, 0.28);
+    outline-offset: 2px;
+}
+
+::selection {
+    background: var(--bf-blue-soft);
+    color: var(--bf-blue-dark);
 }
 
 @font-face {

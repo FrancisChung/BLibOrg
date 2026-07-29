@@ -131,11 +131,12 @@
   main {
     flex: 1;
     min-width: 0;
-    padding: 24px 28px;
+    padding: 30px 36px 44px;
     text-align: left;
     display: flex;
     flex-direction: column;
     gap: 16px;
+    background: var(--bf-bg);
   }
   .banner.error,
   .banner.warning {

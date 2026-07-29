@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import type { SidebarView } from './types';
+  import appIcon from '../../../build/appicon.png';
 
   export let active: SidebarView;
   export let libraryCategories: string[] = [];
@@ -35,9 +36,22 @@
     dispatch('navigate', 'library');
     dispatch('selectCategory', category);
   }
+
+  function iconFor(view: SidebarView): string {
+    return { library: '', scan: '⌁', operations: '↗', warnings: '△', settings: '⚙' }[view];
+  }
 </script>
 
 <nav class="sidebar" style="width: {width}px">
+  <div class="brand">
+    <img class="brand-mark" src={appIcon} alt="" aria-hidden="true" />
+    <div>
+      <div class="brand-name">BLib<span>Org</span></div>
+      <div class="brand-subtitle">Your personal library</div>
+    </div>
+  </div>
+
+  <div class="nav-section first">Main</div>
   {#each topLevelItems as item (item.view)}
     <button
       type="button"
@@ -45,6 +59,11 @@
       class:active={active === item.view}
       on:click={() => go(item.view)}
     >
+      {#if item.view === 'library'}
+        <img class="nav-icon app-icon" src={appIcon} alt="" aria-hidden="true" />
+      {:else}
+        <span class="nav-icon" aria-hidden="true">{iconFor(item.view)}</span>
+      {/if}
       {item.label}
     </button>
     {#if item.view === 'library' && libraryCategories.length > 0}
@@ -77,6 +96,7 @@
       class:active={active === item.view}
       on:click={() => go(item.view)}
     >
+      <span class="nav-icon" aria-hidden="true">{iconFor(item.view)}</span>
       {item.label}
     </button>
   {/each}
@@ -89,6 +109,7 @@
       class:active={active === item.view}
       on:click={() => go(item.view)}
     >
+      <span class="nav-icon" aria-hidden="true">{iconFor(item.view)}</span>
       {item.label}
     </button>
   {/each}
@@ -102,12 +123,39 @@
     align-self: flex-start;
     height: 100vh;
     overflow-y: auto;
-    background: var(--bf-surface);
-    border-right: 1px solid var(--bf-border);
-    padding: 28px 16px 20px;
+    background: var(--bf-sidebar);
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 24px 14px 20px;
     display: flex;
     flex-direction: column;
     gap: 4px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 2px 10px 28px;
+  }
+  .brand-mark {
+    width: 34px;
+    height: 34px;
+    object-fit: contain;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
+  }
+  .brand-name {
+    color: #fff;
+    font-family: Georgia, serif;
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+  .brand-name span { color: #E0B46F; }
+  .brand-subtitle {
+    margin-top: 2px;
+    color: var(--bf-sidebar-muted);
+    font-size: 10px;
+    letter-spacing: 0.02em;
   }
   .nav-item,
   .nav-sub {
@@ -121,17 +169,35 @@
     border-radius: 8px;
     font-size: 14px;
     font-weight: 600;
-    color: var(--bf-text-muted);
+    color: var(--bf-sidebar-muted);
     cursor: pointer;
   }
   .nav-sub {
-    padding-left: 30px;
+    padding-left: 42px;
     font-size: 13.5px;
   }
   .nav-item.active,
   .nav-sub.active {
-    background: var(--bf-blue-soft);
-    color: var(--bf-blue);
+    background: rgba(71, 126, 225, 0.30);
+    color: #fff;
+    box-shadow: inset 3px 0 0 var(--bf-gold);
+  }
+  .nav-item:hover, .nav-sub:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+  .nav-icon {
+    display: inline-flex;
+    width: 22px;
+    margin-right: 7px;
+    justify-content: center;
+    color: currentColor;
+    font-size: 18px;
+    font-weight: 400;
+    vertical-align: -2px;
+  }
+  .app-icon {
+    height: 22px;
+    object-fit: contain;
+    border-radius: 5px;
+    vertical-align: -6px;
   }
   .nav-section {
     padding: 10px 12px 4px;
@@ -139,12 +205,12 @@
     font-weight: 800;
     letter-spacing: 0.03em;
     text-transform: uppercase;
-    color: var(--bf-text-muted);
+    color: var(--bf-sidebar-muted);
     margin-top: 10px;
   }
   .nav-divider {
     height: 1px;
-    background: var(--bf-border);
+    background: rgba(255, 255, 255, 0.10);
     margin: 10px 4px;
   }
 </style>

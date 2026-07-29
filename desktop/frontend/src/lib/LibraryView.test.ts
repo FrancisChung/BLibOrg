@@ -41,8 +41,8 @@ describe('LibraryView', () => {
 
     render(LibraryView, { category: '' });
 
-    await screen.findByText('Sci-Fi');
-    expect(screen.getByText('Fantasy')).toBeInTheDocument();
+    await screen.findByRole('heading', { name: 'Sci-Fi' });
+    expect(screen.getByRole('heading', { name: 'Fantasy' })).toBeInTheDocument();
   });
 
   it('filters to the given category', async () => {
@@ -56,8 +56,8 @@ describe('LibraryView', () => {
 
     render(LibraryView, { category: 'Fiction' });
 
-    await screen.findByText('Sci-Fi');
-    expect(screen.queryByText('Science')).toBeNull();
+    await screen.findByRole('heading', { name: 'Sci-Fi' });
+    expect(screen.queryByRole('heading', { name: 'Science' })).toBeNull();
   });
 
   it('emits categoriesLoaded with the categories from the response', async () => {
@@ -80,7 +80,7 @@ describe('LibraryView', () => {
     });
 
     render(LibraryView, { category: '' });
-    await screen.findByText('Sci-Fi');
+    await screen.findByRole('heading', { name: 'Sci-Fi' });
 
     const shelfRow = document.querySelector('.shelf-row') as HTMLElement;
     expect(shelfRow.textContent?.indexOf('Alpha')).toBeLessThan(shelfRow.textContent?.indexOf('Zebra') ?? -1);

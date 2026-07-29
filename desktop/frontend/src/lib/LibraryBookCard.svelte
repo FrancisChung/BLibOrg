@@ -47,6 +47,11 @@
       {book.coverOverridden ? 'Change cover…' : 'Choose cover…'}
     </button>
   </div>
+  {#if book.coverPath}
+    <div class="book-title" title={book.title}>{book.title || filenameNoExt(book.sourcePath)}</div>
+  {/if}
+  <div class="book-meta">{book.author || 'Unknown author'}</div>
+  {#if book.year}<div class="book-year">{book.year}</div>{/if}
   {#if openError}
     <div class="banner error">{openError}</div>
   {/if}
@@ -63,17 +68,17 @@
 
 <style>
   .tile {
-    width: 90px;
+    width: 142px;
     flex-shrink: 0;
   }
   .cover {
     position: relative;
-    width: 90px;
-    height: 130px;
-    border-radius: 4px;
+    width: 142px;
+    height: 204px;
+    border-radius: 9px;
     overflow: hidden;
     cursor: pointer;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 5px 12px rgba(24, 43, 70, 0.18);
     background: var(--bf-surface);
     border: 1px solid var(--bf-border);
   }
@@ -88,8 +93,8 @@
     height: 100%;
     display: flex;
     align-items: flex-end;
-    padding: 6px;
-    font-size: 11px;
+    padding: 10px;
+    font-size: 13px;
     line-height: 1.2;
     color: var(--bf-text-muted);
     background: repeating-linear-gradient(
@@ -119,6 +124,25 @@
   .cover:hover .cover-action {
     opacity: 1;
   }
+  .book-title {
+    overflow: hidden;
+    margin-top: 9px;
+    color: var(--bf-text);
+    font-size: 12.5px;
+    font-weight: 700;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .book-meta, .book-year {
+    overflow: hidden;
+    color: var(--bf-text-muted);
+    font-size: 11px;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .book-year { margin-top: 1px; }
   .banner.error {
     background: var(--bf-amber-soft);
     color: var(--bf-amber);
