@@ -6,16 +6,16 @@ describe('Sidebar', () => {
   it('highlights the active item and not the others', () => {
     render(Sidebar, { active: 'operations' });
     expect(screen.getByRole('button', { name: 'Operations' }).className).toContain('active');
-    expect(screen.getByRole('button', { name: 'Scan & Review' }).className).not.toContain('active');
+    expect(screen.getByRole('button', { name: 'Scrub and Move' }).className).not.toContain('active');
     expect(screen.getByRole('button', { name: 'Warnings' }).className).not.toContain('active');
   });
 
-  it('emits navigate with "scan" when Scan & Review is clicked', async () => {
+  it('emits navigate with "scan" when Scrub and Move is clicked', async () => {
     const { component } = render(Sidebar, { active: 'operations' });
     const handler = vi.fn();
     component.$on('navigate', handler);
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Scan & Review' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Scrub and Move' }));
 
     expect(handler).toHaveBeenCalledTimes(1);
     expect(handler.mock.calls[0][0].detail).toBe('scan');
@@ -35,7 +35,7 @@ describe('Sidebar', () => {
   it('highlights Library as active and not the others', () => {
     render(Sidebar, { active: 'library' });
     expect(screen.getByRole('button', { name: 'Library' }).className).toContain('active');
-    expect(screen.getByRole('button', { name: 'Scan & Review' }).className).not.toContain('active');
+    expect(screen.getByRole('button', { name: 'Scrub and Move' }).className).not.toContain('active');
   });
 
   it('emits navigate with "library" when Library is clicked', async () => {

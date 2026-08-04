@@ -16,7 +16,7 @@
   // one-line addition here, not a rework.
   const topLevelItems: { view: SidebarView; label: string }[] = [
     { view: 'library', label: 'Library' },
-    { view: 'scan', label: 'Scan & Review' },
+    { view: 'scan', label: 'Scrub and Move' },
   ];
 
   const logItems: { view: SidebarView; label: string }[] = [

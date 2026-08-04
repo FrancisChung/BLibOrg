@@ -40,7 +40,7 @@ describe('App', () => {
   it('switches to the Operations Log view when its sidebar item is clicked', async () => {
     render(App);
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Scan & Review' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Scrub and Move' })).toBeInTheDocument();
     });
 
     await fireEvent.click(screen.getByRole('button', { name: 'Operations' }));
@@ -53,7 +53,7 @@ describe('App', () => {
   it('switches to the Category Warnings view when its sidebar item is clicked', async () => {
     render(App);
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Scan & Review' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Scrub and Move' })).toBeInTheDocument();
     });
 
     await fireEvent.click(screen.getByRole('button', { name: 'Warnings' }));
@@ -88,13 +88,13 @@ describe('App', () => {
     });
   });
 
-  it('switches to Scan & Review and back to Library when their sidebar items are clicked', async () => {
+  it('switches to Scrub and Move and back to Library when their sidebar items are clicked', async () => {
     render(App);
     await waitFor(() => {
       expect(screen.getByText('No books found in the library folder yet.')).toBeInTheDocument();
     });
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Scan & Review' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Scrub and Move' }));
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Scan' })).toBeInTheDocument();
     });
@@ -108,7 +108,7 @@ describe('App', () => {
   it('resizes the sidebar by dragging the resize handle, and persists the final width', async () => {
     render(App);
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Scan & Review' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Scrub and Move' })).toBeInTheDocument();
     });
 
     const handle = screen.getByRole('separator', { name: 'Resize sidebar' });
@@ -123,7 +123,7 @@ describe('App', () => {
   it('clamps sidebar width to 160-400px while dragging past either bound', async () => {
     render(App);
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Scan & Review' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Scrub and Move' })).toBeInTheDocument();
     });
 
     const handle = screen.getByRole('separator', { name: 'Resize sidebar' });
@@ -158,7 +158,7 @@ describe('App', () => {
   it('stops tracking the drag after mouseup, so further mouse movement has no effect', async () => {
     render(App);
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Scan & Review' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Scrub and Move' })).toBeInTheDocument();
     });
 
     const handle = screen.getByRole('separator', { name: 'Resize sidebar' });
