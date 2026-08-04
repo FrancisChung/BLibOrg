@@ -16,7 +16,7 @@
   // one-line addition here, not a rework.
   const topLevelItems: { view: SidebarView; label: string }[] = [
     { view: 'library', label: 'Library' },
-    { view: 'scan', label: 'Scrub and Move' },
+    { view: 'scan', label: 'Scrub & Move' },
   ];
 
   const logItems: { view: SidebarView; label: string }[] = [
@@ -206,6 +206,10 @@
   .move-icon {
     height: 18px;
     overflow: visible;
+    box-sizing: border-box;
+    padding: 2px;
+    background: #fff;
+    border-radius: 5px;
     stroke: currentColor;
     stroke-linecap: round;
     stroke-linejoin: round;
