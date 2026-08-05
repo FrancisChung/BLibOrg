@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import type { SidebarView } from './types';
-  import appIcon from '../../../build/appicon.png';
+  import appIcon from '../../../build/appicon-transparent.png';
 
   export let active: SidebarView;
   export let libraryCategories: string[] = [];
@@ -63,7 +63,8 @@
         <img class="nav-icon app-icon" src={appIcon} alt="" aria-hidden="true" />
       {:else if item.view === 'scan'}
         <svg class="nav-icon move-icon" viewBox="0 0 22 18" aria-hidden="true">
-          <path d="M1 9h7m-3-3 3 3-3 3M11 6V4h5l2 2h3v8H11z" />
+          <path class="move-arrow" d="M1 9h7m-3-3 3 3-3 3" />
+          <path class="move-folder" d="M11 6V4h5l2 2h3v8H11z" />
         </svg>
       {:else}
         <span class="nav-icon" aria-hidden="true">{iconFor(item.view)}</span>
@@ -206,14 +207,18 @@
   .move-icon {
     height: 18px;
     overflow: visible;
-    box-sizing: border-box;
-    padding: 2px;
-    background: #fff;
-    border-radius: 5px;
+    fill: none;
     stroke: currentColor;
     stroke-linecap: round;
     stroke-linejoin: round;
     stroke-width: 1.5;
+  }
+  .move-arrow {
+    stroke: #fff;
+  }
+  .move-folder {
+    fill: #f2c94c;
+    stroke: #fff;
   }
   .nav-section {
     padding: 10px 12px 4px;
