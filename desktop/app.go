@@ -28,7 +28,23 @@ func (a *App) startup(ctx context.Context) {
 }
 
 func (a *App) Scan() ([]appapi.BookView, error) {
-	return a.api.Scan()
+	return a.api.ScanWithProgress(newBookScanProgressEmitter(a.ctx))
+}
+
+// bookScanProgress is the JSON payload of the "scan:progress" event emitted
+// while the unsorted-folder review scan is running.
+type bookScanProgress struct {
+	Done  int `json:"done"`
+	Total int `json:"total"`
+}
+
+func newBookScanProgressEmitter(ctx context.Context) func(done, total int) {
+	if ctx == nil {
+		return nil
+	}
+	return func(done, total int) {
+		runtime.EventsEmit(ctx, "scan:progress", bookScanProgress{Done: done, Total: total})
+	}
 }
 
 func (a *App) Recompute(edited appapi.BookView) (appapi.BookView, error) {

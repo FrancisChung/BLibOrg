@@ -66,6 +66,10 @@ func findMobiCover(data []byte, numRecords uint16) ([]byte, string, bool) {
 // it has rather than erroring, so callers can still fall back to heuristics
 // for missing fields.
 func extractMobi(path string) (Result, error) {
+	return extractMobiWithCover(path, true)
+}
+
+func extractMobiWithCover(path string, includeCover bool) (Result, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return Result{}, err
@@ -100,9 +104,11 @@ func extractMobi(path string) (Result, error) {
 		result.Title = string(rec0[fullNameOffset : fullNameOffset+fullNameLen])
 	}
 
-	if coverData, coverContentType, ok := findMobiCover(data, numRecords); ok {
-		result.CoverBytes = coverData
-		result.CoverContentType = coverContentType
+	if includeCover {
+		if coverData, coverContentType, ok := findMobiCover(data, numRecords); ok {
+			result.CoverBytes = coverData
+			result.CoverContentType = coverContentType
+		}
 	}
 
 	if exthFlags&0x40 == 0 {

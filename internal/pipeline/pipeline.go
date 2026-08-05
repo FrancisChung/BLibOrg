@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/FrancisChung/BLibOrg/internal/book"
 	"github.com/FrancisChung/BLibOrg/internal/categorizer"
@@ -25,66 +27,100 @@ import (
 // the read-only "preview" stage that View 1 / View 2 render; applying the
 // resulting DestPath values is a separate step via the operations package.
 func Run(cfg config.Config) ([]*book.Book, error) {
+	return RunWithProgress(cfg, nil)
+}
+
+// RunWithProgress is Run with an optional callback invoked once per book as
+// its extraction finishes. The returned order remains scanner order.
+func RunWithProgress(cfg config.Config, onProgress func(done, total int)) ([]*book.Book, error) {
 	paths, err := scanner.Scan(cfg.General.WorkingFolder)
 	if err != nil {
 		return nil, err
 	}
 
-	books := make([]*book.Book, 0, len(paths))
-	for _, path := range paths {
-		b := &book.Book{
-			SourcePath: path,
-			Format:     strings.TrimPrefix(strings.ToLower(filepath.Ext(path)), "."),
-		}
-		if info, err := os.Stat(path); err == nil {
-			b.SizeBytes = info.Size()
-		}
+	results := make([]*book.Book, len(paths))
+	concurrency := cfg.General.ScanConcurrency
+	if concurrency <= 0 {
+		concurrency = runtime.NumCPU()
+	}
+	if concurrency < 1 {
+		concurrency = 1
+	}
+	sem := make(chan struct{}, concurrency)
+	var wg sync.WaitGroup
+	var progressMu sync.Mutex
+	done := 0
+	if onProgress != nil {
+		onProgress(0, len(paths))
+	}
+	for i, path := range paths {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(i int, path string) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			results[i] = scanOneBook(cfg, path)
+			if onProgress != nil {
+				progressMu.Lock()
+				done++
+				onProgress(done, len(paths))
+				progressMu.Unlock()
+			}
+		}(i, path)
+	}
+	wg.Wait()
 
-		if res, err := metadata.Extract(path, cfg.TitleFormatting.HyphenExceptions, cfg.General.PDFCoverPageLimit); err == nil {
-			if res.Title != "" {
-				b.Title = book.Field{Value: res.Title, Source: book.SourceMetadata}
-			}
-			if res.Author != "" {
-				b.Author = book.Field{Value: res.Author, Source: book.SourceMetadata}
-			}
-			if res.Year != "" {
-				b.Year = book.Field{Value: res.Year, Source: book.SourceMetadata}
-			}
-			b.Subject = res.Subject
+	books := make([]*book.Book, 0, len(results))
+	for _, b := range results {
+		if b != nil {
+			books = append(books, b)
 		}
-
-		if b.Title.Value == "" || b.Author.Value == "" || b.Year.Value == "" {
-			stem := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
-			h := heuristics.Parse(stem, cfg.Heuristics.KnownJunkTags)
-			if b.Title.Value == "" && h.Title != "" {
-				b.Title = book.Field{Value: h.Title, Source: book.SourceHeuristic}
-			}
-			if b.Author.Value == "" && h.Author != "" {
-				b.Author = book.Field{Value: h.Author, Source: book.SourceHeuristic}
-			}
-			if b.Year.Value == "" && h.Year != "" {
-				b.Year = book.Field{Value: h.Year, Source: book.SourceHeuristic}
-			}
-		}
-
-		categorizer.Categorize(b, cfg)
-		rename.BuildPath(b, cfg)
-		books = append(books, b)
 	}
 
-	// Disambiguate before duplicate detection: DestPath collisions and
-	// content duplicates are orthogonal concerns (a DestPath collision can
-	// happen between two books that are NOT duplicates -- e.g. filename
-	// noise that heuristics strip differently -- and duplicates.Detect
-	// looks only at Title/Author/Format/SizeBytes, never DestPath, so
-	// running it before or after this step doesn't change its result).
-	// Doing it here, right after every book has its initial DestPath, keeps
-	// the "every returned book has a unique DestPath" invariant true for
-	// the rest of Run and for callers.
 	disambiguateDestPaths(books)
-
 	duplicates.Detect(books)
 	return books, nil
+}
+
+func scanOneBook(cfg config.Config, path string) *book.Book {
+	b := &book.Book{
+		SourcePath: path,
+		Format:     strings.TrimPrefix(strings.ToLower(filepath.Ext(path)), "."),
+	}
+	if info, err := os.Stat(path); err == nil {
+		b.SizeBytes = info.Size()
+	}
+
+	if res, err := metadata.ExtractMetadata(path, cfg.TitleFormatting.HyphenExceptions, cfg.General.PDFCoverPageLimit); err == nil {
+		if res.Title != "" {
+			b.Title = book.Field{Value: res.Title, Source: book.SourceMetadata}
+		}
+		if res.Author != "" {
+			b.Author = book.Field{Value: res.Author, Source: book.SourceMetadata}
+		}
+		if res.Year != "" {
+			b.Year = book.Field{Value: res.Year, Source: book.SourceMetadata}
+		}
+		b.Subject = res.Subject
+	}
+
+	if b.Title.Value == "" || b.Author.Value == "" || b.Year.Value == "" {
+		stem := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+		h := heuristics.Parse(stem, cfg.Heuristics.KnownJunkTags)
+		if b.Title.Value == "" && h.Title != "" {
+			b.Title = book.Field{Value: h.Title, Source: book.SourceHeuristic}
+		}
+		if b.Author.Value == "" && h.Author != "" {
+			b.Author = book.Field{Value: h.Author, Source: book.SourceHeuristic}
+		}
+		if b.Year.Value == "" && h.Year != "" {
+			b.Year = book.Field{Value: h.Year, Source: book.SourceHeuristic}
+		}
+	}
+
+	categorizer.Categorize(b, cfg)
+	rename.BuildPath(b, cfg)
+	return b
 }
 
 // disambiguateDestPaths finds books that ended up with an identical

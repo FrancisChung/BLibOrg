@@ -22,8 +22,8 @@ type General struct {
 	LogFolder         string `yaml:"log_folder"`
 	FilenameFormat    string `yaml:"filename_format"`
 	PDFCoverPageLimit int    `yaml:"pdf_cover_page_limit"`
-	// ScanConcurrency caps how many books internal/librarian.Scan
-	// processes concurrently. 0 (the Go zero value, and what an unset
+	// ScanConcurrency caps how many books unsorted and library scans
+	// process concurrently. 0 (the Go zero value, and what an unset
 	// key in the user's config.yaml unmarshals to) means "use
 	// runtime.NumCPU()" -- resolved at the point of use in Scan itself,
 	// the same "<= 0 means use the built-in default" convention

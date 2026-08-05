@@ -87,9 +87,9 @@
 </section>
 
 <section class="settings-block">
-  <h3>Library scan concurrency</h3>
+  <h3>Scan concurrency</h3>
   <p>
-    How many books are processed in parallel during a Library refresh.
+    How many books are processed in parallel during scans.
     Pre-filled with your machine's detected core count; lower it if a
     full-speed refresh competes too much with other work.
   </p>

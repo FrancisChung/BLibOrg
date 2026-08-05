@@ -7,6 +7,12 @@ import "github.com/FrancisChung/BLibOrg/internal/pipeline"
 // scanned book as a BookView. Category-warning logging failures are
 // best-effort and don't block the scan result.
 func (a *App) Scan() ([]BookView, error) {
+	return a.ScanWithProgress(nil)
+}
+
+// ScanWithProgress runs the unsorted-folder scan and reports completed books
+// through the optional callback.
+func (a *App) ScanWithProgress(onProgress func(done, total int)) ([]BookView, error) {
 	cfg, err := a.loadConfig()
 	if err != nil {
 		return nil, err
@@ -14,7 +20,7 @@ func (a *App) Scan() ([]BookView, error) {
 	if err := pipeline.CheckFolders(cfg); err != nil {
 		return nil, err
 	}
-	books, err := pipeline.Run(cfg)
+	books, err := pipeline.RunWithProgress(cfg, onProgress)
 	if err != nil {
 		return nil, err
 	}

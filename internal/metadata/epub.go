@@ -210,6 +210,10 @@ func readEpubCoverBytes(r *zip.ReadCloser, zipPath, mediaType string, result *Re
 }
 
 func extractEpub(path string) (Result, error) {
+	return extractEpubWithCover(path, true)
+}
+
+func extractEpubWithCover(path string, includeCover bool) (Result, error) {
 	r, err := zip.OpenReader(path)
 	if err != nil {
 		return Result{}, err
@@ -259,16 +263,18 @@ func extractEpub(path string) (Result, error) {
 		result.Year = year
 	}
 
-	if href, mediaType, ok := findEpubCoverItem(p); ok {
-		// href is relative to the OPF's own directory, not the zip root
-		// (e.g. opf at "OEBPS/content.opf", href "images/cover.jpg" ->
-		// "OEBPS/images/cover.jpg"). Zip entry names always use "/", so this
-		// must use the "path" package, not "path/filepath" (which uses "\"
-		// on Windows and would silently fail to match).
-		coverZipPath := epubPathJoin(c.Rootfiles.Rootfile.FullPath, href)
-		readEpubCoverBytes(r, coverZipPath, mediaType, &result)
-	} else if zipPath, mediaType, ok := findEpubFirstSpineImage(r, c.Rootfiles.Rootfile.FullPath, p); ok {
-		readEpubCoverBytes(r, zipPath, mediaType, &result)
+	if includeCover {
+		if href, mediaType, ok := findEpubCoverItem(p); ok {
+			// href is relative to the OPF's own directory, not the zip root
+			// (e.g. opf at "OEBPS/content.opf", href "images/cover.jpg" ->
+			// "OEBPS/images/cover.jpg"). Zip entry names always use "/", so this
+			// must use the "path" package, not "path/filepath" (which uses "\"
+			// on Windows and would silently fail to match).
+			coverZipPath := epubPathJoin(c.Rootfiles.Rootfile.FullPath, href)
+			readEpubCoverBytes(r, coverZipPath, mediaType, &result)
+		} else if zipPath, mediaType, ok := findEpubFirstSpineImage(r, c.Rootfiles.Rootfile.FullPath, p); ok {
+			readEpubCoverBytes(r, zipPath, mediaType, &result)
+		}
 	}
 
 	return result, nil

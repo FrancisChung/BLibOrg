@@ -4,6 +4,7 @@
   import BookCard from './BookCard.svelte';
   import { matchesFilter, matchesQuery, type BookView, type DestinationView, type StatusFilter } from './types';
   import { Scan, Recompute, Apply, ConfirmApply, Categories } from '../../wailsjs/go/main/App';
+  import { EventsOn } from '../../wailsjs/runtime/runtime';
 
   let books: BookView[] = [];
   let query = '';
@@ -11,6 +12,7 @@
   let scanError = '';
   let applyError = '';
   let scanning = false;
+  let scanProgress: { done: number; total: number } | null = null;
   let hasScanned = false;
   let applying = false;
   let resultBySourcePath: Record<string, { ok: boolean; error: string; skipped: boolean }> = {};
@@ -30,9 +32,19 @@
 
   async function doScan() {
     scanning = true;
+    scanProgress = { done: 0, total: 0 };
     scanError = '';
     resultBySourcePath = {};
     recomputeWarning = {};
+    let unsubscribe = () => {};
+    try {
+      unsubscribe = EventsOn('scan:progress', (p: { done: number; total: number }) => {
+        scanProgress = p;
+      });
+    } catch {
+      // The Wails runtime is unavailable in browser/unit-test environments;
+      // the scan itself still works without progress events.
+    }
     try {
       books = await Scan();
       checked = Object.fromEntries(books.map((b) => [b.sourcePath, true]));
@@ -43,6 +55,7 @@
       checked = {};
     } finally {
       scanning = false;
+      unsubscribe();
     }
   }
 
@@ -103,7 +116,7 @@
 <div class="topbar">
   <h2>Scan &amp; Review</h2>
   <div>
-    <button class="secondary" on:click={doScan} disabled={scanning}>{scanning ? 'Scanning…' : 'Scan'}</button>
+    <button class="secondary" on:click={doScan} disabled={scanning}>{scanning ? `Scanning… ${scanProgress?.done ?? 0} / ${scanProgress?.total || '…'}` : 'Scan'}</button>
     <button on:click={doApply} disabled={applying || selectedBooks.length === 0}>
       {applying ? 'Applying…' : 'Apply'}
     </button>

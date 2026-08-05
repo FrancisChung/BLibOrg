@@ -54,16 +54,28 @@ const MetadataExtractorVersion = 6 // bumped: PDF numeric Title and "Unknown" Au
 // (the PDFium renderer, pdf_render.go) serializes itself internally via
 // pdfiumMu -- callers never need their own synchronization.
 func Extract(path string, hyphenExceptions []string, pdfCoverPageLimit int) (Result, error) {
+	return extract(path, hyphenExceptions, pdfCoverPageLimit, true)
+}
+
+// ExtractMetadata resolves only the fields needed by the unsorted-folder
+// review scan. It deliberately skips cover detection, which can involve
+// expensive PDF page analysis/rendering; covers are not used until a book is
+// in the organized library.
+func ExtractMetadata(path string, hyphenExceptions []string, pdfCoverPageLimit int) (Result, error) {
+	return extract(path, hyphenExceptions, pdfCoverPageLimit, false)
+}
+
+func extract(path string, hyphenExceptions []string, pdfCoverPageLimit int, includeCover bool) (Result, error) {
 	ext := strings.ToLower(filepath.Ext(path))
 	var result Result
 	var err error
 	switch ext {
 	case ".epub":
-		result, err = extractEpub(path)
+		result, err = extractEpubWithCover(path, includeCover)
 	case ".pdf":
-		result, err = extractPDF(path, pdfCoverPageLimit)
+		result, err = extractPDFWithCover(path, pdfCoverPageLimit, includeCover)
 	case ".mobi", ".azw3":
-		result, err = extractMobi(path)
+		result, err = extractMobiWithCover(path, includeCover)
 	default:
 		return Result{}, fmt.Errorf("unsupported extension: %s", ext)
 	}

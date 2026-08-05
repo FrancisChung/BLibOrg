@@ -385,6 +385,10 @@ func findPageByNumber(pages []pdfPage, number int) (pdfPage, bool) {
 // /Title/Author, those two keys essentially never appear on bookmark or
 // embedded-graphic objects in practice.
 func extractPDF(path string, pageLimit int) (Result, error) {
+	return extractPDFWithCover(path, pageLimit, true)
+}
+
+func extractPDFWithCover(path string, pageLimit int, includeCover bool) (Result, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return Result{}, err
@@ -436,9 +440,11 @@ func extractPDF(path string, pageLimit int) (Result, error) {
 	} else if year, ok := textutil.ExtractYear(fields["CreationDate"]); ok {
 		result.Year = year
 	}
-	if coverData, coverContentType, ok := findPDFCoverPageAware(data, pageLimit); ok {
-		result.CoverBytes = coverData
-		result.CoverContentType = coverContentType
+	if includeCover {
+		if coverData, coverContentType, ok := findPDFCoverPageAware(data, pageLimit); ok {
+			result.CoverBytes = coverData
+			result.CoverContentType = coverContentType
+		}
 	}
 	return result, nil
 }
